@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ukhylyant-simulator
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEB_APP_URL
+        value: https://ukhylyant-simulator.onrender.com
+      - key: USE_WEBHOOK
+        value: "true"
+      - key: ALLOW_UNVERIFIED_DEV
+        value: "false"
