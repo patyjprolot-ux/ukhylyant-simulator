@@ -262,38 +262,105 @@ Icon of a small portable gasoline generator with a pull-cord and a glowing power
 isolated game icon, [STYLE]
 ```
 
-### Гардероб (косметика — головні убори)
+### Гардероб (косметика — головні убори, 7 шт.)
 
 **35. Кепка контрабандиста** (заміна 🧢, 512×512)
 ```
 Icon of a worn flat cap/newsboy cap tilted at a rakish angle, isolated game icon, [STYLE]
 ```
 
-**36. Циліндр авторитету** (заміна 🎩, 512×512)
+**36. Вушанка діда** (заміна 🪖, 512×512)
 ```
-Icon of a shiny black top hat with a red ribbon band, slightly oversized comedic proportions,
-isolated game icon, [STYLE]
+Icon of a fluffy fur ushanka winter hat with untied ear flaps, isolated game icon, [STYLE]
 ```
 
-**37. Каска "про всяк випадок"** (заміна ⛑️, 512×512)
+**37. Дачний бриль** (заміна 👒, 512×512)
+```
+Icon of a floppy straw sun hat with a simple cloth band, isolated game icon, [STYLE]
+```
+
+**38. Каска "про всяк випадок"** (заміна ⛑️, 512×512)
 ```
 Icon of a battered civil-defense style safety helmet with a small dent and a hand-painted
 smiley, isolated game icon, [STYLE]
 ```
 
-### Гардероб (косметика — маскування обличчя)
+**39. Циліндр авторитету** (заміна 🎩, 512×512)
+```
+Icon of a shiny black top hat with a red ribbon band, slightly oversized comedic proportions,
+isolated game icon, [STYLE]
+```
 
-**38. Чорні окуляри** (заміна 🕶️, 512×512)
+**40. Диплом "поважної причини"** (заміна 🎓, 512×512)
+```
+Icon of a graduation mortarboard cap with a dangling gold tassel, isolated game icon, [STYLE]
+```
+
+**41. Корона Мажора** (заміна 👑, 512×512)
+```
+Icon of a gaudy oversized golden crown with cheap-looking plastic gems, comedic exaggerated
+proportions, isolated game icon, [STYLE]
+```
+
+### Гардероб (косметика — маскування обличчя, 6 шт.)
+
+**42. Ботанічні окуляри** (заміна 👓, 512×512)
+```
+Icon of round nerdy glasses with thick black frames and a piece of tape on the bridge,
+isolated game icon, [STYLE]
+```
+
+**43. Клоунський ніс** (заміна 🤡, 512×512)
+```
+Icon of a small round red clown nose with an elastic band, isolated game icon, [STYLE]
+```
+
+**44. Медична довідка-маска** (заміна 😷, 512×512)
+```
+Icon of a plain white disposable medical face mask with ear loops, isolated game icon, [STYLE]
+```
+
+**45. Чорні окуляри** (заміна 🕶️, 512×512)
 ```
 Icon of stylish black sunglasses with a subtle reflective glare highlight, isolated game icon,
 [STYLE]
 ```
 
-**39. Маскування (вуса+окуляри)** (заміна 🥸, 512×512)
+**46. Маскування (вуса+окуляри)** (заміна 🥸, 512×512)
 ```
 Icon of a classic disguise: fake glasses with attached bushy eyebrows and moustache, isolated
 game icon, [STYLE]
 ```
 
-> Рамки клікера (золота/червона/неонова) — це чистий CSS glow навколо персонажа
-> без окремого зображення, генерувати нічого не треба.
+**47. Ніндзя-маскування** (заміна 🥷, 512×512)
+```
+Icon of a dark ninja face mask covering nose and mouth, only narrow eye slit visible, isolated
+game icon, [STYLE]
+```
+
+### Гардероб (косметика — аксесуар на шию, 4 шт.)
+
+**48. Метелик "для солідності"** (заміна 🎀, 512×512)
+```
+Icon of a small formal bow tie, slightly crooked, isolated game icon, [STYLE]
+```
+
+**49. Шарф ухилянта** (заміна 🧣, 512×512)
+```
+Icon of a long knitted winter scarf wrapped in a loose loop, isolated game icon, [STYLE]
+```
+
+**50. Діловий галстук** (заміна 👔, 512×512)
+```
+Icon of a plain business necktie with a simple knot, isolated game icon, [STYLE]
+```
+
+**51. Медаль "За хоробрість втечі"** (заміна 🎖️, 512×512)
+```
+Icon of a comedic military-style medal on a ribbon, exaggerated large size, isolated game icon,
+[STYLE]
+```
+
+> Рамки клікера (червона/золота/неонова/рожева/токсична/королівська) — це чистий CSS glow
+> навколо персонажа без окремого зображення, генерувати нічого не треба. Веселкова рамка —
+> анімований CSS-градієнт, теж без картинки.

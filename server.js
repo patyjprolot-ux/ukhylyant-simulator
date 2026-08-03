@@ -100,14 +100,34 @@ const PETS = [
 // Гардероб — суто косметичні CSS/emoji-оверлеї на персонажі (без нових зображень),
 // по одному предмету на слот одночасно. Жодного впливу на економіку.
 const COSMETICS = [
+    // Головні убори
     { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', price: 800 },
-    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', price: 2500 },
+    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', price: 1200 },
+    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', price: 900 },
     { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', price: 1800 },
+    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', price: 2500 },
+    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', price: 3000 },
+    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', price: 5000 },
+    // Маскування обличчя
+    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', price: 600 },
+    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', price: 500 },
+    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', price: 700 },
     { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', price: 1000 },
     { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', price: 1800 },
-    { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
+    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', price: 2200 },
+    // Аксесуар на шию
+    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', price: 700 },
+    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', price: 900 },
+    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', price: 1500 },
+    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', price: 3500 },
+    // Рамки клікера (суцільне світіння) + одна анімована
     { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
-    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#4da6ff', price: 2000 },
+    { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
+    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#00e5ff', price: 2000 },
+    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#ff2ea6', price: 1800 },
+    { id: 'frame_toxic', slot: 'frame', name: 'Токсична рамка', color: '#39ff14', price: 2000 },
+    { id: 'frame_royal', slot: 'frame', name: 'Королівська рамка', color: '#9c27b0', price: 2800 },
+    { id: 'frame_rainbow', slot: 'frame', name: 'Веселкова рамка (анімована)', color: 'rainbow', price: 6000 },
 ];
 
 // Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
@@ -153,6 +173,7 @@ const ACHIEVEMENTS = [
     { id: 'wheel_7', name: 'Колесо фортуни', desc: 'Крути Колесо Зради 7 разів', reward: 2500, check: (u) => u.wheelSpinsCount >= 7 },
     { id: 'pets_all', name: 'Зоопарк', desc: 'Здобудь усіх компаньйонів', reward: 6000, check: (u) => u.ownedPets.length >= PETS.length },
     { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 4000, check: (u) => u.ownedCosmetics.length >= 5 },
+    { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 12000, check: (u) => u.ownedCosmetics.length >= 15 },
     { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 8000, check: (u) => u.level >= 5 },
     { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 15000, check: (u) => u.level >= 6 },
     { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 1500, check: (u) => !!u.clanId },
@@ -232,7 +253,7 @@ function getUser(id, name) {
             portfolio: {},
             wheelLastSpinDate: null,
             ownedCosmetics: [],
-            equippedCosmetics: { hat: null, face: null, frame: null },
+            equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
             tradesCount: 0,
             wheelSpinsCount: 0,
             questsDate: null,
@@ -666,7 +687,7 @@ app.post('/api/cosmetic/buy', requireTelegramAuth, (req, res) => {
 app.post('/api/cosmetic/equip', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     const { slot, cosmeticId } = req.body;
-    if (!['hat', 'face', 'frame'].includes(slot)) return res.status(400).json({ error: 'Невідомий слот' });
+    if (!['hat', 'face', 'neck', 'frame'].includes(slot)) return res.status(400).json({ error: 'Невідомий слот' });
     if (cosmeticId) {
         const item = COSMETICS.find((c) => c.id === cosmeticId && c.slot === slot);
         if (!item) return res.status(400).json({ error: 'Невідомий предмет' });
@@ -912,6 +933,17 @@ function buildHtml(botUsername) {
 
         .cosmetic-hat { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 42px; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
         .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 5; pointer-events: none; }
+        .cosmetic-neck { position: absolute; top: 62%; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        @keyframes rainbowGlow {
+            0% { box-shadow: 0 0 0 4px #ff2ea6, 0 0 25px 6px #ff2ea688; }
+            17% { box-shadow: 0 0 0 4px #ff9800, 0 0 25px 6px #ff980088; }
+            34% { box-shadow: 0 0 0 4px #ffe066, 0 0 25px 6px #ffe06688; }
+            50% { box-shadow: 0 0 0 4px #39ff14, 0 0 25px 6px #39ff1488; }
+            67% { box-shadow: 0 0 0 4px #00e5ff, 0 0 25px 6px #00e5ff88; }
+            84% { box-shadow: 0 0 0 4px #9c27b0, 0 0 25px 6px #9c27b088; }
+            100% { box-shadow: 0 0 0 4px #ff2ea6, 0 0 25px 6px #ff2ea688; }
+        }
+        .frame-rainbow { animation: rainbowGlow 4s linear infinite; }
         .cosmetic-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .cosmetic-card.equipped { border-color: var(--gold); }
         .cosmetic-card .cosmetic-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -953,6 +985,7 @@ function buildHtml(botUsername) {
             <div id="clicker-emoji" class="emoji-fallback hidden"></div>
             <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
             <div id="cosmetic-face" class="cosmetic-face hidden"></div>
+            <div id="cosmetic-neck" class="cosmetic-neck hidden"></div>
         </div>
     </main>
 
@@ -991,6 +1024,8 @@ function buildHtml(botUsername) {
         <div id="wardrobe-hat"></div>
         <div class="slot-heading">Маскування обличчя</div>
         <div id="wardrobe-face"></div>
+        <div class="slot-heading">Аксесуар на шию</div>
+        <div id="wardrobe-neck"></div>
         <div class="slot-heading">Рамки клікера</div>
         <div id="wardrobe-frame"></div>
     </div>
@@ -1111,7 +1146,7 @@ function buildHtml(botUsername) {
             level: 1, isVip: false, refCount: 0,
             totalClicks: 0, boxesOpened: 0, raidsSurvived: 0,
             achievements: [], ownedPets: [], petId: null,
-            ownedCosmetics: [], equippedCosmetics: { hat: null, face: null, frame: null },
+            ownedCosmetics: [], equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
             portfolio: {}, clanId: null, clanName: null, clanBonus: 1,
             dailyStreak: 0, wheelClaimedToday: false,
             dailyClicks: 0, dailyTrades: 0, dailyBoxes: 0, dailyRaids: 0, claimedQuests: [],
@@ -1183,7 +1218,7 @@ function buildHtml(botUsername) {
                 state.isVip = data.isVip; state.refCount = data.refCount;
                 state.totalClicks = data.totalClicks; state.boxesOpened = data.boxesOpened; state.raidsSurvived = data.raidsSurvived;
                 state.achievements = data.achievements; state.ownedPets = data.ownedPets; state.petId = data.petId;
-                state.ownedCosmetics = data.ownedCosmetics || []; state.equippedCosmetics = data.equippedCosmetics || { hat: null, face: null, frame: null };
+                state.ownedCosmetics = data.ownedCosmetics || []; state.equippedCosmetics = data.equippedCosmetics || { hat: null, face: null, neck: null, frame: null };
                 state.portfolio = data.portfolio || {}; state.clanId = data.clanId; state.clanName = data.clanName; state.clanBonus = data.clanBonus;
                 state.dailyStreak = data.dailyStreak; state.wheelClaimedToday = data.wheelClaimedToday;
                 if (data.lastPremiumReward) {
@@ -1338,28 +1373,35 @@ function buildHtml(botUsername) {
         function applyCosmeticOverlay() {
             const hatEl = document.getElementById('cosmetic-hat');
             const faceEl = document.getElementById('cosmetic-face');
+            const neckEl = document.getElementById('cosmetic-neck');
             const hatItem = COSMETICS.find(c => c.id === state.equippedCosmetics.hat);
             const faceItem = COSMETICS.find(c => c.id === state.equippedCosmetics.face);
+            const neckItem = COSMETICS.find(c => c.id === state.equippedCosmetics.neck);
             const frameItem = COSMETICS.find(c => c.id === state.equippedCosmetics.frame);
             hatEl.classList.toggle('hidden', !hatItem);
             if (hatItem) hatEl.innerText = hatItem.emoji;
             faceEl.classList.toggle('hidden', !faceItem);
             if (faceItem) faceEl.innerText = faceItem.emoji;
-            const glowColor = frameItem ? frameItem.color : null;
-            const shadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : 'none';
-            ui.clkImg.style.boxShadow = shadow;
+            neckEl.classList.toggle('hidden', !neckItem);
+            if (neckItem) neckEl.innerText = neckItem.emoji;
+
+            const isRainbow = frameItem && frameItem.color === 'rainbow';
+            ui.clkImg.classList.toggle('frame-rainbow', isRainbow);
+            ui.clkEmoji.classList.toggle('frame-rainbow', isRainbow);
+            const glowColor = (frameItem && !isRainbow) ? frameItem.color : null;
+            ui.clkImg.style.boxShadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : (isRainbow ? '' : 'none');
             ui.clkEmoji.style.textShadow = glowColor ? ('0 0 20px ' + glowColor) : 'none';
         }
 
         function renderCosmetics() {
-            ['hat', 'face', 'frame'].forEach(slot => {
+            ['hat', 'face', 'neck', 'frame'].forEach(slot => {
                 const container = document.getElementById('wardrobe-' + slot);
                 if (!container) return;
                 container.innerHTML = COSMETICS.filter(c => c.slot === slot).map(c => {
                     const owned = state.ownedCosmetics.includes(c.id);
                     const equipped = state.equippedCosmetics[slot] === c.id;
                     const visual = c.color
-                        ? '<span class="cosmetic-swatch" style="background:' + c.color + ';"></span>'
+                        ? '<span class="cosmetic-swatch" style="background:' + (c.color === 'rainbow' ? 'conic-gradient(#ff2ea6, #ff9800, #ffe066, #39ff14, #00e5ff, #9c27b0, #ff2ea6)' : c.color) + ';"></span>'
                         : '<span class="cosmetic-emoji">' + c.emoji + '</span>';
                     const btn = !owned
                         ? '<button onclick="buyCosmetic(\\'' + c.id + '\\')">Купити за ' + c.price + ' 🪙</button>'
