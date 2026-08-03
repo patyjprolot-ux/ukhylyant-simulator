@@ -83,13 +83,17 @@ const ECONOMY = {
     PET_NEIGHBOR_RAID_MULT: 0.9,
 };
 
-// 4 етапи еволюції схованки.
+// 4 етапи еволюції схованки. `img` — квадратна картинка для головної кнопки-клікера
+// (персонаж по центру). `roomImg` — окрема широка картинка для екрана "Кімната"
+// (персонаж стоїть анфас у правій третині кадру, ліва частина — кімната з місцем
+// під декор). Поки roomImg не заданий для локації — екран "Кімната" підставляє img
+// замість неї (буде виглядати не ідеально, це очікувано до генерації нової картинки).
 const LOCATIONS = [
-    { level: 1, name: 'Бабусин Диван', img: '/images/location-1-couch.png', maxEnergy: 100 },
-    { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.png', maxEnergy: 150 },
-    { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.png', maxEnergy: 220 },
+    { level: 1, name: 'Бабусин Диван', img: '/images/location-1-couch.png', roomImg: '/images/room-1-couch.png', maxEnergy: 100 },
+    { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.png', roomImg: '/images/room-2-basement.png', maxEnergy: 150 },
+    { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.png', roomImg: '/images/room-3-balkan.png', maxEnergy: 220 },
     { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.png', maxEnergy: 300 },
-    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.png', maxEnergy: 400 },
+    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.png', roomImg: '/images/room-5-abroad.png', maxEnergy: 400 },
     { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.png', maxEnergy: 500 },
 ];
 
@@ -117,10 +121,10 @@ const COSMETICS = [
     { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', img: '/images/cosmetic-hat-mushroom.png', price: 1000 },
     { id: 'sock_hat', slot: 'hat', name: 'Шкарпетка на голові', emoji: '🧦', price: 700 },
     { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', img: '/images/cosmetic-hat-target.png', price: 2200 },
-    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', price: 500 },
+    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', img: '/images/cosmetic-hat-toiletpaper.png', price: 500 },
     { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', img: '/images/cosmetic-hat-umbrella.png', price: 1400 },
     { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', img: '/images/cosmetic-hat-coconut.png', price: 1600 },
-    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', price: 900 },
+    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', img: '/images/cosmetic-hat-icecube.png', price: 900 },
     // Маскування обличчя
     { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', img: '/images/cosmetic-face-glasses.png', price: 600 },
     { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', img: '/images/cosmetic-face-clown.png', price: 500 },
@@ -129,11 +133,11 @@ const COSMETICS = [
     { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', img: '/images/cosmetic-face-disguise.png', price: 1800 },
     { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', img: '/images/cosmetic-face-ninja.png', price: 2200 },
     { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', img: '/images/cosmetic-face-oni.png', price: 2000 },
-    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', price: 2000 },
+    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', img: '/images/cosmetic-face-tengu.png', price: 2000 },
     { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', img: '/images/cosmetic-face-skull.png', price: 2600 },
     { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', img: '/images/cosmetic-face-theater.png', price: 1900 },
     { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', img: '/images/cosmetic-face-goggles.png', price: 1100 },
-    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', price: 1700 },
+    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', img: '/images/cosmetic-face-bear.png', price: 1700 },
     { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', img: '/images/cosmetic-face-wolf.png', price: 1700 },
     { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', img: '/images/cosmetic-face-fox.png', price: 1700 },
     { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.png', price: 1700 },
@@ -694,6 +698,40 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     res.json({ ok: true, balance: user.balance, unlockedAchievements: unlocked });
 });
 
+// Відновлення прогресу з резервної копії, яку клієнт тримає в Telegram CloudStorage
+// (переживає редеплой на Render — на відміну від диску сервера, який скидається при
+// новому контейнері). Викликається лише коли сервер бачить "свіжого" гравця (без
+// прогресу), а в CloudStorage лежить копія зі старим прогресом. Без анти-чіт перевірок —
+// жартівливий проєкт для друзів, довіряємо клієнту так само, як і в /api/save.
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount'];
+const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems'];
+app.post('/api/restore', requireTelegramAuth, (req, res) => {
+    const backup = req.body.backup;
+    if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+
+    for (const f of RESTORE_NUMBER_FIELDS) {
+        if (typeof backup[f] === 'number' && isFinite(backup[f])) user[f] = backup[f];
+    }
+    for (const f of RESTORE_ARRAY_FIELDS) {
+        if (Array.isArray(backup[f])) user[f] = backup[f];
+    }
+    if (backup.petId === null || typeof backup.petId === 'string') user.petId = backup.petId;
+    if (backup.equippedCosmetics && typeof backup.equippedCosmetics === 'object') {
+        user.equippedCosmetics = {
+            hat: backup.equippedCosmetics.hat ?? null,
+            face: backup.equippedCosmetics.face ?? null,
+            neck: backup.equippedCosmetics.neck ?? null,
+            frame: backup.equippedCosmetics.frame ?? null,
+        };
+    }
+    if (backup.portfolio && typeof backup.portfolio === 'object') user.portfolio = backup.portfolio;
+    if (typeof backup.isVip === 'boolean') user.isVip = backup.isVip;
+    user.lastSeenAt = Date.now();
+
+    res.json({ ok: true });
+});
+
 // Щоденний "Пайок" із серією Day1..Day7 (джекпот) — дата й серія перевіряються на сервері.
 app.post('/api/daily', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
@@ -1005,6 +1043,10 @@ function buildHtml(botUsername) {
         button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(0,229,255,0.5); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .premium-btn { background: linear-gradient(45deg, #5b1fb3, #00c3ff); border: 1px solid #fff; }
+        .dev-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.4); color: #ffca6a; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
+        .stars-section-title { font-size: 14px; margin: 0 0 8px; text-align: center; color: #eee; }
+        .donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .donate-btn { background: linear-gradient(45deg, #ff2ea6, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
         .gacha-btn { background: linear-gradient(45deg, #ff9800, #ff5722); font-size: 16px; padding: 15px; box-shadow: 0 0 14px rgba(255,87,34,0.4); }
         .gacha-btn-premium { background: linear-gradient(45deg, #9c27b0, #673ab7); box-shadow: 0 0 14px rgba(156,39,176,0.5); }
         .btn-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 8px; border-radius: 5px; object-fit: cover; }
@@ -1103,19 +1145,30 @@ function buildHtml(botUsername) {
 
         #room-screen { position: fixed; inset: 0; z-index: 1500; background: var(--bg); overflow-y: auto; padding: 15px; box-sizing: border-box; }
         .room-close { position: absolute; top: 10px; right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
-        .room-scene { position: relative; height: 36vh; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
-        .room-scene img#room-bg-img { height: 90%; max-width: 90%; object-fit: contain; border-radius: 0; filter: none; }
-        .room-scene .emoji-fallback { font-size: 110px; }
+        /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
+           анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
+           квадратна img (тоді композиція буде не ідеальною, це очікувано до заміни картинки). */
+        .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .room-scene img#room-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; filter: none; }
+        .room-scene .emoji-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 110px; }
+        /* Персонаж у кімнаті стоїть праворуч (~78% по X) — окремі координати від
+           .cosmetic-hat/face/neck на головному екрані клікера (там персонаж по центру). */
+        #room-cosmetic-hat { top: 6%; left: 77%; }
+        #room-cosmetic-face { top: 26%; left: 77%; }
+        #room-cosmetic-neck { top: 39%; left: 77%; }
         .room-item { position: absolute; font-size: 34px; z-index: 6; pointer-events: none; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); }
         .room-item img { width: 44px; height: 44px; object-fit: contain; }
-        .pos-top-left { top: 6%; left: 6%; }
-        .pos-top-center { top: 6%; left: 50%; transform: translateX(-50%); }
-        .pos-top-right { top: 6%; right: 6%; }
-        .pos-mid-left { top: 42%; left: 3%; }
-        .pos-mid-right { top: 42%; right: 3%; }
-        .pos-bottom-left { bottom: 6%; left: 6%; }
-        .pos-bottom-center { bottom: 6%; left: 50%; transform: translateX(-50%); }
-        .pos-bottom-right { bottom: 6%; right: 6%; }
+        /* Сітка 3×3 в лівих ~60% кадру (кімната) — права зона зайнята персонажем,
+           туди декор не кладемо. Назви позицій лишились старі (top-right тощо),
+           але це "правий стовпчик кімнатної зони", а не правий край всього кадру. */
+        .pos-top-left { top: 6%; left: 4%; }
+        .pos-top-center { top: 6%; left: 26%; }
+        .pos-top-right { top: 6%; left: 48%; }
+        .pos-mid-left { top: 42%; left: 4%; }
+        .pos-mid-right { top: 42%; left: 48%; }
+        .pos-bottom-left { bottom: 6%; left: 4%; }
+        .pos-bottom-center { bottom: 6%; left: 26%; }
+        .pos-bottom-right { bottom: 6%; left: 48%; }
     </style>
 </head>
 <body>
@@ -1130,7 +1183,7 @@ function buildHtml(botUsername) {
         <h2><span id="balance">0</span> 🪙 ТК</h2>
         <div class="stats">
             <span>Пасив: <span id="passive">0</span>/с</span>
-            <span>⭐ <span id="stars">0</span></span>
+            <span>⭐ <span id="stars-count">0</span></span>
         </div>
         <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
         <div class="clan-line hidden" id="clan-line"></div>
@@ -1232,11 +1285,29 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="stars" class="panel">
+        <div class="dev-notice">
+            ⚠️ Проєкт ще в розробці й поки не переїхав на постійні сервери — прогрес
+            зберігається на тестовому хостингу і теоретично може губитись при оновленнях
+            гри. Вибачте за незручності!
+        </div>
+
+        <h3 class="stars-section-title">👑 VIP-Схрон</h3>
         <button class="premium-btn" onclick="buyRealVip()"><img class="btn-icon" src="/images/vip-badge.png" alt="">VIP-Схрон (${ECONOMY.VIP_PRICE_STARS} ⭐)</button>
-        <p style="font-size:12px; color:#aaa; text-align:center;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
-        <hr style="border:0; border-top:1px solid #444; margin: 15px 0;">
-        <input type="text" id="promo" placeholder="Промокод" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
+        <p style="font-size:12px; color:#aaa; text-align:center; margin-top:6px;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
+
+        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+
+        <h3 class="stars-section-title">🔑 Промокод</h3>
+        <input type="text" id="promo" placeholder="Введи промокод" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
         <button onclick="usePromo()">Активувати код</button>
+
+        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+
+        <h3 class="stars-section-title">❤️ Підтримати розробника</h3>
+        <p style="font-size:12px; color:#aaa; text-align:center; margin-top:0;">Жодних ігрових бонусів — просто щоб сказати "дякую" за гру.</p>
+        <div class="donate-grid">
+            ${ECONOMY.DONATE_AMOUNTS.map(a => `<button class="donate-btn" onclick="buyDonate(${a})">${a} ⭐</button>`).join('')}
+        </div>
     </div>
 
     <div id="top" class="panel">
@@ -1345,7 +1416,7 @@ function buildHtml(botUsername) {
             enr: document.getElementById('energy-fill'), lvl: document.getElementById('level-display'),
             loc: document.getElementById('location-name'), clk: document.getElementById('clicker'),
             clkImg: document.getElementById('clicker-img'), clkEmoji: document.getElementById('clicker-emoji'),
-            str: document.getElementById('stars'), vip: document.getElementById('vip-badge'),
+            str: document.getElementById('stars-count'), vip: document.getElementById('vip-badge'),
             refCount: document.getElementById('ref-count'), clanLine: document.getElementById('clan-line'),
             streakNote: document.getElementById('streak-note'),
         };
@@ -1401,13 +1472,68 @@ function buildHtml(botUsername) {
             renderRoomItemsOverlay();
         }
 
+        // ===== Резервна копія в Telegram CloudStorage =====
+        // Диск сервера на Render скидається при кожному редеплої — CloudStorage лежить у
+        // самому Telegram і переживає це. Не заміна серверного збереження, а страховка від
+        // втрати прогресу друзів, поки проєкт не переїхав на постійне сховище (БД).
+        function hasCloudStorage() {
+            return !!(tg && tg.CloudStorage && typeof tg.CloudStorage.setItem === 'function');
+        }
+
+        function saveToCloud() {
+            if (!hasCloudStorage()) return;
+            const backup = {
+                balance: state.balance, clickVal: state.clickVal, passive: state.passive,
+                level: state.level, energy: state.energy, maxEnergy: state.maxEnergy,
+                totalClicks: state.totalClicks, boxesOpened: state.boxesOpened, raidsSurvived: state.raidsSurvived,
+                refCount: state.refCount, dailyStreak: state.dailyStreak, isVip: state.isVip,
+                achievements: state.achievements, ownedPets: state.ownedPets, petId: state.petId,
+                ownedCosmetics: state.ownedCosmetics, equippedCosmetics: state.equippedCosmetics,
+                ownedRoomItems: state.ownedRoomItems, equippedRoomItems: state.equippedRoomItems,
+                portfolio: state.portfolio,
+            };
+            try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
+        }
+
+        function tryRestoreFromCloud() {
+            if (!hasCloudStorage()) return Promise.resolve(false);
+            return new Promise((resolve) => {
+                try {
+                    tg.CloudStorage.getItem('save_v1', async (err, value) => {
+                        if (err || !value) return resolve(false);
+                        try {
+                            const backup = JSON.parse(value);
+                            if (!backup || !((backup.totalClicks || 0) > 0 || (backup.balance || 0) > 0)) return resolve(false);
+                            await apiFetch('/api/restore', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: user.id, backup }),
+                            });
+                            resolve(true);
+                        } catch (e) { resolve(false); }
+                    });
+                } catch (e) { resolve(false); }
+            });
+        }
+
         // ===== Ініціалізація: підтягуємо збережений стан із сервера =====
         async function init() {
             document.getElementById('username').innerText = user.first_name;
             document.getElementById('ref-link').value = 'https://t.me/' + BOT_USERNAME + '?start=' + user.id;
             try {
-                const res = await apiFetch('/api/user?id=' + user.id + '&name=' + encodeURIComponent(user.first_name) + '&consume=1');
-                const data = await res.json();
+                let res = await apiFetch('/api/user?id=' + user.id + '&name=' + encodeURIComponent(user.first_name) + '&consume=1');
+                let data = await res.json();
+                // "Свіжий" гравець на сервері (диск міг скинутись після редеплою) — пробуємо
+                // підтягнути резервну копію з CloudStorage, якщо вона там є.
+                const looksFresh = data.totalClicks === 0 && data.balance === 0 &&
+                    (data.achievements || []).length === 0 && (data.ownedCosmetics || []).length === 0;
+                if (looksFresh) {
+                    const restored = await tryRestoreFromCloud();
+                    if (restored) {
+                        res = await apiFetch('/api/user?id=' + user.id + '&name=' + encodeURIComponent(user.first_name) + '&consume=1');
+                        data = await res.json();
+                        tg.showAlert('Прогрес відновлено з резервної копії Telegram!');
+                    }
+                }
                 state.balance = data.balance; state.clickVal = data.clickVal; state.passive = data.passive;
                 state.level = data.level; state.energy = data.energy; state.maxEnergy = data.maxEnergy;
                 state.isVip = data.isVip; state.refCount = data.refCount;
@@ -1441,6 +1567,7 @@ function buildHtml(botUsername) {
         init();
 
         function saveState() {
+            saveToCloud();
             apiFetch('/api/save', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1624,9 +1751,10 @@ function buildHtml(botUsername) {
             const loc = LOCATIONS.find(l => l.level === state.level) || LOCATIONS[0];
             const bgImg = document.getElementById('room-bg-img');
             const emojiEl = document.getElementById('room-emoji-fallback');
-            if (loc.img) {
+            const roomSrc = loc.roomImg || loc.img;
+            if (roomSrc) {
                 bgImg.classList.remove('hidden'); emojiEl.classList.add('hidden');
-                bgImg.src = loc.img;
+                bgImg.src = roomSrc;
             } else {
                 bgImg.classList.add('hidden'); emojiEl.classList.remove('hidden');
                 emojiEl.innerText = loc.emoji || '❓';
@@ -2054,6 +2182,20 @@ function buildHtml(botUsername) {
                 if (!data.link) return tg.showAlert('Помилка створення інвойсу');
                 tg.openInvoice(data.link, async (status) => {
                     if (status === 'paid') { await init(); tg.showAlert('Ти VIP!'); }
+                });
+            } catch (e) { tg.showAlert('Помилка генерації інвойсу'); }
+        };
+
+        window.buyDonate = async (amount) => {
+            try {
+                let res = await apiFetch('/api/invoice', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, type: 'donate', amount })
+                });
+                let data = await res.json();
+                if (!data.link) return tg.showAlert('Помилка створення інвойсу');
+                tg.openInvoice(data.link, (status) => {
+                    if (status === 'paid') tg.showAlert('Дякуємо за підтримку! ❤️');
                 });
             } catch (e) { tg.showAlert('Помилка генерації інвойсу'); }
         };

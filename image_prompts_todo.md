@@ -6,6 +6,96 @@
 
 ---
 
+## Кімнати (нова механіка, 1600×900, широкий формат) — ПРІОРИТЕТ
+
+Нова система: персонаж стоїть анфас у правій третині кадру в однаковій позі в усіх
+6 картинках (щоб капелюх/маска/аксесуар лягали в одні й ті самі координати
+незалежно від локації). Ліва частина кадру — сама кімната/локація, залишена
+навмисно порожньою (без меблів на картинці) — декор (лампа, постер, телевізор
+тощо) додається окремими іконками поверх через CSS, тому меблі малювати НЕ треба,
+інакше буде задвоєння. Зберігати як `room-1-couch.png` ... `room-6-bunker.png` в
+`public/images/`.
+
+**room-1-couch (Бабусин Диван)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, plenty of empty
+space above his head, a floral-patterned couch pushed against the left wall of a cluttered
+grandma's living room, warm cozy lamp lighting, the rest of the left two-thirds of the
+frame is open empty floor and wall space with no other furniture drawn (leave it
+uncluttered, decor will be added later), flat vector game-icon illustration, thick clean
+black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to
+Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**room-2-basement (Вологий Підвал)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, plenty of empty
+space above his head, damp concrete basement with a single bare lightbulb hanging above
+and water-stained walls with pipes overhead, the rest of the left two-thirds of the frame
+is open empty floor and wall space with no other objects drawn (leave it uncluttered,
+decor will be added later), flat vector game-icon illustration, thick clean black outlines,
+cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone,
+no text, no watermark
+```
+
+**room-3-balkan (Балканська хатинка)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, plenty of empty
+space above his head, rustic Balkan mountain hut interior with wooden shutters and dried
+peppers hanging on the left wall, misty hills visible through a small window, the rest of
+the left two-thirds of the frame is open empty floor and wall space with no other objects
+drawn (leave it uncluttered, decor will be added later), flat vector game-icon
+illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
+mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red
+and gold rim lighting, slightly absurd comedic tone, no text, no watermark
+```
+
+**room-4-boat (Човен на Тисі)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body on a wooden boat deck, facing
+camera directly, positioned in the right third of the frame, arms relaxed at his sides,
+plenty of empty space above his head, foggy river and a dark forest silhouette in the
+background, moonlight on the water, the rest of the left two-thirds of the frame is open
+empty deck space with no other objects drawn (leave it uncluttered, decor will be added
+later), flat vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal
+background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no
+watermark
+```
+
+**room-5-abroad (Закордон)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, plenty of empty
+space above his head, a border checkpoint at dawn with a striped barrier gate in the
+background, soft golden sunrise lighting, the rest of the left two-thirds of the frame is
+open empty ground with no other objects drawn (leave it uncluttered, decor will be added
+later), flat vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal
+background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no
+watermark
+```
+
+**room-6-bunker (Президентський бункер)**
+```
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+confidently positioned in the right third of the frame, arms relaxed at his sides, plenty
+of empty space above his head, plush underground bunker room with a giant round security
+door and retro control panels on the left wall, warm lamp lighting, the rest of the left
+two-thirds of the frame is open empty floor space with no other objects drawn (leave it
+uncluttered, decor will be added later), flat vector game-icon illustration, thick clean
+black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to
+Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+---
+
 ## Локації (1024×1024)
 
 **Закордон / Гуманітарний коридор** (заміна 🛂, Lvl 5)
