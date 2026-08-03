@@ -227,3 +227,73 @@ wide banner composition
 Icon of a cartoon rolled-up rug with a pair of nervous eyes peeking out from one end, isolated
 game icon, [STYLE]
 ```
+
+---
+
+## 11. V4.0 — нові локації, товари та гардероб (поки на емодзі, замінити коли буде час)
+
+### Локації
+
+**31. Закордон / Гуманітарний коридор** (заміна 🛂, Lvl 5, 1024×1024)
+```
+Cartoon young man walking across a border checkpoint at dawn with a small suitcase, striped
+border-crossing barrier gate, flags on poles blurred out (no real national emblems), relieved
+but exhausted expression, soft golden sunrise lighting, [STYLE]
+```
+
+**32. Президентський бункер** (заміна 🏛️, Lvl 6, 1024×1024)
+```
+Cartoon young man sitting confidently in a plush underground bunker room with a giant round
+security door, retro control panels and blinking lights on the walls, ironic luxurious armchair,
+warm lamp lighting, playful smug expression, [STYLE]
+```
+
+### Магазин (нові апгрейди)
+
+**33. Термос кави** (заміна ☕, 512×512)
+```
+Icon of a metallic thermos flask with steam rising from a small cup lid, warm glow, isolated
+game icon, [STYLE]
+```
+
+**34. Генератор** (заміна ⚡, 512×512)
+```
+Icon of a small portable gasoline generator with a pull-cord and a glowing power indicator,
+isolated game icon, [STYLE]
+```
+
+### Гардероб (косметика — головні убори)
+
+**35. Кепка контрабандиста** (заміна 🧢, 512×512)
+```
+Icon of a worn flat cap/newsboy cap tilted at a rakish angle, isolated game icon, [STYLE]
+```
+
+**36. Циліндр авторитету** (заміна 🎩, 512×512)
+```
+Icon of a shiny black top hat with a red ribbon band, slightly oversized comedic proportions,
+isolated game icon, [STYLE]
+```
+
+**37. Каска "про всяк випадок"** (заміна ⛑️, 512×512)
+```
+Icon of a battered civil-defense style safety helmet with a small dent and a hand-painted
+smiley, isolated game icon, [STYLE]
+```
+
+### Гардероб (косметика — маскування обличчя)
+
+**38. Чорні окуляри** (заміна 🕶️, 512×512)
+```
+Icon of stylish black sunglasses with a subtle reflective glare highlight, isolated game icon,
+[STYLE]
+```
+
+**39. Маскування (вуса+окуляри)** (заміна 🥸, 512×512)
+```
+Icon of a classic disguise: fake glasses with attached bushy eyebrows and moustache, isolated
+game icon, [STYLE]
+```
+
+> Рамки клікера (золота/червона/неонова) — це чистий CSS glow навколо персонажа
+> без окремого зображення, генерувати нічого не треба.

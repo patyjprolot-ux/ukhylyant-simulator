@@ -1,6 +1,7 @@
 require('dotenv').config();
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
@@ -46,9 +47,13 @@ const ECONOMY = {
     HAT_PRICE: 100, HAT_CLICK_BONUS: 1,
     JAM_PRICE: 500, JAM_PASSIVE_BONUS: 5,
     ENERGY_DRINK_PRICE: 300,
+    THERMOS_PRICE: 1500, THERMOS_CLICK_BONUS: 3,
+    GENERATOR_PRICE: 4000, GENERATOR_PASSIVE_BONUS: 10,
     BASEMENT_PRICE: 2000,
     BALKAN_PRICE: 6000,
     TISA_PRICE: 20000,
+    ABROAD_PRICE: 50000,
+    BUNKER_PRICE: 150000,
     GACHA_PRICE: 1000,
     VIP_PRICE_STARS: 500,
     GACHA_PREMIUM_STARS: 100,
@@ -81,6 +86,8 @@ const LOCATIONS = [
     { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.png', maxEnergy: 150 },
     { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.png', maxEnergy: 220 },
     { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.png', maxEnergy: 300 },
+    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', maxEnergy: 400 },
+    { level: 6, name: 'Президентський бункер', emoji: '🏛️', maxEnergy: 500 },
 ];
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
@@ -88,6 +95,27 @@ const PETS = [
     { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.png', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
     { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.png', price: 8000, desc: '+15% до сили кліку' },
     { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.png', price: 6000, desc: '+30% до швидкості відновлення енергії' },
+];
+
+// Гардероб — суто косметичні CSS/emoji-оверлеї на персонажі (без нових зображень),
+// по одному предмету на слот одночасно. Жодного впливу на економіку.
+const COSMETICS = [
+    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', price: 800 },
+    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', price: 2500 },
+    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', price: 1800 },
+    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', price: 1000 },
+    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', price: 1800 },
+    { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
+    { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
+    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#4da6ff', price: 2000 },
+];
+
+// Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
+const QUESTS = [
+    { id: 'q_clicks', name: 'Розігрів', desc: 'Зроби 200 кліків сьогодні', target: 200, reward: 800, metric: 'dailyClicks' },
+    { id: 'q_trade', name: 'Спекулянт', desc: 'Заверши 3 угоди на біржі сьогодні', target: 3, reward: 600, metric: 'dailyTrades' },
+    { id: 'q_gacha', name: 'Розпакування', desc: 'Відкрий 1 коробку гуманітарки сьогодні', target: 1, reward: 500, metric: 'dailyBoxes' },
+    { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 700, metric: 'dailyRaids' },
 ];
 
 // Тіньова біржа — курси гуляють кожні 3 хв (див. tickMarket нижче).
@@ -114,9 +142,21 @@ const WHEEL_SEGMENTS = [
 const ACHIEVEMENTS = [
     { id: 'clicks_1000', name: 'Перші мозолі', desc: 'Зроби 1 000 кліків', reward: 500, check: (u) => u.totalClicks >= 1000 },
     { id: 'clicks_10000', name: 'Мозоль на пальці', desc: 'Зроби 10 000 кліків', reward: 5000, check: (u) => u.totalClicks >= 10000 },
+    { id: 'clicks_100000', name: 'Легенда мозолів', desc: 'Зроби 100 000 кліків', reward: 20000, check: (u) => u.totalClicks >= 100000 },
     { id: 'boxes_5', name: 'Колекціонер шкарпеток', desc: 'Відкрий 5 коробок гуманітарки', reward: 3000, check: (u) => u.boxesOpened >= 5 },
+    { id: 'boxes_25', name: 'Постійний клієнт гумштабу', desc: 'Відкрий 25 коробок гуманітарки', reward: 8000, check: (u) => u.boxesOpened >= 25 },
     { id: 'raids_3', name: 'Профі втечі', desc: 'Пережий 3 облави', reward: 4000, check: (u) => u.raidsSurvived >= 3 },
+    { id: 'raids_10', name: 'Ветеран втеч', desc: 'Пережий 10 облав', reward: 8000, check: (u) => u.raidsSurvived >= 10 },
     { id: 'wealth_100000', name: 'Тіньовий мільйонер', desc: 'Накопич 100 000 ТК', reward: 10000, check: (u) => u.balance >= 100000 },
+    { id: 'wealth_1000000', name: 'Тіньовий олігарх', desc: 'Накопич 1 000 000 ТК', reward: 50000, check: (u) => u.balance >= 1000000 },
+    { id: 'trades_10', name: 'Біржовий вовк', desc: 'Заверши 10 угод на тіньовій біржі', reward: 3000, check: (u) => u.tradesCount >= 10 },
+    { id: 'wheel_7', name: 'Колесо фортуни', desc: 'Крути Колесо Зради 7 разів', reward: 2500, check: (u) => u.wheelSpinsCount >= 7 },
+    { id: 'pets_all', name: 'Зоопарк', desc: 'Здобудь усіх компаньйонів', reward: 6000, check: (u) => u.ownedPets.length >= PETS.length },
+    { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 4000, check: (u) => u.ownedCosmetics.length >= 5 },
+    { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 8000, check: (u) => u.level >= 5 },
+    { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 15000, check: (u) => u.level >= 6 },
+    { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 1500, check: (u) => !!u.clanId },
+    { id: 'referral_5', name: 'Мережа перевізників', desc: 'Здай 5 друзів', reward: 5000, check: (u) => u.refCount >= 5 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -132,6 +172,36 @@ const PROMO_CODES = {
 // ==========================================
 const usersDB = new Map();
 const clansDB = new Map();
+
+// Просте збереження на диск у JSON-файл — не БД, але переживає засинання/рестарт
+// безкоштовного інстансу Render (диск ефемерний і скидається лише при новому деплої).
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'gamedata.json');
+
+function loadData() {
+    try {
+        if (!fs.existsSync(DATA_FILE)) return;
+        const parsed = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+        (parsed.users || []).forEach((u) => usersDB.set(u.id, u));
+        (parsed.clans || []).forEach((c) => clansDB.set(c.id, c));
+        console.log(`💾 Завантажено збережений прогрес: ${usersDB.size} гравців, ${clansDB.size} чатів.`);
+    } catch (e) {
+        console.error('⚠️  Не вдалося завантажити збережені дані, стартую з чистого стану:', e.message);
+    }
+}
+
+function saveData() {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        const payload = { users: Array.from(usersDB.values()), clans: Array.from(clansDB.values()), savedAt: Date.now() };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(payload));
+    } catch (e) {
+        console.error('⚠️  Не вдалося зберегти дані на диск:', e.message);
+    }
+}
+
+loadData();
+setInterval(saveData, 20000);
 
 function getUser(id, name) {
     id = String(id);
@@ -161,6 +231,16 @@ function getUser(id, name) {
             clanId: null,
             portfolio: {},
             wheelLastSpinDate: null,
+            ownedCosmetics: [],
+            equippedCosmetics: { hat: null, face: null, frame: null },
+            tradesCount: 0,
+            wheelSpinsCount: 0,
+            questsDate: null,
+            dailyClicks: 0,
+            dailyTrades: 0,
+            dailyBoxes: 0,
+            dailyRaids: 0,
+            claimedQuests: [],
             createdAt: Date.now(),
         });
     }
@@ -207,6 +287,19 @@ function applyOfflineProgress(user) {
     }
     user.lastSeenAt = now;
     return offlineEarnings;
+}
+
+// Обнуляє денні лічильники квестів при першому запиті нового дня.
+function resetDailyIfNeeded(user) {
+    const today = new Date().toDateString();
+    if (user.questsDate !== today) {
+        user.questsDate = today;
+        user.dailyClicks = 0;
+        user.dailyTrades = 0;
+        user.dailyBoxes = 0;
+        user.dailyRaids = 0;
+        user.claimedQuests = [];
+    }
 }
 
 function pickWeighted(segments) {
@@ -430,6 +523,7 @@ app.post('/api/invoice', requireTelegramAuth, async (req, res) => {
 app.get('/api/user', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     const today = new Date().toDateString();
+    resetDailyIfNeeded(user);
     const offlineEarnings = applyOfflineProgress(user);
     const clan = getClanInfo(user);
     const response = {
@@ -453,6 +547,8 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         achievements: user.achievements,
         ownedPets: user.ownedPets,
         petId: user.petId,
+        ownedCosmetics: user.ownedCosmetics,
+        equippedCosmetics: user.equippedCosmetics,
         portfolio: user.portfolio,
         clanId: clan.clanId,
         clanName: clan.clanName,
@@ -471,6 +567,13 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
 app.post('/api/save', requireTelegramAuth, (req, res) => {
     const { balance, clickVal, passive, level, energy, maxEnergy, totalClicks, boxesOpened, raidsSurvived } = req.body;
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    // Клік/бокси/облави клієнт шле як лічильники "за все життя" — приріст із моменту
+    // попереднього збереження додаємо до денного прогресу квестів.
+    if (typeof totalClicks === 'number') user.dailyClicks += Math.max(0, totalClicks - user.totalClicks);
+    if (typeof boxesOpened === 'number') user.dailyBoxes += Math.max(0, boxesOpened - user.boxesOpened);
+    if (typeof raidsSurvived === 'number') user.dailyRaids += Math.max(0, raidsSurvived - user.raidsSurvived);
+
     if (typeof balance === 'number') user.balance = balance;
     if (typeof clickVal === 'number') user.clickVal = clickVal;
     if (typeof passive === 'number') user.passive = passive;
@@ -548,6 +651,54 @@ app.post('/api/pet/equip', requireTelegramAuth, (req, res) => {
     res.json({ success: true, petId: user.petId });
 });
 
+// ---- Гардероб (косметика) ----
+app.post('/api/cosmetic/buy', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const item = COSMETICS.find((c) => c.id === req.body.cosmeticId);
+    if (!item) return res.status(400).json({ error: 'Невідомий предмет гардеробу' });
+    if (user.ownedCosmetics.includes(item.id)) return res.json({ success: false, message: 'Вже куплено' });
+    if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
+    user.balance -= item.price;
+    user.ownedCosmetics.push(item.id);
+    res.json({ success: true, balance: user.balance, ownedCosmetics: user.ownedCosmetics });
+});
+
+app.post('/api/cosmetic/equip', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const { slot, cosmeticId } = req.body;
+    if (!['hat', 'face', 'frame'].includes(slot)) return res.status(400).json({ error: 'Невідомий слот' });
+    if (cosmeticId) {
+        const item = COSMETICS.find((c) => c.id === cosmeticId && c.slot === slot);
+        if (!item) return res.status(400).json({ error: 'Невідомий предмет' });
+        if (!user.ownedCosmetics.includes(cosmeticId)) return res.json({ success: false, message: 'Спочатку купи цей предмет' });
+    }
+    user.equippedCosmetics[slot] = cosmeticId || null;
+    res.json({ success: true, equippedCosmetics: user.equippedCosmetics });
+});
+
+// ---- Щоденні квести ----
+app.get('/api/quests', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    res.json({
+        dailyClicks: user.dailyClicks, dailyTrades: user.dailyTrades,
+        dailyBoxes: user.dailyBoxes, dailyRaids: user.dailyRaids,
+        claimedQuests: user.claimedQuests,
+    });
+});
+
+app.post('/api/quests/claim', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    const quest = QUESTS.find((q) => q.id === req.body.questId);
+    if (!quest) return res.status(400).json({ error: 'Невідомий квест' });
+    if (user.claimedQuests.includes(quest.id)) return res.json({ success: false, message: 'Вже отримано сьогодні' });
+    if ((user[quest.metric] || 0) < quest.target) return res.json({ success: false, message: 'Квест ще не виконано' });
+    user.claimedQuests.push(quest.id);
+    user.balance += quest.reward;
+    res.json({ success: true, balance: user.balance, claimedQuests: user.claimedQuests });
+});
+
 // ---- Тіньова біржа ----
 app.get('/api/market', (req, res) => {
     res.json({ prices: marketState.prices, history: marketState.history });
@@ -555,6 +706,7 @@ app.get('/api/market', (req, res) => {
 
 app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
     const { assetId, action, qty } = req.body;
     const asset = MARKET_ASSETS.find((a) => a.id === assetId);
     const quantity = Number(qty);
@@ -574,6 +726,8 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
         user.portfolio[assetId] = held - quantity;
         user.balance += total;
     }
+    user.tradesCount += 1;
+    user.dailyTrades += 1;
     res.json({ success: true, balance: user.balance, portfolio: user.portfolio });
 });
 
@@ -584,6 +738,17 @@ app.get('/api/clan/list', (req, res) => {
         .sort((a, b) => b.members - a.members)
         .slice(0, 20);
     res.json(list);
+});
+
+app.get('/api/clan/leaderboard', (req, res) => {
+    const top = Array.from(clansDB.values())
+        .map((c) => ({
+            id: c.id, name: c.name, members: c.members.length,
+            totalBalance: Math.floor(c.members.reduce((sum, id) => sum + (usersDB.get(id)?.balance || 0), 0)),
+        }))
+        .sort((a, b) => b.totalBalance - a.totalBalance)
+        .slice(0, 10);
+    res.json(top);
 });
 
 app.post('/api/clan/create', requireTelegramAuth, (req, res) => {
@@ -629,6 +794,7 @@ app.post('/api/wheel/spin', requireTelegramAuth, (req, res) => {
     if (segment.type === 'balance') user.balance += segment.amount;
     if (segment.type === 'energy') user.energy = user.maxEnergy;
     user.wheelLastSpinDate = today;
+    user.wheelSpinsCount += 1;
 
     res.json({ success: true, index, segment, balance: user.balance, energy: user.energy });
 });
@@ -645,48 +811,51 @@ function buildHtml(botUsername) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Симулятор Ухилянта</title>
     <link rel="icon" type="image/png" href="/images/app-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --bg: #1a1a1d; --text: #fff; --accent: #c3073f; --btn: #4e4e50; --gold: #ffd700; }
-        body { margin: 0; padding: 10px; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; }
+        :root { --bg: #0a0a12; --panel-bg: #12121e; --text: #eaf6ff; --accent: #ff2ea6; --accent2: #00e5ff; --btn: #1b1b2b; --gold: #ffe066; }
+        body { margin: 0; padding: 10px; font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; }
 
-        header { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; }
-        .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; }
-        .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffd700cc; }
-        h2 { margin: 5px 0; color: var(--gold); font-size: 28px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-        .stats { display: flex; justify-content: space-between; font-size: 14px; color: #aaa; margin-top: 5px; }
+        header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(0,229,255,0.35); box-shadow: 0 0 18px rgba(0,229,255,0.15), inset 0 0 25px rgba(255,46,166,0.05); }
+        .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
+        .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
+        h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(0,229,255,0.5); }
+        .stats { display: flex; justify-content: space-between; font-size: 14px; color: #9fb4c7; margin-top: 5px; }
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
-        .clan-line { font-size: 11px; color: #8bc34a; margin-top: 4px; }
+        .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(0,229,255,0.5); }
 
-        .energy-bar { width: 100%; height: 12px; background: #333; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #555; }
-        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); transition: width 0.2s; }
+        .energy-bar { width: 100%; height: 12px; background: #1c1c2b; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #00e5ff, #39ff14); box-shadow: 0 0 10px rgba(0,229,255,0.8); transition: width 0.2s; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
-        .clickable { transition: transform 0.05s; cursor: pointer; }
+        .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
         .clickable:active { transform: scale(0.92); }
         .clickable img { height: 22vh; max-width: 80vw; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); pointer-events: none; user-select: none; border-radius: 12px; }
         .clickable .emoji-fallback { font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
-        .location-name { position: absolute; top: -10px; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; }
+        .location-name { position: absolute; top: -10px; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(0,229,255,0.6); }
 
         .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
         .tabs-container::-webkit-scrollbar { height: 4px; }
         .tabs-container::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-        .tab { display: inline-block; padding: 10px 15px; background: #333; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; margin-right: 5px; }
-        .tab.active { background: var(--accent); }
+        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(0,229,255,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #9fb4c7; }
+        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(255,46,166,0.6), 0 0 20px rgba(0,229,255,0.4); }
 
-        .panel { display: none; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; min-height: 38vh; max-height: 50vh; overflow-y: auto; border: 1px solid #333; }
+        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; max-height: 50vh; overflow-y: auto; border: 1px solid rgba(0,229,255,0.2); }
         .panel.active { display: block; }
 
-        button { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; background: var(--btn); color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.98); }
+        button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(0,229,255,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(0,229,255,0.5); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .premium-btn { background: linear-gradient(45deg, #2b5c8f, #4da6ff); border: 1px solid #fff; }
-        .gacha-btn { background: linear-gradient(45deg, #ff9800, #ff5722); font-size: 16px; padding: 15px; }
-        .gacha-btn-premium { background: linear-gradient(45deg, #9c27b0, #673ab7); }
+        .premium-btn { background: linear-gradient(45deg, #5b1fb3, #00c3ff); border: 1px solid #fff; }
+        .gacha-btn { background: linear-gradient(45deg, #ff9800, #ff5722); font-size: 16px; padding: 15px; box-shadow: 0 0 14px rgba(255,87,34,0.4); }
+        .gacha-btn-premium { background: linear-gradient(45deg, #9c27b0, #673ab7); box-shadow: 0 0 14px rgba(156,39,176,0.5); }
         .btn-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 8px; border-radius: 5px; object-fit: cover; }
         .btn-emoji { display: inline-block; width: 24px; text-align: center; margin-right: 8px; }
 
-        .click-text { position: absolute; color: var(--gold); font-weight: bold; font-size: 24px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 1px 1px 2px #000; z-index: 50; }
+        .click-text { position: absolute; color: var(--accent2); font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 22px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 0 0 6px var(--accent2), 0 0 14px var(--accent), 1px 1px 2px #000; z-index: 50; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1.5); opacity: 0; } }
 
         #raid-screen, #knock-screen { position: fixed; top:0; left:0; right:0; bottom:0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; background-size: cover; background-position: center; }
@@ -705,7 +874,7 @@ function buildHtml(botUsername) {
         .airdrop { position: fixed; font-size: 36px; z-index: 900; cursor: pointer; animation: flyAcross 3s linear forwards; }
         @keyframes flyAcross { 0% { transform: translateX(-20px) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(20px) translateY(-40px); opacity: 0; } }
 
-        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 2px solid var(--gold); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 50px rgba(255,215,0,0.5); display: none; max-width: 80vw; }
+        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14141f; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(0,229,255,0.5), 0 0 70px rgba(255,46,166,0.3); display: none; max-width: 80vw; }
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
 
@@ -737,9 +906,27 @@ function buildHtml(botUsername) {
         .ach-desc { font-size: 11px; color: #aaa; }
 
         .wheel-wrap { display: flex; flex-direction: column; align-items: center; margin: 15px 0; }
-        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--gold); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
-        .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--gold); margin-bottom: -4px; z-index: 2; }
+        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(0,229,255,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
+        .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--accent2); filter: drop-shadow(0 0 6px var(--accent2)); margin-bottom: -4px; z-index: 2; }
         #wheel-labels { position: absolute; inset: 0; pointer-events: none; }
+
+        .cosmetic-hat { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 42px; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 5; pointer-events: none; }
+        .cosmetic-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .cosmetic-card.equipped { border-color: var(--gold); }
+        .cosmetic-card .cosmetic-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .cosmetic-card .cosmetic-emoji { font-size: 22px; }
+        .cosmetic-card .cosmetic-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; }
+        .cosmetic-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; white-space: nowrap; }
+        .slot-heading { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin: 12px 0 6px; }
+
+        .quest-row { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+        .quest-row.done { border-color: var(--gold); }
+        .quest-name { font-weight: bold; font-size: 13px; }
+        .quest-desc { font-size: 11px; color: #aaa; margin: 4px 0 8px; }
+        .quest-progress-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+        .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
+        .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -764,11 +951,15 @@ function buildHtml(botUsername) {
         <div id="clicker" class="clickable">
             <img id="clicker-img" src="/images/location-1-couch.png" alt="Ухилянт">
             <div id="clicker-emoji" class="emoji-fallback hidden"></div>
+            <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
+            <div id="cosmetic-face" class="cosmetic-face hidden"></div>
         </div>
     </main>
 
     <div class="tabs-container">
         <div class="tab active" onclick="switchTab(event, 'shop')">🛒 Магазин</div>
+        <div class="tab" onclick="switchTab(event, 'wardrobe')">🎨 Гардероб</div>
+        <div class="tab" onclick="switchTab(event, 'quests')">📋 Квести</div>
         <div class="tab" onclick="switchTab(event, 'market')">📈 Біржа</div>
         <div class="tab" onclick="switchTab(event, 'clan')">🏘 Клани</div>
         <div class="tab" onclick="switchTab(event, 'gacha')">📦 Гуманітарка</div>
@@ -782,12 +973,31 @@ function buildHtml(botUsername) {
         <button onclick="buy('hat', ${ECONOMY.HAT_PRICE})"><img class="btn-icon" src="/images/shop-hat.png" alt="">Шапочка з фольги (+1/клік) | ${ECONOMY.HAT_PRICE} 🪙</button>
         <button onclick="buy('jam', ${ECONOMY.JAM_PRICE})"><img class="btn-icon" src="/images/shop-jam.png" alt="">Закрутка (+5/сек) | ${ECONOMY.JAM_PRICE} 🪙</button>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.png" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
+        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><span class="btn-emoji">☕</span>Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
+        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><span class="btn-emoji">⚡</span>Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Еволюція:</h3>
         <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.png" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
         <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.png" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
         <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.png" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
+        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><span class="btn-emoji">🛂</span>Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
+        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><span class="btn-emoji">🏛️</span>Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Компаньйони:</h3>
         <div id="pets-list"></div>
+    </div>
+
+    <div id="wardrobe" class="panel">
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
+        <div class="slot-heading">Головні убори</div>
+        <div id="wardrobe-hat"></div>
+        <div class="slot-heading">Маскування обличчя</div>
+        <div id="wardrobe-face"></div>
+        <div class="slot-heading">Рамки клікера</div>
+        <div id="wardrobe-frame"></div>
+    </div>
+
+    <div id="quests" class="panel">
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Щоденні квести. Прогрес і нагороди обнуляються опівночі.</p>
+        <div id="quests-list"></div>
     </div>
 
     <div id="market" class="panel">
@@ -804,6 +1014,9 @@ function buildHtml(botUsername) {
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Приєднатися</h3>
         <button onclick="loadClanList()">🔄 Оновити список чатів</button>
         <div id="clan-list"></div>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Топ чатів ОСББ (за спільним багатством)</h3>
+        <button onclick="loadClanLeaderboard()">🔄 Оновити рейтинг кланів</button>
+        <div id="clan-leaderboard"></div>
     </div>
 
     <div id="gacha" class="panel">
@@ -887,6 +1100,8 @@ function buildHtml(botUsername) {
         const MARKET_ASSETS = ${JSON.stringify(MARKET_ASSETS)};
         const WHEEL_SEGMENTS = ${JSON.stringify(WHEEL_SEGMENTS)};
         const ACHIEVEMENTS_META = ${JSON.stringify(ACHIEVEMENTS_META)};
+        const COSMETICS = ${JSON.stringify(COSMETICS)};
+        const QUESTS = ${JSON.stringify(QUESTS)};
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
 
@@ -896,8 +1111,10 @@ function buildHtml(botUsername) {
             level: 1, isVip: false, refCount: 0,
             totalClicks: 0, boxesOpened: 0, raidsSurvived: 0,
             achievements: [], ownedPets: [], petId: null,
+            ownedCosmetics: [], equippedCosmetics: { hat: null, face: null, frame: null },
             portfolio: {}, clanId: null, clanName: null, clanBonus: 1,
             dailyStreak: 0, wheelClaimedToday: false,
+            dailyClicks: 0, dailyTrades: 0, dailyBoxes: 0, dailyRaids: 0, claimedQuests: [],
         };
 
         const ui = {
@@ -950,6 +1167,8 @@ function buildHtml(botUsername) {
             }
             ui.streakNote.innerText = state.dailyStreak > 0 ? ('Серія: День ' + state.dailyStreak + '/7') : '';
             renderPets();
+            renderCosmetics();
+            applyCosmeticOverlay();
         }
 
         // ===== Ініціалізація: підтягуємо збережений стан із сервера =====
@@ -964,6 +1183,7 @@ function buildHtml(botUsername) {
                 state.isVip = data.isVip; state.refCount = data.refCount;
                 state.totalClicks = data.totalClicks; state.boxesOpened = data.boxesOpened; state.raidsSurvived = data.raidsSurvived;
                 state.achievements = data.achievements; state.ownedPets = data.ownedPets; state.petId = data.petId;
+                state.ownedCosmetics = data.ownedCosmetics || []; state.equippedCosmetics = data.equippedCosmetics || { hat: null, face: null, frame: null };
                 state.portfolio = data.portfolio || {}; state.clanId = data.clanId; state.clanName = data.clanName; state.clanBonus = data.clanBonus;
                 state.dailyStreak = data.dailyStreak; state.wheelClaimedToday = data.wheelClaimedToday;
                 if (data.lastPremiumReward) {
@@ -1055,7 +1275,9 @@ function buildHtml(botUsername) {
             document.getElementById(tabId).classList.add('active');
             if (tabId === 'top') { loadTop(); renderAchievements(); }
             if (tabId === 'market') loadMarket();
-            if (tabId === 'clan') { renderClanMine(); loadClanList(); }
+            if (tabId === 'clan') { renderClanMine(); loadClanList(); loadClanLeaderboard(); }
+            if (tabId === 'wardrobe') renderCosmetics();
+            if (tabId === 'quests') loadQuests();
         };
 
         // ===== Магазин =====
@@ -1065,9 +1287,13 @@ function buildHtml(botUsername) {
             if (item === 'hat') state.clickVal += ECONOMY.HAT_CLICK_BONUS;
             if (item === 'jam') state.passive += ECONOMY.JAM_PASSIVE_BONUS;
             if (item === 'energy_drink') state.energy = state.maxEnergy;
+            if (item === 'thermos') state.clickVal += ECONOMY.THERMOS_CLICK_BONUS;
+            if (item === 'generator') state.passive += ECONOMY.GENERATOR_PASSIVE_BONUS;
             if (item === 'basement' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
             if (item === 'balkan' && state.level < 3) { state.level = 3; state.maxEnergy = LOCATIONS[2].maxEnergy; state.energy = state.maxEnergy; }
             if (item === 'tisa' && state.level < 4) { state.level = 4; state.maxEnergy = LOCATIONS[3].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'abroad' && state.level < 5) { state.level = 5; state.maxEnergy = LOCATIONS[4].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'bunker' && state.level < 6) { state.level = 6; state.maxEnergy = LOCATIONS[5].maxEnergy; state.energy = state.maxEnergy; }
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
             saveState();
@@ -1086,7 +1312,7 @@ function buildHtml(botUsername) {
                         ? '<button onclick="equipPet(null)">Зняти</button>'
                         : '<button onclick="equipPet(\\'' + p.id + '\\')">Екіпірувати</button>';
                 return '<div class="pet-card' + (equipped ? ' equipped' : '') + '">' +
-                    '<div class="pet-title">' + p.emoji + ' ' + p.name + (equipped ? ' (активний)' : '') + '</div>' +
+                    '<div class="pet-title"><img class="btn-icon" src="' + p.img + '" alt="">' + p.name + (equipped ? ' (активний)' : '') + '</div>' +
                     '<div class="pet-desc">' + p.desc + '</div>' + btn + '</div>';
             }).join('');
         }
@@ -1106,6 +1332,99 @@ function buildHtml(botUsername) {
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
             state.petId = data.petId;
             updateUI();
+        };
+
+        // ===== Гардероб (косметика) =====
+        function applyCosmeticOverlay() {
+            const hatEl = document.getElementById('cosmetic-hat');
+            const faceEl = document.getElementById('cosmetic-face');
+            const hatItem = COSMETICS.find(c => c.id === state.equippedCosmetics.hat);
+            const faceItem = COSMETICS.find(c => c.id === state.equippedCosmetics.face);
+            const frameItem = COSMETICS.find(c => c.id === state.equippedCosmetics.frame);
+            hatEl.classList.toggle('hidden', !hatItem);
+            if (hatItem) hatEl.innerText = hatItem.emoji;
+            faceEl.classList.toggle('hidden', !faceItem);
+            if (faceItem) faceEl.innerText = faceItem.emoji;
+            const glowColor = frameItem ? frameItem.color : null;
+            const shadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : 'none';
+            ui.clkImg.style.boxShadow = shadow;
+            ui.clkEmoji.style.textShadow = glowColor ? ('0 0 20px ' + glowColor) : 'none';
+        }
+
+        function renderCosmetics() {
+            ['hat', 'face', 'frame'].forEach(slot => {
+                const container = document.getElementById('wardrobe-' + slot);
+                if (!container) return;
+                container.innerHTML = COSMETICS.filter(c => c.slot === slot).map(c => {
+                    const owned = state.ownedCosmetics.includes(c.id);
+                    const equipped = state.equippedCosmetics[slot] === c.id;
+                    const visual = c.color
+                        ? '<span class="cosmetic-swatch" style="background:' + c.color + ';"></span>'
+                        : '<span class="cosmetic-emoji">' + c.emoji + '</span>';
+                    const btn = !owned
+                        ? '<button onclick="buyCosmetic(\\'' + c.id + '\\')">Купити за ' + c.price + ' 🪙</button>'
+                        : equipped
+                            ? '<button onclick="equipCosmetic(\\'' + slot + '\\', null)">Зняти</button>'
+                            : '<button onclick="equipCosmetic(\\'' + slot + '\\', \\'' + c.id + '\\')">Одягти</button>';
+                    return '<div class="cosmetic-card' + (equipped ? ' equipped' : '') + '"><div class="cosmetic-label">' + visual + ' ' + c.name + '</div>' + btn + '</div>';
+                }).join('');
+            });
+        }
+
+        window.buyCosmetic = async (cosmeticId) => {
+            const res = await apiFetch('/api/cosmetic/buy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, cosmeticId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance; state.ownedCosmetics = data.ownedCosmetics;
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+        };
+
+        window.equipCosmetic = async (slot, cosmeticId) => {
+            const res = await apiFetch('/api/cosmetic/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, slot, cosmeticId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.equippedCosmetics = data.equippedCosmetics;
+            updateUI();
+        };
+
+        // ===== Щоденні квести =====
+        window.loadQuests = async () => {
+            const res = await apiFetch('/api/quests?id=' + user.id);
+            const data = await res.json();
+            state.dailyClicks = data.dailyClicks; state.dailyTrades = data.dailyTrades;
+            state.dailyBoxes = data.dailyBoxes; state.dailyRaids = data.dailyRaids;
+            state.claimedQuests = data.claimedQuests;
+            renderQuests();
+        };
+
+        function renderQuests() {
+            const list = document.getElementById('quests-list');
+            if (!list) return;
+            list.innerHTML = QUESTS.map(q => {
+                const progress = Math.min(state[q.metric] || 0, q.target);
+                const done = progress >= q.target;
+                const claimed = state.claimedQuests.includes(q.id);
+                const pct = Math.round((progress / q.target) * 100);
+                const btn = claimed
+                    ? '<button disabled>Отримано</button>'
+                    : done
+                        ? '<button onclick="claimQuest(\\'' + q.id + '\\')">Забрати +' + q.reward + ' 🪙</button>'
+                        : '<button disabled>' + progress + '/' + q.target + '</button>';
+                return '<div class="quest-row' + (claimed ? ' done' : '') + '">' +
+                    '<div class="quest-name">' + q.name + '</div><div class="quest-desc">' + q.desc + '</div>' +
+                    '<div class="quest-progress-bar"><div class="quest-progress-fill" style="width:' + pct + '%;"></div></div>' + btn + '</div>';
+            }).join('');
+        }
+
+        window.claimQuest = async (questId) => {
+            const res = await apiFetch('/api/quests/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, questId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance; state.claimedQuests = data.claimedQuests;
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+            renderQuests();
         };
 
         // ===== Тіньова біржа =====
@@ -1192,6 +1511,14 @@ function buildHtml(botUsername) {
             const res = await fetch('/api/clan/list');
             const data = await res.json();
             list.innerHTML = data.map(c => '<div class="clan-card"><span>🏘 ' + c.name + ' (' + c.members + ')</span><button onclick="joinClan(\\'' + c.id + '\\')">Приєднатись</button></div>').join('') || '<p style="font-size:12px;color:#aaa;">Поки немає жодного чату. Створи перший!</p>';
+        };
+
+        window.loadClanLeaderboard = async () => {
+            const list = document.getElementById('clan-leaderboard');
+            list.innerHTML = 'Завантаження...';
+            const res = await fetch('/api/clan/leaderboard');
+            const data = await res.json();
+            list.innerHTML = data.map((c, i) => '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + c.name + ' (' + c.members + ' уч.)</span><b style="color:var(--gold)">' + c.totalBalance + ' 🪙</b></div>').join('') || '<p style="font-size:12px;color:#aaa;">Поки немає рейтингу.</p>';
         };
 
         // ===== Досягнення =====
@@ -1553,5 +1880,5 @@ main().catch((err) => {
     process.exit(1);
 });
 
-process.once('SIGINT', () => { bot.stop('SIGINT'); process.exit(0); });
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); process.exit(0); });
+process.once('SIGINT', () => { saveData(); bot.stop('SIGINT'); process.exit(0); });
+process.once('SIGTERM', () => { saveData(); bot.stop('SIGTERM'); process.exit(0); });
