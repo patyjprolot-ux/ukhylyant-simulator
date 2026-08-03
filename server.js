@@ -257,6 +257,8 @@ const PROMO_CODES = {
     MAMYN_SYNOK: { type: 'vip' },
     TISA_SWIMMER: { type: 'balance', amount: 5000 },
     FREE_STARS: { type: 'balance', amount: 10000 }, // символічний бонус ТК; реальні Telegram Stars неможливо і не можна видати кодом
+    NEVYCHERPNO: { type: 'infinite_money' }, // читерський код для тестів/жарту — ставить баланс у практично нескінченне число
+    OBNULYUVACH: { type: 'reset' }, // повністю скидає прогрес гравця (в т.ч. знімає "нескінченний" баланс) до чистого старту
 };
 
 // ==========================================
@@ -295,49 +297,53 @@ function saveData() {
 loadData();
 setInterval(saveData, 20000);
 
+function createFreshUser(id, name) {
+    return {
+        id,
+        name: name || 'Ухилянт',
+        balance: 0,
+        clickVal: 1,
+        passive: 0,
+        level: 1,
+        energy: 100,
+        maxEnergy: 100,
+        isVip: false,
+        refCount: 0,
+        refBy: null,
+        dailyClaimedDate: null,
+        dailyStreak: 0,
+        lastPremiumReward: null,
+        lastSeenAt: Date.now(),
+        totalClicks: 0,
+        boxesOpened: 0,
+        raidsSurvived: 0,
+        achievements: [],
+        ownedPets: [],
+        petId: null,
+        clanId: null,
+        portfolio: {},
+        wheelLastSpinDate: null,
+        ownedCosmetics: [],
+        equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
+        ownedRoomItems: [],
+        equippedRoomItems: [],
+        revengeLastDate: null,
+        tradesCount: 0,
+        wheelSpinsCount: 0,
+        questsDate: null,
+        dailyClicks: 0,
+        dailyTrades: 0,
+        dailyBoxes: 0,
+        dailyRaids: 0,
+        claimedQuests: [],
+        createdAt: Date.now(),
+    };
+}
+
 function getUser(id, name) {
     id = String(id);
     if (!usersDB.has(id)) {
-        usersDB.set(id, {
-            id,
-            name: name || 'Ухилянт',
-            balance: 0,
-            clickVal: 1,
-            passive: 0,
-            level: 1,
-            energy: 100,
-            maxEnergy: 100,
-            isVip: false,
-            refCount: 0,
-            refBy: null,
-            dailyClaimedDate: null,
-            dailyStreak: 0,
-            lastPremiumReward: null,
-            lastSeenAt: Date.now(),
-            totalClicks: 0,
-            boxesOpened: 0,
-            raidsSurvived: 0,
-            achievements: [],
-            ownedPets: [],
-            petId: null,
-            clanId: null,
-            portfolio: {},
-            wheelLastSpinDate: null,
-            ownedCosmetics: [],
-            equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
-            ownedRoomItems: [],
-            equippedRoomItems: [],
-            revengeLastDate: null,
-            tradesCount: 0,
-            wheelSpinsCount: 0,
-            questsDate: null,
-            dailyClicks: 0,
-            dailyTrades: 0,
-            dailyBoxes: 0,
-            dailyRaids: 0,
-            claimedQuests: [],
-            createdAt: Date.now(),
-        });
+        usersDB.set(id, createFreshUser(id, name));
     }
     const user = usersDB.get(id);
     if (name) user.name = name;
@@ -718,6 +724,15 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
     if (promo.type === 'balance') {
         user.balance += promo.amount;
         return res.json({ success: true, message: `+${promo.amount} ТК!`, isVip: user.isVip, balance: user.balance });
+    }
+    if (promo.type === 'infinite_money') {
+        user.balance = Number.MAX_SAFE_INTEGER;
+        return res.json({ success: true, message: '💰 Бездонний гаманець активовано. Баланс тепер практично нескінченний.', isVip: user.isVip, balance: user.balance });
+    }
+    if (promo.type === 'reset') {
+        const fresh = createFreshUser(user.id, user.name);
+        usersDB.set(user.id, fresh);
+        return res.json({ success: true, reset: true, message: '🔄 Прогрес повністю обнулено. Починай спочатку.', isVip: false, balance: 0 });
     }
     res.json({ success: false, message: 'Невірний код' });
 });
@@ -2000,9 +2015,13 @@ function buildHtml(botUsername) {
                 let data = await res.json();
                 tg.showAlert(data.message);
                 if (data.success) {
-                    state.balance = data.balance; state.isVip = data.isVip;
                     document.getElementById('promo').value = '';
-                    updateUI();
+                    if (data.reset) {
+                        await init(); // повне обнулення — перетягуємо весь стан з сервера заново, а не патчимо шматками
+                    } else {
+                        state.balance = data.balance; state.isVip = data.isVip;
+                        updateUI();
+                    }
                 }
             } catch (e) { tg.showAlert('Помилка активації коду'); }
         };
