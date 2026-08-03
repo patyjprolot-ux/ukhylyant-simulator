@@ -139,7 +139,7 @@ const COSMETICS = [
     { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.png', price: 1700 },
     { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', img: '/images/cosmetic-face-pig.png', price: 1700 },
     // Аксесуар на шию
-    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', price: 700 },
+    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', img: '/images/cosmetic-neck-bowtie.png', price: 700 },
     { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', img: '/images/cosmetic-neck-scarf.png', price: 900 },
     { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', img: '/images/cosmetic-neck-tie.png', price: 1500 },
     { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', img: '/images/cosmetic-neck-medal.png', price: 3500 },
