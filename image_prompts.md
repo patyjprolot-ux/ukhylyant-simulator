@@ -406,3 +406,45 @@ Icon of a comedic military-style medal on a ribbon, exaggerated large size, isol
 **79. Дзвіночок (як у кота)** (заміна 🔔) — `Icon of a small bell on a collar strap, isolated game icon, [STYLE]`
 **80. Навушники на шиї** (заміна 🎧) — `Icon of over-ear headphones resting around the neck, isolated game icon, [STYLE]`
 **81. Кістка на шнурку** (заміна 🦴) — `Icon of a cartoon bone pendant on a leather cord, isolated game icon, [STYLE]`
+
+---
+
+## 13. V4.2 — екран "Кімната": іконка входу, декор, опційні кімнати анфас
+
+### Іконка входу в кімнату
+
+**82. Іконка "Повістка"** (заміна 📜, кругла кнопка в шапці, 512×512)
+```
+Icon of a folded official-looking paper notice with a red wax-style stamp corner, no real
+emblems or text, slightly comedic ominous vibe, isolated game icon, [STYLE]
+```
+
+### Речі для декору кімнати (7 шт., килимок вже є — files/qte-rug.png)
+
+**83. Лампа затишку** (заміна 💡) — `Icon of a warm glowing table lamp with a fabric shade, isolated game icon, [STYLE]`
+**84. Постер альпійських краєвидів** (заміна 🖼️) — `Icon of a small framed wall poster showing a generic mountain landscape, isolated game icon, [STYLE]`
+**85. Старий телевізор** (заміна 📺) — `Icon of an old boxy CRT television with antenna, isolated game icon, [STYLE]`
+**86. Вазон з фікусом** (заміна 🪴) — `Icon of a potted rubber plant in a simple ceramic pot, isolated game icon, [STYLE]`
+**87. Годинник із зозулею** (заміна 🕰️) — `Icon of a wooden cuckoo clock with a small bird poking out, isolated game icon, [STYLE]`
+**88. Радіоприймач** (заміна 📻) — `Icon of a retro portable radio with an antenna and dial, isolated game icon, [STYLE]`
+**89. Тривожна валізка** (заміна 🧳) — `Icon of a small packed travel suitcase, slightly worn, isolated game icon, [STYLE]`
+
+### (Опційно) Кімнати анфас для екрана "Кімната"
+
+Зараз екран "Кімната" перевикористовує ті ж 6 картинок локацій, що й головний клікер
+(персонаж у різних позах — виглядає, гребе на човні тощо). Для точнішого підгону
+капелюхів/масок/аксесуарів можна згенерувати ОКРЕМИЙ набір із персонажем, що стоїть
+анфас по центру, обличчям до камери — тоді оверлеї гардеробу лягатимуть рівно завжди.
+Промпти нижче — заміна тих самих 6 локацій, тільки в позі "на весь зріст, анфас":
+
+**90. Кімната 1: Бабусин Диван (анфас)** — `Cartoon young man standing full-body, facing camera directly, arms relaxed, in grandma's cluttered living room with a floral couch behind him, centered composition, plenty of empty space above his head for hats, [STYLE]`
+
+**91. Кімната 2: Вологий Підвал (анфас)** — `Cartoon young man standing full-body, facing camera directly, in a dim damp concrete basement with a hanging bare lightbulb, centered composition, empty space above head, [STYLE]`
+
+**92. Кімната 3: Балканська хатинка (анфас)** — `Cartoon young man standing full-body, facing camera directly, in front of a small rustic Balkan mountain hut with drying peppers on the wall, centered composition, empty space above head, [STYLE]`
+
+**93. Кімната 4: Човен на Тисі (анфас)** — `Cartoon young man standing full-body, facing camera directly, next to a small wooden boat on a foggy riverbank, centered composition, empty space above head, [STYLE]`
+
+**94. Кімната 5: Закордон (анфас)** — `Cartoon young man standing full-body, facing camera directly, near a border checkpoint barrier at dawn with a small suitcase by his feet, centered composition, empty space above head, [STYLE]`
+
+**95. Кімната 6: Президентський бункер (анфас)** — `Cartoon young man standing full-body, facing camera directly, confidently in a plush underground bunker room with a giant round security door behind him, centered composition, empty space above head, [STYLE]`

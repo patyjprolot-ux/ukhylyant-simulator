@@ -54,6 +54,9 @@ const ECONOMY = {
     TISA_PRICE: 20000,
     ABROAD_PRICE: 50000,
     BUNKER_PRICE: 150000,
+    REVENGE_UNLOCK_RAIDS: 3,
+    REVENGE_REWARD_MIN: 300,
+    REVENGE_REWARD_MAX: 800,
     GACHA_PRICE: 1000,
     VIP_PRICE_STARS: 500,
     GACHA_PREMIUM_STARS: 100,
@@ -178,6 +181,32 @@ const QUESTS = [
     { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 700, metric: 'dailyRaids' },
 ];
 
+// Речі для декору кімнати — можна володіти й показувати одразу кількома (на відміну від
+// гардеробу персонажа, де один предмет на слот). Кожна річ має фіксовану позицію в кімнаті.
+const ROOM_ITEMS = [
+    { id: 'lamp', name: 'Лампа затишку', emoji: '💡', price: 500, pos: 'top-left' },
+    { id: 'poster', name: 'Постер альпійських краєвидів', emoji: '🖼️', price: 400, pos: 'top-center' },
+    { id: 'tv', name: 'Старий телевізор', emoji: '📺', price: 1200, pos: 'top-right' },
+    { id: 'plant', name: 'Вазон з фікусом', emoji: '🪴', price: 600, pos: 'mid-left' },
+    { id: 'clock', name: 'Годинник із зозулею', emoji: '🕰️', price: 800, pos: 'mid-right' },
+    { id: 'radio', name: 'Радіоприймач', emoji: '📻', price: 700, pos: 'bottom-left' },
+    { id: 'rug', name: 'Килимок для конспірації', img: '/images/qte-rug.png', price: 900, pos: 'bottom-center' },
+    { id: 'suitcase', name: 'Тривожна валізка', emoji: '🧳', price: 1100, pos: 'bottom-right' },
+];
+
+// Дрібна ненасильницька помста інспектору — розблоковується після кількох виживаних
+// облав (ECONOMY.REVENGE_UNLOCK_RAIDS), 1 раз/день, суто флейвор-текст + маленька нагорода.
+const REVENGE_LINES = [
+    'Ти підмінив його ручку на ту, що не пише — підписання паперів зірвано на пів дня.',
+    'Ти переклеїв табличку на його кабінеті на "ВИХІД" — тепер до нього ніхто не потрапляє.',
+    'Ти анонімно надіслав йому коробку гуманітарки — а там самі діряві шкарпетки.',
+    'Ти поставив його будильник на 5 ранку — тепер він теж не виспався.',
+    'Ти пригостив його чаєм з дуже гострим перцем — засідання довелося перенести.',
+    'Ти розповів йому довгу історію про сусідку-пліткарку — він забув, навіщо приходив.',
+    'Ти сховав його улюблену печатку — папери почекають до понеділка.',
+    'Ти включив йому на телефоні будильник із гуком гусака на повну гучність.',
+];
+
 // Тіньова біржа — курси гуляють кожні 3 хв (див. tickMarket нижче).
 const MARKET_ASSETS = [
     { id: 'buckwheat', name: 'Гречка', emoji: '🌾', basePrice: 100 },
@@ -215,6 +244,7 @@ const ACHIEVEMENTS = [
     { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 4000, check: (u) => u.ownedCosmetics.length >= 5 },
     { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 12000, check: (u) => u.ownedCosmetics.length >= 15 },
     { id: 'cosmetics_30', name: 'Ходяча вітрина', desc: 'Придбай 30 предметів гардеробу', reward: 20000, check: (u) => u.ownedCosmetics.length >= 30 },
+    { id: 'room_all', name: 'Затишний барліг', desc: 'Обстав кімнату всіма речами', reward: 10000, check: (u) => u.ownedRoomItems.length >= ROOM_ITEMS.length },
     { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 8000, check: (u) => u.level >= 5 },
     { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 15000, check: (u) => u.level >= 6 },
     { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 1500, check: (u) => !!u.clanId },
@@ -295,6 +325,9 @@ function getUser(id, name) {
             wheelLastSpinDate: null,
             ownedCosmetics: [],
             equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
+            ownedRoomItems: [],
+            equippedRoomItems: [],
+            revengeLastDate: null,
             tradesCount: 0,
             wheelSpinsCount: 0,
             questsDate: null,
@@ -611,6 +644,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         petId: user.petId,
         ownedCosmetics: user.ownedCosmetics,
         equippedCosmetics: user.equippedCosmetics,
+        ownedRoomItems: user.ownedRoomItems,
+        equippedRoomItems: user.equippedRoomItems,
+        revengeUnlocked: user.raidsSurvived >= ECONOMY.REVENGE_UNLOCK_RAIDS,
+        revengeClaimedToday: user.revengeLastDate === today,
         portfolio: user.portfolio,
         clanId: clan.clanId,
         clanName: clan.clanName,
@@ -736,6 +773,46 @@ app.post('/api/cosmetic/equip', requireTelegramAuth, (req, res) => {
     }
     user.equippedCosmetics[slot] = cosmeticId || null;
     res.json({ success: true, equippedCosmetics: user.equippedCosmetics });
+});
+
+// ---- Декор кімнати ----
+app.post('/api/room/buy', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const item = ROOM_ITEMS.find((r) => r.id === req.body.itemId);
+    if (!item) return res.status(400).json({ error: 'Невідома річ' });
+    if (user.ownedRoomItems.includes(item.id)) return res.json({ success: false, message: 'Вже куплено' });
+    if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
+    user.balance -= item.price;
+    user.ownedRoomItems.push(item.id);
+    res.json({ success: true, balance: user.balance, ownedRoomItems: user.ownedRoomItems });
+});
+
+app.post('/api/room/toggle', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const { itemId } = req.body;
+    if (!ROOM_ITEMS.some((r) => r.id === itemId)) return res.status(400).json({ error: 'Невідома річ' });
+    if (!user.ownedRoomItems.includes(itemId)) return res.json({ success: false, message: 'Спочатку купи цю річ' });
+    const idx = user.equippedRoomItems.indexOf(itemId);
+    if (idx === -1) user.equippedRoomItems.push(itemId);
+    else user.equippedRoomItems.splice(idx, 1);
+    res.json({ success: true, equippedRoomItems: user.equippedRoomItems });
+});
+
+// ---- Помста інспектору (флейвор, розблок після кількох виживаних облав) ----
+app.post('/api/revenge', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (user.raidsSurvived < ECONOMY.REVENGE_UNLOCK_RAIDS) {
+        return res.json({ success: false, locked: true, message: `Спочатку переживи ${ECONOMY.REVENGE_UNLOCK_RAIDS} облави` });
+    }
+    const today = new Date().toDateString();
+    if (user.revengeLastDate === today) {
+        return res.json({ success: false, message: 'Сьогодні вже помстився. Приходь завтра.' });
+    }
+    const line = REVENGE_LINES[Math.floor(Math.random() * REVENGE_LINES.length)];
+    const reward = Math.floor(Math.random() * (ECONOMY.REVENGE_REWARD_MAX - ECONOMY.REVENGE_REWARD_MIN)) + ECONOMY.REVENGE_REWARD_MIN;
+    user.balance += reward;
+    user.revengeLastDate = today;
+    res.json({ success: true, line, reward, balance: user.balance });
 });
 
 // ---- Щоденні квести ----
@@ -1005,11 +1082,30 @@ function buildHtml(botUsername) {
         .quest-progress-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
         .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
+
+        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+
+        #room-screen { position: fixed; inset: 0; z-index: 1500; background: var(--bg); overflow-y: auto; padding: 15px; box-sizing: border-box; }
+        .room-close { position: absolute; top: 10px; right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
+        .room-scene { position: relative; height: 36vh; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .room-scene img#room-bg-img { height: 90%; max-width: 90%; object-fit: contain; border-radius: 0; filter: none; }
+        .room-scene .emoji-fallback { font-size: 110px; }
+        .room-item { position: absolute; font-size: 34px; z-index: 6; pointer-events: none; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); }
+        .room-item img { width: 44px; height: 44px; object-fit: contain; }
+        .pos-top-left { top: 6%; left: 6%; }
+        .pos-top-center { top: 6%; left: 50%; transform: translateX(-50%); }
+        .pos-top-right { top: 6%; right: 6%; }
+        .pos-mid-left { top: 42%; left: 3%; }
+        .pos-mid-right { top: 42%; right: 3%; }
+        .pos-bottom-left { bottom: 6%; left: 6%; }
+        .pos-bottom-center { bottom: 6%; left: 50%; transform: translateX(-50%); }
+        .pos-bottom-right { bottom: 6%; right: 6%; }
     </style>
 </head>
 <body>
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
+        <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.png" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div style="font-size: 14px; margin-bottom: 5px;">
@@ -1037,12 +1133,12 @@ function buildHtml(botUsername) {
 
     <div class="tabs-container">
         <div class="tab active" onclick="switchTab(event, 'shop')">🛒 Магазин</div>
-        <div class="tab" onclick="switchTab(event, 'wardrobe')">🎨 Гардероб</div>
         <div class="tab" onclick="switchTab(event, 'quests')">📋 Квести</div>
         <div class="tab" onclick="switchTab(event, 'market')">📈 Біржа</div>
         <div class="tab" onclick="switchTab(event, 'clan')">🏘 Клани</div>
         <div class="tab" onclick="switchTab(event, 'gacha')">📦 Гуманітарка</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
+        <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
         <div class="tab" onclick="switchTab(event, 'stars')">💎 Донат</div>
         <div class="tab" onclick="switchTab(event, 'top')">🏆 ТОП</div>
     </div>
@@ -1062,18 +1158,6 @@ function buildHtml(botUsername) {
         <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><span class="btn-emoji">🏛️</span>Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Компаньйони:</h3>
         <div id="pets-list"></div>
-    </div>
-
-    <div id="wardrobe" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
-        <div class="slot-heading">Головні убори</div>
-        <div id="wardrobe-hat"></div>
-        <div class="slot-heading">Маскування обличчя</div>
-        <div id="wardrobe-face"></div>
-        <div class="slot-heading">Аксесуар на шию</div>
-        <div id="wardrobe-neck"></div>
-        <div class="slot-heading">Рамки клікера</div>
-        <div id="wardrobe-frame"></div>
     </div>
 
     <div id="quests" class="panel">
@@ -1124,6 +1208,13 @@ function buildHtml(botUsername) {
         <button onclick="copyRef()">📋 Скопіювати посилання</button>
     </div>
 
+    <div id="revenge" class="panel">
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста інспектору за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
+        <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#aaa; text-align:center; padding:15px;"></div>
+        <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
+        <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(0,229,255,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
+    </div>
+
     <div id="stars" class="panel">
         <button class="premium-btn" onclick="buyRealVip()"><img class="btn-icon" src="/images/vip-badge.png" alt="">VIP-Схрон (${ECONOMY.VIP_PRICE_STARS} ⭐)</button>
         <p style="font-size:12px; color:#aaa; text-align:center;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
@@ -1162,6 +1253,38 @@ function buildHtml(botUsername) {
         <button class="knock-btn" id="knock-btn">🧎</button>
     </div>
 
+    <div id="room-screen" class="hidden">
+        <button class="room-close" onclick="closeRoom()">✕ Закрити</button>
+        <h2 style="text-align:center; margin: 5px 0 15px;">🏠 Моя кімната</h2>
+        <div class="room-scene">
+            <img id="room-bg-img" src="" alt="">
+            <div id="room-emoji-fallback" class="emoji-fallback hidden"></div>
+            <div id="room-cosmetic-hat" class="cosmetic-hat hidden"></div>
+            <div id="room-cosmetic-face" class="cosmetic-face hidden"></div>
+            <div id="room-cosmetic-neck" class="cosmetic-neck hidden"></div>
+            ${ROOM_ITEMS.map((it) => `<div id="room-item-${it.id}" class="room-item pos-${it.pos} hidden">${it.img ? `<img src="${it.img}" alt="">` : it.emoji}</div>`).join('')}
+        </div>
+        <div class="tabs-container">
+            <div class="tab active" onclick="switchRoomTab(event, 'room-wardrobe')">🎨 Гардероб</div>
+            <div class="tab" onclick="switchRoomTab(event, 'room-shop')">🛋 Речі кімнати</div>
+        </div>
+        <div id="room-wardrobe" class="panel active">
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
+            <div class="slot-heading">Головні убори</div>
+            <div id="wardrobe-hat"></div>
+            <div class="slot-heading">Маскування обличчя</div>
+            <div id="wardrobe-face"></div>
+            <div class="slot-heading">Аксесуар на шию</div>
+            <div id="wardrobe-neck"></div>
+            <div class="slot-heading">Рамки клікера</div>
+            <div id="wardrobe-frame"></div>
+        </div>
+        <div id="room-shop" class="panel">
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Прикрась кімнату — можна тримати декілька речей одночасно.</p>
+            <div id="room-items-list"></div>
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -1183,6 +1306,7 @@ function buildHtml(botUsername) {
         const ACHIEVEMENTS_META = ${JSON.stringify(ACHIEVEMENTS_META)};
         const COSMETICS = ${JSON.stringify(COSMETICS)};
         const QUESTS = ${JSON.stringify(QUESTS)};
+        const ROOM_ITEMS = ${JSON.stringify(ROOM_ITEMS)};
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
 
@@ -1193,9 +1317,11 @@ function buildHtml(botUsername) {
             totalClicks: 0, boxesOpened: 0, raidsSurvived: 0,
             achievements: [], ownedPets: [], petId: null,
             ownedCosmetics: [], equippedCosmetics: { hat: null, face: null, neck: null, frame: null },
+            ownedRoomItems: [], equippedRoomItems: [],
             portfolio: {}, clanId: null, clanName: null, clanBonus: 1,
             dailyStreak: 0, wheelClaimedToday: false,
             dailyClicks: 0, dailyTrades: 0, dailyBoxes: 0, dailyRaids: 0, claimedQuests: [],
+            revengeUnlocked: false, revengeClaimedToday: false,
         };
 
         const ui = {
@@ -1250,6 +1376,7 @@ function buildHtml(botUsername) {
             renderPets();
             renderCosmetics();
             applyCosmeticOverlay();
+            renderRoomItemsOverlay();
         }
 
         // ===== Ініціалізація: підтягуємо збережений стан із сервера =====
@@ -1265,6 +1392,8 @@ function buildHtml(botUsername) {
                 state.totalClicks = data.totalClicks; state.boxesOpened = data.boxesOpened; state.raidsSurvived = data.raidsSurvived;
                 state.achievements = data.achievements; state.ownedPets = data.ownedPets; state.petId = data.petId;
                 state.ownedCosmetics = data.ownedCosmetics || []; state.equippedCosmetics = data.equippedCosmetics || { hat: null, face: null, neck: null, frame: null };
+                state.ownedRoomItems = data.ownedRoomItems || []; state.equippedRoomItems = data.equippedRoomItems || [];
+                state.revengeUnlocked = data.revengeUnlocked; state.revengeClaimedToday = data.revengeClaimedToday;
                 state.portfolio = data.portfolio || {}; state.clanId = data.clanId; state.clanName = data.clanName; state.clanBonus = data.clanBonus;
                 state.dailyStreak = data.dailyStreak; state.wheelClaimedToday = data.wheelClaimedToday;
                 if (data.lastPremiumReward) {
@@ -1328,6 +1457,7 @@ function buildHtml(botUsername) {
 
             showFloat(x, y, '+' + Math.round(earned));
             tg.HapticFeedback.impactOccurred('light');
+            pulseFrame();
             updateUI();
         }
 
@@ -1357,8 +1487,8 @@ function buildHtml(botUsername) {
             if (tabId === 'top') { loadTop(); renderAchievements(); }
             if (tabId === 'market') loadMarket();
             if (tabId === 'clan') { renderClanMine(); loadClanList(); loadClanLeaderboard(); }
-            if (tabId === 'wardrobe') renderCosmetics();
             if (tabId === 'quests') loadQuests();
+            if (tabId === 'revenge') renderRevengeTab();
         };
 
         // ===== Магазин =====
@@ -1416,10 +1546,9 @@ function buildHtml(botUsername) {
         };
 
         // ===== Гардероб (косметика) =====
-        function applyCosmeticOverlay() {
-            const hatEl = document.getElementById('cosmetic-hat');
-            const faceEl = document.getElementById('cosmetic-face');
-            const neckEl = document.getElementById('cosmetic-neck');
+        // Рамка світиться статично, поки стоїш; анімація (веселка/сирена) вмикається лише
+        // на короткий момент кліку через pulseFrame() — щоб не "грала" постійно.
+        function renderCharacterOverlay(imgEl, emojiEl, hatEl, faceEl, neckEl) {
             const hatItem = COSMETICS.find(c => c.id === state.equippedCosmetics.hat);
             const faceItem = COSMETICS.find(c => c.id === state.equippedCosmetics.face);
             const neckItem = COSMETICS.find(c => c.id === state.equippedCosmetics.neck);
@@ -1431,16 +1560,108 @@ function buildHtml(botUsername) {
             neckEl.classList.toggle('hidden', !neckItem);
             if (neckItem) neckEl.innerText = neckItem.emoji;
 
-            const isRainbow = frameItem && frameItem.color === 'rainbow';
-            const isSiren = frameItem && frameItem.color === 'siren';
-            ui.clkImg.classList.toggle('frame-rainbow', isRainbow);
-            ui.clkEmoji.classList.toggle('frame-rainbow', isRainbow);
-            ui.clkImg.classList.toggle('frame-siren', isSiren);
-            ui.clkEmoji.classList.toggle('frame-siren', isSiren);
-            const glowColor = (frameItem && !isRainbow && !isSiren) ? frameItem.color : null;
-            ui.clkImg.style.boxShadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : ((isRainbow || isSiren) ? '' : 'none');
-            ui.clkEmoji.style.textShadow = glowColor ? ('0 0 20px ' + glowColor) : 'none';
+            // Класи анімації (frame-rainbow/frame-siren) сюди навмисно не чіпаємо —
+            // ними керує виключно pulseFrame(), бо updateUI() (а отже і ця функція)
+            // викликається кожні 100мс і миттєво гасила б щойно запущену анімацію.
+            let staticColor = null;
+            if (frameItem) staticColor = frameItem.color === 'rainbow' ? '#ffd700' : (frameItem.color === 'siren' ? '#ff1744' : frameItem.color);
+            imgEl.style.boxShadow = staticColor ? ('0 0 0 4px ' + staticColor + ', 0 0 25px 6px ' + staticColor + '88') : 'none';
+            emojiEl.style.textShadow = staticColor ? ('0 0 20px ' + staticColor) : 'none';
         }
+
+        function applyCosmeticOverlay() {
+            renderCharacterOverlay(ui.clkImg, ui.clkEmoji, document.getElementById('cosmetic-hat'), document.getElementById('cosmetic-face'), document.getElementById('cosmetic-neck'));
+            if (!document.getElementById('room-screen').classList.contains('hidden')) {
+                renderCharacterOverlay(document.getElementById('room-bg-img'), document.getElementById('room-emoji-fallback'), document.getElementById('room-cosmetic-hat'), document.getElementById('room-cosmetic-face'), document.getElementById('room-cosmetic-neck'));
+            }
+        }
+
+        function pulseFrame() {
+            const frameItem = COSMETICS.find(c => c.id === state.equippedCosmetics.frame);
+            if (!frameItem) return;
+            const cls = frameItem.color === 'rainbow' ? 'frame-rainbow' : (frameItem.color === 'siren' ? 'frame-siren' : null);
+            if (!cls) return;
+            const targets = [ui.clkImg, ui.clkEmoji];
+            if (!document.getElementById('room-screen').classList.contains('hidden')) {
+                targets.push(document.getElementById('room-bg-img'), document.getElementById('room-emoji-fallback'));
+            }
+            targets.forEach(el => el.classList.add(cls));
+            clearTimeout(window.__framePulseTimer);
+            window.__framePulseTimer = setTimeout(() => targets.forEach(el => el.classList.remove(cls)), 550);
+        }
+
+        // ===== Кімната (велика превʼю-локація + декор) =====
+        window.openRoom = () => {
+            const loc = LOCATIONS.find(l => l.level === state.level) || LOCATIONS[0];
+            const bgImg = document.getElementById('room-bg-img');
+            const emojiEl = document.getElementById('room-emoji-fallback');
+            if (loc.img) {
+                bgImg.classList.remove('hidden'); emojiEl.classList.add('hidden');
+                bgImg.src = loc.img;
+            } else {
+                bgImg.classList.add('hidden'); emojiEl.classList.remove('hidden');
+                emojiEl.innerText = loc.emoji || '❓';
+            }
+            document.getElementById('room-screen').classList.remove('hidden');
+            renderCosmetics();
+            renderRoomItems();
+            renderRoomItemsOverlay();
+            applyCosmeticOverlay();
+        };
+
+        window.closeRoom = () => {
+            document.getElementById('room-screen').classList.add('hidden');
+        };
+
+        window.switchRoomTab = (evt, tabId) => {
+            const container = document.getElementById('room-screen');
+            container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            container.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            evt.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'room-wardrobe') renderCosmetics();
+            if (tabId === 'room-shop') renderRoomItems();
+        };
+
+        function renderRoomItemsOverlay() {
+            ROOM_ITEMS.forEach(it => {
+                const el = document.getElementById('room-item-' + it.id);
+                if (el) el.classList.toggle('hidden', !state.equippedRoomItems.includes(it.id));
+            });
+        }
+
+        function renderRoomItems() {
+            const list = document.getElementById('room-items-list');
+            if (!list) return;
+            list.innerHTML = ROOM_ITEMS.map(it => {
+                const owned = state.ownedRoomItems.includes(it.id);
+                const active = state.equippedRoomItems.includes(it.id);
+                const visual = it.img ? '<img class="btn-icon" src="' + it.img + '" alt="">' : '<span class="cosmetic-emoji">' + it.emoji + '</span>';
+                const btn = !owned
+                    ? '<button onclick="buyRoomItem(\\'' + it.id + '\\')">Купити за ' + it.price + ' 🪙</button>'
+                    : '<button onclick="toggleRoomItem(\\'' + it.id + '\\')">' + (active ? 'Прибрати' : 'Поставити') + '</button>';
+                return '<div class="cosmetic-card' + (active ? ' equipped' : '') + '"><div class="cosmetic-label">' + visual + ' ' + it.name + '</div>' + btn + '</div>';
+            }).join('');
+        }
+
+        window.buyRoomItem = async (itemId) => {
+            const res = await apiFetch('/api/room/buy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, itemId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance; state.ownedRoomItems = data.ownedRoomItems;
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+            renderRoomItems();
+        };
+
+        window.toggleRoomItem = async (itemId) => {
+            const res = await apiFetch('/api/room/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, itemId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.equippedRoomItems = data.equippedRoomItems;
+            renderRoomItems();
+            renderRoomItemsOverlay();
+        };
 
         function renderCosmetics() {
             ['hat', 'face', 'neck', 'frame'].forEach(slot => {
@@ -1725,6 +1946,38 @@ function buildHtml(botUsername) {
                 tg.HapticFeedback.notificationOccurred('success');
                 updateUI();
             } catch (e) { tg.showAlert('Помилка отримання пайка'); }
+        };
+
+        // ===== Помста інспектору =====
+        function renderRevengeTab() {
+            const lockedNote = document.getElementById('revenge-locked-note');
+            const btn = document.getElementById('revenge-btn');
+            if (!state.revengeUnlocked) {
+                lockedNote.classList.remove('hidden');
+                lockedNote.innerText = '🔒 Розблокується після ' + ECONOMY.REVENGE_UNLOCK_RAIDS + ' виживаних облав. Твій прогрес: ' + state.raidsSurvived + '/' + ECONOMY.REVENGE_UNLOCK_RAIDS + '.';
+                btn.disabled = true;
+                btn.innerText = '🔒 Ще недоступно';
+            } else {
+                lockedNote.classList.add('hidden');
+                btn.disabled = state.revengeClaimedToday;
+                btn.innerText = state.revengeClaimedToday ? 'Сьогодні вже помстився' : '😈 Помститись';
+            }
+        }
+
+        window.takeRevenge = async () => {
+            const res = await apiFetch('/api/revenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id }) });
+            const data = await res.json();
+            if (!data.success) {
+                if (data.locked) { renderRevengeTab(); return; }
+                return tg.showAlert(data.message || 'Помилка');
+            }
+            state.balance = data.balance; state.revengeClaimedToday = true;
+            const resultEl = document.getElementById('revenge-result');
+            resultEl.classList.remove('hidden');
+            resultEl.innerText = '😈 ' + data.line + ' (+' + data.reward + ' 🪙)';
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+            renderRevengeTab();
         };
 
         // ===== Рефералка =====
