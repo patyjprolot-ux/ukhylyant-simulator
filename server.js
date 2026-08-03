@@ -108,6 +108,16 @@ const COSMETICS = [
     { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', price: 2500 },
     { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', price: 3000 },
     { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', price: 5000 },
+    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', price: 600 },
+    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', price: 1100 },
+    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', price: 1300 },
+    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', price: 1000 },
+    { id: 'sock_hat', slot: 'hat', name: 'Шкарпетка на голові', emoji: '🧦', price: 700 },
+    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', price: 2200 },
+    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', price: 500 },
+    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', price: 1400 },
+    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', price: 1600 },
+    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', price: 900 },
     // Маскування обличчя
     { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', price: 600 },
     { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', price: 500 },
@@ -115,19 +125,49 @@ const COSMETICS = [
     { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', price: 1000 },
     { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', price: 1800 },
     { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', price: 2200 },
+    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', price: 2000 },
+    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', price: 2000 },
+    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', price: 2600 },
+    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', price: 1900 },
+    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', price: 1100 },
+    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', price: 1700 },
+    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', price: 1700 },
+    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', price: 1700 },
+    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', price: 1700 },
+    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', price: 1700 },
     // Аксесуар на шию
     { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', price: 700 },
     { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', price: 900 },
     { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', price: 1500 },
     { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', price: 3500 },
-    // Рамки клікера (суцільне світіння) + одна анімована
+    { id: 'chain', slot: 'neck', name: 'Золотий ланцюг авторитета', emoji: '🔗', price: 2400 },
+    { id: 'beads', slot: 'neck', name: 'Чотки на удачу', emoji: '📿', price: 1300 },
+    { id: 'sportmedal', slot: 'neck', name: 'Спортивна медаль', emoji: '🏅', price: 2000 },
+    { id: 'goldmedal', slot: 'neck', name: 'Золота медаль чемпіона', emoji: '🥇', price: 3000 },
+    { id: 'nazar', slot: 'neck', name: 'Амулет від зурочення', emoji: '🧿', price: 1600 },
+    { id: 'gem', slot: 'neck', name: 'Діамантовий кулон', emoji: '💎', price: 4500 },
+    { id: 'volunteer_ribbon', slot: 'neck', name: 'Волонтерська стрічка', emoji: '🎗️', price: 800 },
+    { id: 'bell', slot: 'neck', name: 'Дзвіночок (як у кота)', emoji: '🔔', price: 600 },
+    { id: 'headphones', slot: 'neck', name: 'Навушники на шиї', emoji: '🎧', price: 1900 },
+    { id: 'bone', slot: 'neck', name: 'Кістка на шнурку', emoji: '🦴', price: 700 },
+    // Рамки клікера (суцільне світіння) + дві анімовані
     { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
     { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
     { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#00e5ff', price: 2000 },
     { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#ff2ea6', price: 1800 },
     { id: 'frame_toxic', slot: 'frame', name: 'Токсична рамка', color: '#39ff14', price: 2000 },
     { id: 'frame_royal', slot: 'frame', name: 'Королівська рамка', color: '#9c27b0', price: 2800 },
+    { id: 'frame_ice', slot: 'frame', name: 'Крижана рамка', color: '#7df9ff', price: 1700 },
+    { id: 'frame_blood', slot: 'frame', name: 'Кривава рамка', color: '#8b0000', price: 1600 },
+    { id: 'frame_lime', slot: 'frame', name: 'Лаймова рамка', color: '#ccff00', price: 1800 },
+    { id: 'frame_amber', slot: 'frame', name: 'Бурштинова рамка', color: '#ffbf00', price: 1900 },
+    { id: 'frame_violet', slot: 'frame', name: 'Фіолетова рамка', color: '#6a00ff', price: 2100 },
+    { id: 'frame_white', slot: 'frame', name: 'Біла рамка', color: '#f5f5f5', price: 1500 },
+    { id: 'frame_teal', slot: 'frame', name: "М'ятна рамка", color: '#00ffab', price: 1900 },
+    { id: 'frame_magenta', slot: 'frame', name: 'Магентова рамка', color: '#d500f9', price: 2200 },
+    { id: 'frame_steel', slot: 'frame', name: 'Сталева рамка', color: '#90a4ae', price: 1400 },
     { id: 'frame_rainbow', slot: 'frame', name: 'Веселкова рамка (анімована)', color: 'rainbow', price: 6000 },
+    { id: 'frame_siren', slot: 'frame', name: 'Сирена (анімована)', color: 'siren', price: 5500 },
 ];
 
 // Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
@@ -174,6 +214,7 @@ const ACHIEVEMENTS = [
     { id: 'pets_all', name: 'Зоопарк', desc: 'Здобудь усіх компаньйонів', reward: 6000, check: (u) => u.ownedPets.length >= PETS.length },
     { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 4000, check: (u) => u.ownedCosmetics.length >= 5 },
     { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 12000, check: (u) => u.ownedCosmetics.length >= 15 },
+    { id: 'cosmetics_30', name: 'Ходяча вітрина', desc: 'Придбай 30 предметів гардеробу', reward: 20000, check: (u) => u.ownedCosmetics.length >= 30 },
     { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 8000, check: (u) => u.level >= 5 },
     { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 15000, check: (u) => u.level >= 6 },
     { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 1500, check: (u) => !!u.clanId },
@@ -944,6 +985,11 @@ function buildHtml(botUsername) {
             100% { box-shadow: 0 0 0 4px #ff2ea6, 0 0 25px 6px #ff2ea688; }
         }
         .frame-rainbow { animation: rainbowGlow 4s linear infinite; }
+        @keyframes sirenGlow {
+            0%, 49% { box-shadow: 0 0 0 4px #ff1744, 0 0 30px 8px #ff174499; }
+            50%, 100% { box-shadow: 0 0 0 4px #2979ff, 0 0 30px 8px #2979ff99; }
+        }
+        .frame-siren { animation: sirenGlow 0.5s step-end infinite; }
         .cosmetic-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .cosmetic-card.equipped { border-color: var(--gold); }
         .cosmetic-card .cosmetic-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -1386,10 +1432,13 @@ function buildHtml(botUsername) {
             if (neckItem) neckEl.innerText = neckItem.emoji;
 
             const isRainbow = frameItem && frameItem.color === 'rainbow';
+            const isSiren = frameItem && frameItem.color === 'siren';
             ui.clkImg.classList.toggle('frame-rainbow', isRainbow);
             ui.clkEmoji.classList.toggle('frame-rainbow', isRainbow);
-            const glowColor = (frameItem && !isRainbow) ? frameItem.color : null;
-            ui.clkImg.style.boxShadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : (isRainbow ? '' : 'none');
+            ui.clkImg.classList.toggle('frame-siren', isSiren);
+            ui.clkEmoji.classList.toggle('frame-siren', isSiren);
+            const glowColor = (frameItem && !isRainbow && !isSiren) ? frameItem.color : null;
+            ui.clkImg.style.boxShadow = glowColor ? ('0 0 0 4px ' + glowColor + ', 0 0 25px 6px ' + glowColor + '88') : ((isRainbow || isSiren) ? '' : 'none');
             ui.clkEmoji.style.textShadow = glowColor ? ('0 0 20px ' + glowColor) : 'none';
         }
 
@@ -1400,8 +1449,11 @@ function buildHtml(botUsername) {
                 container.innerHTML = COSMETICS.filter(c => c.slot === slot).map(c => {
                     const owned = state.ownedCosmetics.includes(c.id);
                     const equipped = state.equippedCosmetics[slot] === c.id;
+                    let swatchBg = c.color;
+                    if (c.color === 'rainbow') swatchBg = 'conic-gradient(#ff2ea6, #ff9800, #ffe066, #39ff14, #00e5ff, #9c27b0, #ff2ea6)';
+                    if (c.color === 'siren') swatchBg = 'linear-gradient(90deg, #ff1744 50%, #2979ff 50%)';
                     const visual = c.color
-                        ? '<span class="cosmetic-swatch" style="background:' + (c.color === 'rainbow' ? 'conic-gradient(#ff2ea6, #ff9800, #ffe066, #39ff14, #00e5ff, #9c27b0, #ff2ea6)' : c.color) + ';"></span>'
+                        ? '<span class="cosmetic-swatch" style="background:' + swatchBg + ';"></span>'
                         : '<span class="cosmetic-emoji">' + c.emoji + '</span>';
                     const btn = !owned
                         ? '<button onclick="buyCosmetic(\\'' + c.id + '\\')">Купити за ' + c.price + ' 🪙</button>'

@@ -361,6 +361,48 @@ Icon of a comedic military-style medal on a ribbon, exaggerated large size, isol
 [STYLE]
 ```
 
-> Рамки клікера (червона/золота/неонова/рожева/токсична/королівська) — це чистий CSS glow
-> навколо персонажа без окремого зображення, генерувати нічого не треба. Веселкова рамка —
-> анімований CSS-градієнт, теж без картинки.
+> Рамки клікера (14 кольорових + веселкова + сирена) — це чистий CSS glow/анімація навколо
+> персонажа без окремого зображення, генерувати нічого не треба.
+
+---
+
+## 12. V4.1 — гардероб +10 до кожного слоту (поки на емодзі)
+
+### Головні убори (нові)
+
+**52. Каска з відра** (заміна 🪣) — `Icon of a metal bucket worn upside-down as a helmet, comedic dents, isolated game icon, [STYLE]`
+**53. Кущ-камуфляж** (заміна 🪴) — `Icon of a small leafy bush/ghillie-style foliage worn as headwear, isolated game icon, [STYLE]`
+**54. Гарбузовий шолом** (заміна 🎃) — `Icon of a carved pumpkin worn upside-down as a helmet, isolated game icon, [STYLE]`
+**55. Капелюх-гриб** (заміна 🍄) — `Icon of a large red-and-white spotted mushroom cap worn as a hat, isolated game icon, [STYLE]`
+**56. Шкарпетка на голові** (заміна 🧦) — `Icon of a striped sock worn stretched over the head like a cap, isolated game icon, [STYLE]`
+**57. Мішень (для адреналіну)** (заміна 🎯) — `Icon of a red-and-white target/bullseye worn as a headband, isolated game icon, [STYLE]`
+**58. Рулон замість шапки** (заміна 🧻) — `Icon of a toilet paper roll balanced on top of the head, isolated game icon, [STYLE]`
+**59. Капелюх-парасолька** (заміна ☂️) — `Icon of a tiny open umbrella worn as a hat, isolated game icon, [STYLE]`
+**60. Кокосовий шолом** (заміна 🥥) — `Icon of half a coconut shell worn as a helmet, isolated game icon, [STYLE]`
+**61. Крижаний компрес на голові** (заміна 🧊) — `Icon of an ice pack strapped to the forehead, isolated game icon, [STYLE]`
+
+### Маскування обличчя (нові)
+
+**62. Маска чорта** (заміна 👹) — `Icon of a red oni demon mask with horns, isolated game icon, [STYLE]`
+**63. Маска гобліна** (заміна 👺) — `Icon of a long-nosed tengu/goblin mask, isolated game icon, [STYLE]`
+**64. Маска смерті** (заміна 💀) — `Icon of a white skull half-mask, isolated game icon, [STYLE]`
+**65. Театральна маска** (заміна 🎭) — `Icon of a classic comedy/drama theatre mask, isolated game icon, [STYLE]`
+**66. Захисні окуляри** (заміна 🥽) — `Icon of protective safety goggles with an elastic strap, isolated game icon, [STYLE]`
+**67. Маска ведмедя** (заміна 🐻) — `Icon of a cartoon bear-face mask, isolated game icon, [STYLE]`
+**68. Маска вовка** (заміна 🐺) — `Icon of a cartoon wolf-face mask, isolated game icon, [STYLE]`
+**69. Маска лисиці** (заміна 🦊) — `Icon of a cartoon fox-face mask, isolated game icon, [STYLE]`
+**70. Маска кабана** (заміна 🐗) — `Icon of a cartoon wild-boar-face mask with small tusks, isolated game icon, [STYLE]`
+**71. Маска порося** (заміна 🐷) — `Icon of a cartoon pig-face mask, isolated game icon, [STYLE]`
+
+### Аксесуар на шию (нові)
+
+**72. Золотий ланцюг авторитета** (заміна 🔗) — `Icon of a thick gold chain necklace, isolated game icon, [STYLE]`
+**73. Чотки на удачу** (заміна 📿) — `Icon of a prayer-bead bracelet/necklace, isolated game icon, [STYLE]`
+**74. Спортивна медаль** (заміна 🏅) — `Icon of a sports medal on a striped ribbon, isolated game icon, [STYLE]`
+**75. Золота медаль чемпіона** (заміна 🥇) — `Icon of a gold first-place medal on a ribbon, isolated game icon, [STYLE]`
+**76. Амулет від зурочення** (заміна 🧿) — `Icon of a blue nazar evil-eye charm on a cord, isolated game icon, [STYLE]`
+**77. Діамантовий кулон** (заміна 💎) — `Icon of a sparkling diamond pendant on a chain, isolated game icon, [STYLE]`
+**78. Волонтерська стрічка** (заміна 🎗️) — `Icon of an awareness ribbon pin, isolated game icon, [STYLE]`
+**79. Дзвіночок (як у кота)** (заміна 🔔) — `Icon of a small bell on a collar strap, isolated game icon, [STYLE]`
+**80. Навушники на шиї** (заміна 🎧) — `Icon of over-ear headphones resting around the neck, isolated game icon, [STYLE]`
+**81. Кістка на шнурку** (заміна 🦴) — `Icon of a cartoon bone pendant on a leather cord, isolated game icon, [STYLE]`
