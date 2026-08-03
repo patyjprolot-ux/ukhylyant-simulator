@@ -89,8 +89,8 @@ const LOCATIONS = [
     { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.png', maxEnergy: 150 },
     { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.png', maxEnergy: 220 },
     { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.png', maxEnergy: 300 },
-    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', maxEnergy: 400 },
-    { level: 6, name: 'Президентський бункер', emoji: '🏛️', maxEnergy: 500 },
+    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.png', maxEnergy: 400 },
+    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.png', maxEnergy: 500 },
 ];
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
@@ -104,45 +104,45 @@ const PETS = [
 // по одному предмету на слот одночасно. Жодного впливу на економіку.
 const COSMETICS = [
     // Головні убори
-    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', price: 800 },
-    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', price: 1200 },
-    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', price: 900 },
-    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', price: 1800 },
-    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', price: 2500 },
-    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', price: 3000 },
-    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', price: 5000 },
-    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', price: 600 },
-    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', price: 1100 },
-    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', price: 1300 },
-    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', price: 1000 },
+    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', img: '/images/cosmetic-hat-cap.png', price: 800 },
+    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', img: '/images/cosmetic-hat-ushanka.png', price: 1200 },
+    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', img: '/images/cosmetic-hat-strawhat.png', price: 900 },
+    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', img: '/images/cosmetic-hat-helmet.png', price: 1800 },
+    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', img: '/images/cosmetic-hat-tophat.png', price: 2500 },
+    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', img: '/images/cosmetic-hat-gradcap.png', price: 3000 },
+    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', img: '/images/cosmetic-hat-crown.png', price: 5000 },
+    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', img: '/images/cosmetic-hat-bucket.png', price: 600 },
+    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', img: '/images/cosmetic-hat-bush.png', price: 1100 },
+    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', img: '/images/cosmetic-hat-pumpkin.png', price: 1300 },
+    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', img: '/images/cosmetic-hat-mushroom.png', price: 1000 },
     { id: 'sock_hat', slot: 'hat', name: 'Шкарпетка на голові', emoji: '🧦', price: 700 },
-    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', price: 2200 },
+    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', img: '/images/cosmetic-hat-target.png', price: 2200 },
     { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', price: 500 },
-    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', price: 1400 },
-    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', price: 1600 },
+    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', img: '/images/cosmetic-hat-umbrella.png', price: 1400 },
+    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', img: '/images/cosmetic-hat-coconut.png', price: 1600 },
     { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', price: 900 },
     // Маскування обличчя
-    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', price: 600 },
-    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', price: 500 },
-    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', price: 700 },
-    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', price: 1000 },
-    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', price: 1800 },
-    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', price: 2200 },
-    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', price: 2000 },
+    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', img: '/images/cosmetic-face-glasses.png', price: 600 },
+    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', img: '/images/cosmetic-face-clown.png', price: 500 },
+    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', img: '/images/cosmetic-face-mask.png', price: 700 },
+    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', img: '/images/cosmetic-face-sunglasses.png', price: 1000 },
+    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', img: '/images/cosmetic-face-disguise.png', price: 1800 },
+    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', img: '/images/cosmetic-face-ninja.png', price: 2200 },
+    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', img: '/images/cosmetic-face-oni.png', price: 2000 },
     { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', price: 2000 },
-    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', price: 2600 },
-    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', price: 1900 },
-    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', price: 1100 },
+    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', img: '/images/cosmetic-face-skull.png', price: 2600 },
+    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', img: '/images/cosmetic-face-theater.png', price: 1900 },
+    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', img: '/images/cosmetic-face-goggles.png', price: 1100 },
     { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', price: 1700 },
-    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', price: 1700 },
-    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', price: 1700 },
-    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', price: 1700 },
-    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', price: 1700 },
+    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', img: '/images/cosmetic-face-wolf.png', price: 1700 },
+    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', img: '/images/cosmetic-face-fox.png', price: 1700 },
+    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.png', price: 1700 },
+    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', img: '/images/cosmetic-face-pig.png', price: 1700 },
     // Аксесуар на шию
     { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', price: 700 },
-    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', price: 900 },
-    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', price: 1500 },
-    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', price: 3500 },
+    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', img: '/images/cosmetic-neck-scarf.png', price: 900 },
+    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', img: '/images/cosmetic-neck-tie.png', price: 1500 },
+    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', img: '/images/cosmetic-neck-medal.png', price: 3500 },
     { id: 'chain', slot: 'neck', name: 'Золотий ланцюг авторитета', emoji: '🔗', price: 2400 },
     { id: 'beads', slot: 'neck', name: 'Чотки на удачу', emoji: '📿', price: 1300 },
     { id: 'sportmedal', slot: 'neck', name: 'Спортивна медаль', emoji: '🏅', price: 2000 },
@@ -774,7 +774,8 @@ app.post('/api/cosmetic/buy', requireTelegramAuth, (req, res) => {
     if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
     user.balance -= item.price;
     user.ownedCosmetics.push(item.id);
-    res.json({ success: true, balance: user.balance, ownedCosmetics: user.ownedCosmetics });
+    user.equippedCosmetics[item.slot] = item.id; // купив — одразу вдягнув, без окремого кроку
+    res.json({ success: true, balance: user.balance, ownedCosmetics: user.ownedCosmetics, equippedCosmetics: user.equippedCosmetics });
 });
 
 app.post('/api/cosmetic/equip', requireTelegramAuth, (req, res) => {
@@ -1064,9 +1065,9 @@ function buildHtml(botUsername) {
         .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--accent2); filter: drop-shadow(0 0 6px var(--accent2)); margin-bottom: -4px; z-index: 2; }
         #wheel-labels { position: absolute; inset: 0; pointer-events: none; }
 
-        .cosmetic-hat { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 42px; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
-        .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 5; pointer-events: none; }
-        .cosmetic-neck { position: absolute; top: 62%; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        .cosmetic-hat { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; font-size: 42px; line-height: 52px; text-align: center; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; }
+        .cosmetic-neck { position: absolute; top: 62%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
         @keyframes rainbowGlow {
             0% { box-shadow: 0 0 0 4px #ff2ea6, 0 0 25px 6px #ff2ea688; }
             17% { box-shadow: 0 0 0 4px #ff9800, 0 0 25px 6px #ff980088; }
@@ -1163,14 +1164,14 @@ function buildHtml(botUsername) {
         <button onclick="buy('hat', ${ECONOMY.HAT_PRICE})"><img class="btn-icon" src="/images/shop-hat.png" alt="">Шапочка з фольги (+1/клік) | ${ECONOMY.HAT_PRICE} 🪙</button>
         <button onclick="buy('jam', ${ECONOMY.JAM_PRICE})"><img class="btn-icon" src="/images/shop-jam.png" alt="">Закрутка (+5/сек) | ${ECONOMY.JAM_PRICE} 🪙</button>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.png" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
-        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><span class="btn-emoji">☕</span>Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
-        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><span class="btn-emoji">⚡</span>Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
+        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><img class="btn-icon" src="/images/shop-thermos.png" alt="">Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
+        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><img class="btn-icon" src="/images/shop-generator.png" alt="">Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Еволюція:</h3>
         <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.png" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
         <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.png" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
         <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.png" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
-        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><span class="btn-emoji">🛂</span>Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
-        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><span class="btn-emoji">🏛️</span>Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
+        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><img class="btn-icon" src="/images/location-5-abroad.png" alt="">Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
+        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><img class="btn-icon" src="/images/location-6-bunker.png" alt="">Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Компаньйони:</h3>
         <div id="pets-list"></div>
     </div>
@@ -1388,6 +1389,12 @@ function buildHtml(botUsername) {
                 ui.clanLine.classList.add('hidden');
             }
             ui.streakNote.innerText = state.dailyStreak > 0 ? ('Серія: День ' + state.dailyStreak + '/7') : '';
+        }
+
+        // Гардероб/компаньйони/декор рендеряться лише коли їх дані реально змінюються
+        // (купівля/екіпірування/init), а не в кожному тіку updateUI() — інакше повний
+        // перебудова ~60+ карток гардеробу 10 разів/сек садила продуктивність на телефонах.
+        function renderOwnedStuff() {
             renderPets();
             renderCosmetics();
             applyCosmeticOverlay();
@@ -1420,6 +1427,7 @@ function buildHtml(botUsername) {
                 console.error('Не вдалося завантажити стан гравця', e);
             }
             updateUI();
+            renderOwnedStuff();
             renderAchievements();
             renderWheel();
             const splash = document.getElementById('splash-screen');
@@ -1550,6 +1558,7 @@ function buildHtml(botUsername) {
             state.balance = data.balance; state.ownedPets = data.ownedPets;
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
+            renderPets();
         };
 
         window.equipPet = async (petId) => {
@@ -1558,6 +1567,7 @@ function buildHtml(botUsername) {
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
             state.petId = data.petId;
             updateUI();
+            renderPets();
         };
 
         // ===== Гардероб (косметика) =====
@@ -1568,12 +1578,16 @@ function buildHtml(botUsername) {
             const faceItem = COSMETICS.find(c => c.id === state.equippedCosmetics.face);
             const neckItem = COSMETICS.find(c => c.id === state.equippedCosmetics.neck);
             const frameItem = COSMETICS.find(c => c.id === state.equippedCosmetics.frame);
+            const setOverlay = (el, item) => {
+                if (!item) return;
+                el.innerHTML = item.img ? '<img src="' + item.img + '" style="width:100%;height:100%;object-fit:contain;">' : item.emoji;
+            };
             hatEl.classList.toggle('hidden', !hatItem);
-            if (hatItem) hatEl.innerText = hatItem.emoji;
+            setOverlay(hatEl, hatItem);
             faceEl.classList.toggle('hidden', !faceItem);
-            if (faceItem) faceEl.innerText = faceItem.emoji;
+            setOverlay(faceEl, faceItem);
             neckEl.classList.toggle('hidden', !neckItem);
-            if (neckItem) neckEl.innerText = neckItem.emoji;
+            setOverlay(neckEl, neckItem);
 
             // Класи анімації (frame-rainbow/frame-siren) сюди навмисно не чіпаємо —
             // ними керує виключно pulseFrame(), бо updateUI() (а отже і ця функція)
@@ -1690,7 +1704,7 @@ function buildHtml(botUsername) {
                     if (c.color === 'siren') swatchBg = 'linear-gradient(90deg, #ff1744 50%, #2979ff 50%)';
                     const visual = c.color
                         ? '<span class="cosmetic-swatch" style="background:' + swatchBg + ';"></span>'
-                        : '<span class="cosmetic-emoji">' + c.emoji + '</span>';
+                        : (c.img ? '<img class="btn-icon" src="' + c.img + '" alt="">' : '<span class="cosmetic-emoji">' + c.emoji + '</span>');
                     const btn = !owned
                         ? '<button onclick="buyCosmetic(\\'' + c.id + '\\')">Купити за ' + c.price + ' 🪙</button>'
                         : equipped
@@ -1705,9 +1719,12 @@ function buildHtml(botUsername) {
             const res = await apiFetch('/api/cosmetic/buy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, cosmeticId }) });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
-            state.balance = data.balance; state.ownedCosmetics = data.ownedCosmetics;
+            // Купівля одразу вдягає річ — без окремого кроку "екіпірувати"
+            state.balance = data.balance; state.ownedCosmetics = data.ownedCosmetics; state.equippedCosmetics = data.equippedCosmetics;
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
+            renderCosmetics();
+            applyCosmeticOverlay();
         };
 
         window.equipCosmetic = async (slot, cosmeticId) => {
@@ -1715,7 +1732,8 @@ function buildHtml(botUsername) {
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
             state.equippedCosmetics = data.equippedCosmetics;
-            updateUI();
+            renderCosmetics();
+            applyCosmeticOverlay();
         };
 
         // ===== Щоденні квести =====
