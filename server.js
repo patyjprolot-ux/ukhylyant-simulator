@@ -296,6 +296,33 @@ const RECIPES = [
 ];
 const RECIPE_BY_ID = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
 
+// Вилазки — офлайн-механіка: відправив персонажа й чекаєш реальний час. Дає ресурси
+// без кліків, але з ризиком спалитись (тоді здобич втрачено). Довші вилазки — більше
+// здобичі й більший ризик. Одночасно може бути тільки одна.
+const EXPEDITIONS = [
+    {
+        id: 'dumpster', name: 'Рейд по смітниках', emoji: '🗑️', minutes: 30, minLevel: 1, risk: 0.10,
+        desc: 'Швидко й майже безпечно. Багато не назбираєш.',
+        loot: [{ res: 'paper', min: 4, max: 10 }, { res: 'cans', min: 3, max: 8 }, { res: 'tape', min: 1, max: 4 }],
+    },
+    {
+        id: 'market', name: 'Вилазка на ринок', emoji: '🏪', minutes: 120, minLevel: 2, risk: 0.18,
+        desc: 'Треба показатись людям. Ризик, що впізнають.',
+        loot: [{ res: 'cans', min: 8, max: 18 }, { res: 'battery', min: 5, max: 12 }, { res: 'meds', min: 2, max: 5 }],
+    },
+    {
+        id: 'warehouse', name: 'Нічний склад', emoji: '🏭', minutes: 480, minLevel: 3, risk: 0.25,
+        desc: 'Вісім годин у чужому складі. Здобич серйозна.',
+        loot: [{ res: 'meds', min: 6, max: 14 }, { res: 'fuel', min: 5, max: 12 }, { res: 'sim', min: 3, max: 8 }],
+    },
+    {
+        id: 'border', name: 'Прогулянка до кордону', emoji: '🌲', minutes: 720, minLevel: 5, risk: 0.35,
+        desc: 'Дванадцять годин лісом. Найризикованіше, але й найцінніше.',
+        loot: [{ res: 'cash', min: 2, max: 6 }, { res: 'stamp', min: 1, max: 3 }, { res: 'fuel', min: 8, max: 20 }],
+    },
+];
+const EXPEDITION_BY_ID = Object.fromEntries(EXPEDITIONS.map((e) => [e.id, e]));
+
 // 4 етапи еволюції схованки. `img` — квадратна картинка для головної кнопки-клікера
 // (персонаж по центру). `roomImg` — окрема широка картинка для екрана "Кімната"
 // (персонаж стоїть анфас у правій третині кадру, ліва частина — кімната з місцем
@@ -480,6 +507,10 @@ const ACHIEVEMENTS = [
     { id: 'craft_50', name: 'Підпільний завод', desc: 'Скрафти 50 предметів', reward: 30000, check: (u) => (u.craftedCount || 0) >= 50 },
     { id: 'white_ticket', name: 'НЕДОТОРКАНИЙ', desc: 'Скрафти справжній Білий Квиток', reward: 100000, check: (u) => !!u.permanentShield },
     { id: 'ticket_hoarder', name: 'Квитковий ділок', desc: 'Май 3 Білих Квитки в кладовці одночасно', reward: 20000, check: (u) => (u.resources && u.resources.ticket || 0) >= 3 },
+    // --- Вилазки ---
+    { id: 'exp_1', name: 'Перша вилазка', desc: 'Заверши 1 вилазку', reward: 400, check: (u) => (u.expeditionsDone || 0) >= 1 },
+    { id: 'exp_10', name: 'Досвідчений мародер', desc: 'Заверши 10 вилазок', reward: 4000, check: (u) => (u.expeditionsDone || 0) >= 10 },
+    { id: 'exp_50', name: 'Нічний промисел', desc: 'Заверши 50 вилазок', reward: 25000, check: (u) => (u.expeditionsDone || 0) >= 50 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -570,6 +601,8 @@ function createFreshUser(id, name) {
         shieldUntil: 0,             // timestamp: до якого моменту діє щит від облав
         permanentShield: false,     // Білий Квиток — постійний імунітет
         resourcesCollected: 0,      // lifetime-лічильник для досягнень
+        expedition: null,           // { id, startedAt, endsAt } — активна вилазка
+        expeditionsDone: 0,
         // Лічильник серверних змін балансу. Баланс лишається клієнт-авторитетним (клікер),
         // АЛЕ ящики/крафт/апгрейди міняють його на сервері. Без цього лічильника автозбереження
         // клієнта (раз на 5с) могло б надіслати застарілий баланс і затерти щойно куплений ящик
@@ -1046,6 +1079,8 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         shieldUntil: user.shieldUntil,
         permanentShield: user.permanentShield,
         resourcesCollected: user.resourcesCollected,
+        expedition: user.expedition,
+        expeditionsDone: user.expeditionsDone,
     };
     // ?consume=1 — забрати одноразову преміальну нагороду, щоб вона не показувалась повторно
     if (req.query.consume === '1') user.lastPremiumReward = null;
@@ -1095,7 +1130,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // новому контейнері). Викликається лише коли сервер бачить "свіжого" гравця (без
 // прогресу), а в CloudStorage лежить копія зі старим прогресом. Без анти-чіт перевірок —
 // жартівливий проєкт для друзів, довіряємо клієнту так само, як і в /api/save.
-const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected'];
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
@@ -1293,6 +1328,54 @@ app.post('/api/storage/sell', requireTelegramAuth, (req, res) => {
     const earned = qty * meta.sell;
     user.balance += earned;
     res.json({ success: true, earned, balance: user.balance, ...storageSnapshot(user) });
+});
+
+// ---- Вилазки (офлайн-таймер за ресурсами) ----
+app.post('/api/expedition/start', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const exp = EXPEDITION_BY_ID[req.body.expeditionId];
+    if (!exp) return res.status(400).json({ error: 'Невідома вилазка' });
+    if (user.expedition) return res.json({ success: false, message: 'Ти вже на вилазці' });
+    if (user.level < exp.minLevel) return res.json({ success: false, message: `Потрібен ${exp.minLevel} рівень схрону` });
+
+    const now = Date.now();
+    user.expedition = { id: exp.id, startedAt: now, endsAt: now + exp.minutes * 60 * 1000 };
+    res.json({ success: true, expedition: user.expedition });
+});
+
+app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    if (!user.expedition) return res.json({ success: false, message: 'Вилазки немає' });
+    if (Date.now() < user.expedition.endsAt) return res.json({ success: false, message: 'Вилазка ще триває' });
+
+    const exp = EXPEDITION_BY_ID[user.expedition.id];
+    user.expedition = null;
+    user.expeditionsDone = (user.expeditionsDone || 0) + 1;
+
+    // Щит від облав (Білий Квиток / липова довідка) прибирає ризик спалитись —
+    // це робить крафт щитів осмисленим і для вилазок теж.
+    const shielded = hasActiveShield(user);
+    if (!shielded && Math.random() < exp.risk) {
+        return res.json({
+            success: true, caught: true,
+            message: 'Тебе помітили — довелось тікати без здобичі.',
+            ...storageSnapshot(user), balance: user.balance,
+        });
+    }
+
+    const gained = [];
+    for (const entry of exp.loot) {
+        const meta = RESOURCE_BY_ID[entry.res];
+        const qty = Math.round(entry.min + Math.random() * (entry.max - entry.min));
+        const { added, lost } = addResource(user, entry.res, qty);
+        if (added > 0 || lost > 0) gained.push({ emoji: meta.emoji, name: meta.name, added, lost });
+    }
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, caught: false, gained, shielded,
+        unlockedAchievements: unlocked, ...storageSnapshot(user), balance: user.balance,
+    });
 });
 
 // ---- Ящики за ігрову валюту (за Stars — через /api/invoice) ----
@@ -1946,14 +2029,19 @@ function buildHtml(botUsername) {
         <div class="tabs-container">
             <div class="tab active" onclick="switchStorageTab(event, 'storage-res')">📦 Ресурси</div>
             <div class="tab" onclick="switchStorageTab(event, 'storage-craft')">🔨 Крафт</div>
+            <div class="tab" onclick="switchStorageTab(event, 'storage-exp')">🌙 Вилазки</div>
         </div>
         <div id="storage-res" class="panel active">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків. Здавай перекупу за ТК або тримай на крафт — крафт вигідніший.</p>
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавай перекупу за ТК або тримай на крафт — крафт вигідніший.</p>
             <div id="resources-list"></div>
         </div>
         <div id="storage-craft" class="panel">
             <p style="margin-top:0; color:#aaa; font-size:12px;">Крафт дає те, що за валюту не купиш: щити від облав, розширення бака, постійні множники.</p>
             <div id="recipes-list"></div>
+        </div>
+        <div id="storage-exp" class="panel">
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Відправ себе по ресурси й закрий гру — вилазка йде реальний час. Є ризик спалитись і втратити здобич; щит від облав цей ризик прибирає.</p>
+            <div id="expeditions-list"></div>
         </div>
     </div>
 
@@ -2119,6 +2207,7 @@ function buildHtml(botUsername) {
         const RESOURCE_BY_ID = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
         const CRATES = ${JSON.stringify(CRATES)};
         const RECIPES = ${JSON.stringify(RECIPES)};
+        const EXPEDITIONS = ${JSON.stringify(EXPEDITIONS)};
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
 
@@ -2209,6 +2298,7 @@ function buildHtml(botUsername) {
             renderCrates();
             renderStorage();
             renderRecipes();
+            renderExpeditions();
         }
 
         // ===== Резервна копія в Telegram CloudStorage =====
@@ -2233,6 +2323,7 @@ function buildHtml(botUsername) {
                 resources: state.resources, storageLevel: state.storageLevel,
                 upgrades: state.upgrades, craftedCount: state.craftedCount,
                 shieldUntil: state.shieldUntil, permanentShield: state.permanentShield,
+                expeditionsDone: state.expeditionsDone,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -2297,6 +2388,8 @@ function buildHtml(botUsername) {
                 state.craftedCount = data.craftedCount || 0;
                 state.shieldUntil = data.shieldUntil || 0;
                 state.permanentShield = !!data.permanentShield;
+                state.expedition = data.expedition || null;
+                state.expeditionsDone = data.expeditionsDone || 0;
 
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
@@ -2394,6 +2487,14 @@ function buildHtml(botUsername) {
         }, 100);
 
         setInterval(saveState, 5000);
+
+        // Зворотний відлік вилазки. Навмисно окремий інтервал раз на секунду і лише коли
+        // вкладка вилазок реально видима — у гарячому 100мс-циклі важкі рендери тримати не можна.
+        setInterval(() => {
+            if (!state.expedition) return;
+            const panel = document.getElementById('storage-exp');
+            if (panel && panel.classList.contains('active')) renderExpeditions();
+        }, 1000);
 
         // ===== Навігація =====
         window.switchTab = (evt, tabId) => {
@@ -2721,6 +2822,7 @@ function buildHtml(botUsername) {
             evt.currentTarget.classList.add('active');
             document.getElementById(tabId).classList.add('active');
             if (tabId === 'storage-craft') renderRecipes();
+            else if (tabId === 'storage-exp') renderExpeditions();
             else renderStorage();
         };
 
@@ -2793,6 +2895,96 @@ function buildHtml(botUsername) {
                 '</div>';
             }).join('');
         }
+
+        // ===== Вилазки =====
+        function fmtLeft(ms) {
+            const s = Math.max(0, Math.ceil(ms / 1000));
+            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+            if (h > 0) return h + ' год ' + m + ' хв';
+            if (m > 0) return m + ' хв ' + sec + ' с';
+            return sec + ' с';
+        }
+
+        function renderExpeditions() {
+            const list = document.getElementById('expeditions-list');
+            if (!list) return;
+            const active = state.expedition;
+
+            if (active) {
+                const exp = EXPEDITIONS.find(e => e.id === active.id);
+                const left = active.endsAt - Date.now();
+                const total = exp.minutes * 60 * 1000;
+                const pct = Math.min(100, 100 * (1 - left / total));
+                const done = left <= 0;
+                list.innerHTML =
+                    '<div class="recipe-card ready">' +
+                        '<div class="recipe-title">' + exp.emoji + ' ' + exp.name + '</div>' +
+                        '<div class="recipe-desc">' + (done ? 'Вилазка завершена — забирай здобич!' : 'Залишилось: ' + fmtLeft(left)) + '</div>' +
+                        '<div class="storage-bar" style="margin-bottom:9px;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
+                        '<button onclick="claimExpedition()"' + (done ? '' : ' disabled') + '>' +
+                        (done ? '🎒 Забрати здобич' : 'Ще в дорозі...') + '</button>' +
+                    '</div>';
+                return;
+            }
+
+            list.innerHTML = EXPEDITIONS.map(e => {
+                const locked = state.level < e.minLevel;
+                const lootStr = e.loot.map(l => RESOURCE_BY_ID[l.res].emoji + ' ' + l.min + '–' + l.max).join('  ');
+                const riskPct = Math.round(e.risk * 100);
+                const riskLabel = hasShield()
+                    ? '<span style="color:#b9ffb0">ризик 0% (щит)</span>'
+                    : 'ризик ' + riskPct + '%';
+                return '<div class="recipe-card">' +
+                    '<div class="recipe-title">' + e.emoji + ' ' + e.name + '</div>' +
+                    '<div class="recipe-desc">' + e.desc + '<br>⏱ ' + (e.minutes >= 60 ? (e.minutes / 60) + ' год' : e.minutes + ' хв') + ' · ' + riskLabel + '</div>' +
+                    '<div class="recipe-cost"><span class="recipe-ing ok">' + lootStr + '</span></div>' +
+                    '<button onclick="startExpedition(\\'' + e.id + '\\')"' + (locked ? ' disabled' : '') + '>' +
+                    (locked ? '🔒 Потрібен ' + e.minLevel + ' рівень схрону' : '🌙 Вирушити') + '</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.startExpedition = async (expeditionId) => {
+            const res = await apiFetch('/api/expedition/start', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, expeditionId })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.expedition = data.expedition;
+            tg.HapticFeedback.notificationOccurred('success');
+            renderExpeditions();
+        };
+
+        window.claimExpedition = async () => {
+            const res = await apiFetch('/api/expedition/claim', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.expedition = null;
+            state.resources = data.resources;
+            state.storageUsed = data.used;
+            if (data.caught) {
+                tg.HapticFeedback.notificationOccurred('error');
+                tg.showAlert('🚨 ' + data.message);
+            } else {
+                const lines = (data.gained || []).map(g =>
+                    g.emoji + ' ' + g.name + ': +' + g.added + (g.lost > 0 ? ' (' + g.lost + ' згоріло — кладовка повна)' : '')
+                ).join('\\n');
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert('🎒 Вилазка вдалась!\\n' + lines);
+            }
+            if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                renderAchievements();
+            }
+            updateUI();
+            renderExpeditions();
+            renderStorage();
+            renderRecipes();
+        };
 
         window.upgradeStorage = async () => {
             const res = await apiFetch('/api/storage/upgrade', {
