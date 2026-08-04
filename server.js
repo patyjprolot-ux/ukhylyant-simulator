@@ -231,13 +231,13 @@ const CRATES = [
     {
         id: 'wardrobe', name: 'Модна валіза', emoji: '👗', img: '/images/gacha-box-elite.webp',
         price: 150, currency: 'stars',
-        desc: 'ГАРАНТОВАНО рідкісна річ у гардероб + бонус зверху. Для колекціонерів.',
+        desc: 'ГАРАНТОВАНО рідкісна річ у гардероб + 30 000 ТК зверху. Для колекціонерів.',
+        // Таблиця навмисно з одного рядка: цей ящик не крутиться, він завжди видає
+        // косметику (див. guaranteedCosmetic у rollCrate). Показані шанси мають
+        // збігатися з тим, що реально відбувається.
         guaranteedCosmetic: true,
         loot: [
-            { type: 'cosmetic', weight: 60 },
-            { type: 'res', res: 'cash', min: 5, max: 12, weight: 15 },
-            { type: 'coins', min: 60000, max: 140000, weight: 15 },
-            { type: 'res', res: 'stamp', min: 3, max: 7, weight: 10 },
+            { type: 'cosmetic', weight: 100 },
         ],
     },
     {
@@ -886,10 +886,20 @@ function prestigeMultiplier(user) {
 // Розкриває один ящик: обирає дроп за вагами і одразу застосовує ефект до гравця.
 // Повертає опис результату для анімації на клієнті.
 function rollCrate(user, crate) {
-    const entry = crate.loot[pickWeighted(crate.loot)];
     user.cratesOpened[crate.id] = (user.cratesOpened[crate.id] || 0) + 1;
     user.boxesOpened = (user.boxesOpened || 0) + 1;
     user.dailyBoxes = (user.dailyBoxes || 0) + 1;
+
+    // Ящики з guaranteedCosmetic обіцяють у описі ГАРАНТОВАНУ річ у гардероб —
+    // тому тут не крутимо таблицю, а видаємо косметику напряму плюс бонус монетами.
+    // Інакше опис брехав би (у таблиці косметика має лише частину ваги), а це
+    // платний ящик за Stars.
+    let entry;
+    if (crate.guaranteedCosmetic) {
+        entry = { type: 'cosmetic', guaranteedBonus: 30000 };
+    } else {
+        entry = crate.loot[pickWeighted(crate.loot)];
+    }
 
     if (entry.type === 'nothing') {
         return { kind: 'nothing', title: 'Пусто...', emoji: '🧦', img: '/images/gacha-scam-socks.webp', desc: 'Тільки діряві шкарпетки. Буває.' };
@@ -906,12 +916,22 @@ function rollCrate(user, crate) {
     if (entry.type === 'cosmetic') {
         const notOwned = COSMETICS.filter((c) => !user.ownedCosmetics.includes(c.id));
         if (notOwned.length === 0) {
-            user.balance += 20000;
-            return { kind: 'coins', title: 'Гардероб повний', emoji: '🪙', amount: 20000, desc: 'Все вже є — тобі компенсували 20 000 ТК' };
+            // Збирати вже нічого — компенсуємо монетами, інакше платний ящик дав би пустоту.
+            const compensation = entry.guaranteedBonus ? 60000 : 20000;
+            user.balance += compensation;
+            return {
+                kind: 'coins', title: 'Гардероб повний', emoji: '🪙', img: '/images/gacha-jackpot.webp',
+                amount: compensation, desc: `Все вже є — тобі компенсували ${compensation.toLocaleString('uk-UA')} ТК`,
+            };
         }
         const pick = notOwned[Math.floor(Math.random() * notOwned.length)];
         user.ownedCosmetics.push(pick.id);
-        return { kind: 'cosmetic', title: 'Рідкісна річ!', emoji: pick.emoji || '👕', img: pick.img, desc: pick.name, cosmeticId: pick.id };
+        let desc = pick.name;
+        if (entry.guaranteedBonus) {
+            user.balance += entry.guaranteedBonus;
+            desc += ` + ${entry.guaranteedBonus.toLocaleString('uk-UA')} ТК зверху`;
+        }
+        return { kind: 'cosmetic', title: 'Рідкісна річ!', emoji: pick.emoji || '👕', img: pick.img, desc, cosmeticId: pick.id };
     }
     // entry.type === 'res'
     const meta = RESOURCE_BY_ID[entry.res];
