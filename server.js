@@ -75,6 +75,14 @@ const ECONOMY = {
     STORAGE_UPGRADE_GROWTH: 1.6,
     STORAGE_MAX_LEVEL: 20,
 
+    // --- Престиж ("Легалізація") ---
+    // Скидає прогрес заради постійного множника доходу. Дає грі нескінченну глибину:
+    // без цього після бункера робити нічого. Очки рахуються від сумарно заробленого
+    // за все життя (корінь — щоб кожне наступне очко давалось відчутно важче).
+    PRESTIGE_UNLOCK_LEVEL: 6,
+    PRESTIGE_EARN_PER_POINT: 500000,
+    PRESTIGE_BONUS_PER_POINT: 0.10,
+
     REVENGE_UNLOCK_RAIDS: 3,
     REVENGE_REWARD_MIN: 80,
     REVENGE_REWARD_MAX: 220,
@@ -511,6 +519,10 @@ const ACHIEVEMENTS = [
     { id: 'exp_1', name: 'Перша вилазка', desc: 'Заверши 1 вилазку', reward: 400, check: (u) => (u.expeditionsDone || 0) >= 1 },
     { id: 'exp_10', name: 'Досвідчений мародер', desc: 'Заверши 10 вилазок', reward: 4000, check: (u) => (u.expeditionsDone || 0) >= 10 },
     { id: 'exp_50', name: 'Нічний промисел', desc: 'Заверши 50 вилазок', reward: 25000, check: (u) => (u.expeditionsDone || 0) >= 50 },
+    // --- Престиж ---
+    { id: 'prestige_1', name: 'Легалізований', desc: 'Легалізуйся вперше', reward: 10000, check: (u) => (u.prestigeCount || 0) >= 1 },
+    { id: 'prestige_5', name: 'Рецидивіст', desc: 'Легалізуйся 5 разів', reward: 60000, check: (u) => (u.prestigeCount || 0) >= 5 },
+    { id: 'prestige_pts_25', name: 'Стос довідок', desc: 'Накопич 25 довідок престижу', reward: 150000, check: (u) => (u.prestigePoints || 0) >= 25 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -603,6 +615,9 @@ function createFreshUser(id, name) {
         resourcesCollected: 0,      // lifetime-лічильник для досягнень
         expedition: null,           // { id, startedAt, endsAt } — активна вилазка
         expeditionsDone: 0,
+        totalEarned: 0,             // сумарно зароблено за все життя (для престижу)
+        prestigePoints: 0,          // накопичені "довідки" — постійний множник доходу
+        prestigeCount: 0,
         // Лічильник серверних змін балансу. Баланс лишається клієнт-авторитетним (клікер),
         // АЛЕ ящики/крафт/апгрейди міняють його на сервері. Без цього лічильника автозбереження
         // клієнта (раз на 5с) могло б надіслати застарілий баланс і затерти щойно куплений ящик
@@ -631,7 +646,15 @@ function installBalanceTracking(user) {
     let value = typeof user.balance === 'number' ? user.balance : 0;
     Object.defineProperty(user, 'balance', {
         get() { return value; },
-        set(v) { value = v; this.balanceRev = (this.balanceRev || 0) + 1; },
+        set(v) {
+            // Попутно рахуємо сумарно зароблене за все життя — з цього рахуються очки
+            // престижу. Робимо тут, щоб не забути жодне місце, де баланс росте.
+            if (typeof v === 'number' && v > value) {
+                this.totalEarned = (this.totalEarned || 0) + (v - value);
+            }
+            value = v;
+            this.balanceRev = (this.balanceRev || 0) + 1;
+        },
         enumerable: true,
         configurable: true,
     });
@@ -766,6 +789,19 @@ function upgradeCost(user, key) {
 
 function hasActiveShield(user) {
     return !!user.permanentShield || (user.shieldUntil || 0) > Date.now();
+}
+
+// ===== Престиж ("Легалізація") =====
+// Скільки очок гравець отримав би, якби легалізувався просто зараз. Корінь означає,
+// що кожне наступне очко коштує дедалі більше заробленого — класична idle-крива.
+function prestigePointsAvailable(user) {
+    const earned = user.totalEarned || 0;
+    const total = Math.floor(Math.sqrt(earned / ECONOMY.PRESTIGE_EARN_PER_POINT));
+    return Math.max(0, total - (user.prestigePoints || 0));
+}
+
+function prestigeMultiplier(user) {
+    return 1 + (user.prestigePoints || 0) * ECONOMY.PRESTIGE_BONUS_PER_POINT;
 }
 
 // Розкриває один ящик: обирає дроп за вагами і одразу застосовує ефект до гравця.
@@ -1081,6 +1117,11 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         resourcesCollected: user.resourcesCollected,
         expedition: user.expedition,
         expeditionsDone: user.expeditionsDone,
+        totalEarned: user.totalEarned,
+        prestigePoints: user.prestigePoints,
+        prestigeCount: user.prestigeCount,
+        prestigeMultiplier: prestigeMultiplier(user),
+        prestigeAvailable: prestigePointsAvailable(user),
     };
     // ?consume=1 — забрати одноразову преміальну нагороду, щоб вона не показувалась повторно
     if (req.query.consume === '1') user.lastPremiumReward = null;
@@ -1130,7 +1171,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // новому контейнері). Викликається лише коли сервер бачить "свіжого" гравця (без
 // прогресу), а в CloudStorage лежить копія зі старим прогресом. Без анти-чіт перевірок —
 // жартівливий проєкт для друзів, довіряємо клієнту так само, як і в /api/save.
-const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone'];
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
@@ -1139,6 +1180,12 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
 
     for (const f of RESTORE_NUMBER_FIELDS) {
         if (typeof backup[f] === 'number' && isFinite(backup[f])) user[f] = backup[f];
+    }
+    // ВАЖЛИВО саме після циклу: присвоєння user.balance вище пройшло через акцесор,
+    // який накрутив totalEarned на суму відновленого балансу. Перезаписуємо правильним
+    // значенням з бекапу, інакше очки престижу роздувались би після кожного відновлення.
+    if (typeof backup.totalEarned === 'number' && isFinite(backup.totalEarned)) {
+        user.totalEarned = backup.totalEarned;
     }
     for (const f of RESTORE_ARRAY_FIELDS) {
         if (Array.isArray(backup[f])) user[f] = backup[f];
@@ -1198,7 +1245,11 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
         return res.json({ success: true, message: `+${promo.amount} ТК!`, isVip: user.isVip, balance: user.balance });
     }
     if (promo.type === 'infinite_money') {
+        // Читерський баланс не має рахуватись як "зароблене" — інакше він разово
+        // видав би сотні тисяч очок престижу і назавжди зламав би прогрес акаунта.
+        const earnedBefore = user.totalEarned || 0;
         user.balance = Number.MAX_SAFE_INTEGER;
+        user.totalEarned = earnedBefore;
         return res.json({ success: true, message: '💰 Бездонний гаманець активовано. Баланс тепер практично нескінченний.', isVip: user.isVip, balance: user.balance });
     }
     if (promo.type === 'reset') {
@@ -1328,6 +1379,59 @@ app.post('/api/storage/sell', requireTelegramAuth, (req, res) => {
     const earned = qty * meta.sell;
     user.balance += earned;
     res.json({ success: true, earned, balance: user.balance, ...storageSnapshot(user) });
+});
+
+// ---- Престиж: "Легалізація" ----
+// Скидає економічний прогрес заради постійного множника доходу. Косметика, досягнення,
+// кладовка й компаньйони НЕ скидаються — інакше легалізуватись було б надто боляче.
+app.get('/api/prestige', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json({
+        success: true,
+        points: user.prestigePoints || 0,
+        available: prestigePointsAvailable(user),
+        multiplier: prestigeMultiplier(user),
+        totalEarned: user.totalEarned || 0,
+        prestigeCount: user.prestigeCount || 0,
+        unlockLevel: ECONOMY.PRESTIGE_UNLOCK_LEVEL,
+        unlocked: user.level >= ECONOMY.PRESTIGE_UNLOCK_LEVEL,
+        bonusPerPoint: ECONOMY.PRESTIGE_BONUS_PER_POINT,
+    });
+});
+
+app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (user.level < ECONOMY.PRESTIGE_UNLOCK_LEVEL) {
+        return res.json({ success: false, message: `Легалізація доступна з ${ECONOMY.PRESTIGE_UNLOCK_LEVEL} рівня схрону` });
+    }
+    const gain = prestigePointsAvailable(user);
+    if (gain < 1) {
+        return res.json({ success: false, message: 'Ще замало зароблено для легалізації' });
+    }
+
+    user.prestigePoints = (user.prestigePoints || 0) + gain;
+    user.prestigeCount = (user.prestigeCount || 0) + 1;
+
+    // Скидаємо саме економіку. Все колекційне лишається.
+    user.balance = 0;
+    user.clickVal = 1;
+    user.passive = 0;
+    user.level = 1;
+    user.maxEnergy = LOCATIONS[0].maxEnergy;
+    user.energy = user.maxEnergy;
+    user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
+    user.portfolio = {};
+    user.expedition = null;
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, gained: gain,
+        points: user.prestigePoints, multiplier: prestigeMultiplier(user),
+        prestigeCount: user.prestigeCount, balance: user.balance,
+        clickVal: user.clickVal, passive: user.passive, level: user.level,
+        energy: user.energy, maxEnergy: user.maxEnergy, upgrades: user.upgrades,
+        unlockedAchievements: unlocked,
+    });
 });
 
 // ---- Вилазки (офлайн-таймер за ресурсами) ----
@@ -2055,7 +2159,11 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="revenge" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста інспектору за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
+        <h3 class="stars-section-title">📜 Легалізація (престиж)</h3>
+        <div id="prestige-box"></div>
+        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+        <h3 class="stars-section-title">😈 Помста інспектору</h3>
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
         <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#aaa; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
         <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(0,229,255,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
@@ -2299,6 +2407,7 @@ function buildHtml(botUsername) {
             renderStorage();
             renderRecipes();
             renderExpeditions();
+            renderPrestige();
         }
 
         // ===== Резервна копія в Telegram CloudStorage =====
@@ -2324,6 +2433,8 @@ function buildHtml(botUsername) {
                 upgrades: state.upgrades, craftedCount: state.craftedCount,
                 shieldUntil: state.shieldUntil, permanentShield: state.permanentShield,
                 expeditionsDone: state.expeditionsDone,
+                totalEarned: state.totalEarned,
+                prestigePoints: state.prestigePoints, prestigeCount: state.prestigeCount,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -2390,6 +2501,11 @@ function buildHtml(botUsername) {
                 state.permanentShield = !!data.permanentShield;
                 state.expedition = data.expedition || null;
                 state.expeditionsDone = data.expeditionsDone || 0;
+                state.totalEarned = data.totalEarned || 0;
+                state.prestigePoints = data.prestigePoints || 0;
+                state.prestigeCount = data.prestigeCount || 0;
+                state.prestigeMultiplier = data.prestigeMultiplier || 1;
+                state.prestigeAvailable = data.prestigeAvailable || 0;
 
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
@@ -2453,7 +2569,7 @@ function buildHtml(botUsername) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
-            let earned = state.clickVal * petMult('click') * (state.isVip ? 3 : 1);
+            let earned = state.clickVal * petMult('click') * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1);
             state.balance += earned;
             state.totalClicks += 1;
             if (!state.isVip) state.energy = Math.max(0, state.energy - ECONOMY.ENERGY_PER_CLICK);
@@ -2479,7 +2595,7 @@ function buildHtml(botUsername) {
         // Енергія — головний обмежувач темпу гри. Регенерація ~1/сек (ENERGY_REGEN_PER_TICK
         // за тік у 100мс): повний бак на 100 енергії відновлюється ~100 секунд.
         setInterval(() => {
-            if (state.passive > 0) state.balance += (state.passive * state.clanBonus * (state.isVip ? 3 : 1)) / 10;
+            if (state.passive > 0) state.balance += (state.passive * state.clanBonus * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1)) / 10;
             if (state.energy < state.maxEnergy) {
                 state.energy = Math.min(state.maxEnergy, state.energy + ECONOMY.ENERGY_REGEN_PER_TICK * petMult('energy'));
             }
@@ -2506,7 +2622,7 @@ function buildHtml(botUsername) {
             if (tabId === 'market') loadMarket();
             if (tabId === 'clan') { renderClanMine(); loadClanList(); loadClanLeaderboard(); }
             if (tabId === 'quests') loadQuests();
-            if (tabId === 'revenge') renderRevengeTab();
+            if (tabId === 'revenge') { renderRevengeTab(); renderPrestige(); }
             if (tabId === 'shop') renderUpgrades();
             if (tabId === 'gacha') renderCrates();
             if (tabId === 'storage') { renderStorage(); renderRecipes(); }
@@ -2895,6 +3011,58 @@ function buildHtml(botUsername) {
                 '</div>';
             }).join('');
         }
+
+        // ===== Легалізація (престиж) =====
+        function renderPrestige() {
+            const box = document.getElementById('prestige-box');
+            if (!box) return;
+            const pts = state.prestigePoints || 0;
+            const avail = state.prestigeAvailable || 0;
+            const mult = state.prestigeMultiplier || 1;
+            const unlocked = state.level >= ECONOMY.PRESTIGE_UNLOCK_LEVEL;
+            const bonusPct = Math.round(ECONOMY.PRESTIGE_BONUS_PER_POINT * 100);
+
+            let action;
+            if (!unlocked) {
+                action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону (бункер)</button>';
+            } else if (avail < 1) {
+                const need = Math.pow((pts + 1), 2) * ECONOMY.PRESTIGE_EARN_PER_POINT;
+                const left = Math.max(0, need - (state.totalEarned || 0));
+                action = '<button disabled>Ще ' + Math.round(left).toLocaleString('uk-UA') + ' ТК заробити до наступної довідки</button>';
+            } else {
+                action = '<button onclick="doPrestige()">📜 Легалізуватись (+' + avail + ' довідк' + (avail === 1 ? 'а' : 'и') + ')</button>';
+            }
+
+            box.innerHTML =
+                '<div class="recipe-card' + (avail >= 1 && unlocked ? ' ready' : '') + '">' +
+                    '<div class="recipe-desc" style="margin-top:0">Здаєшся "офіційно", починаєш з нуля — але кожна довідка назавжди дає ' +
+                    '<b style="color:var(--gold)">+' + bonusPct + '% до всього доходу</b>.<br>' +
+                    'Скидається: баланс, апгрейди, рівень схрону, біржа.<br>' +
+                    'Лишається: гардероб, кімната, компаньйони, кладовка, досягнення.</div>' +
+                    '<div class="recipe-cost">' +
+                        '<span class="recipe-ing ok">📜 Довідок: ' + pts + '</span>' +
+                        '<span class="recipe-ing ok">📈 Множник: x' + mult.toFixed(2) + '</span>' +
+                        '<span class="recipe-ing ' + (avail >= 1 ? 'ok' : 'missing') + '">Доступно: ' + avail + '</span>' +
+                        '<span class="recipe-ing">Легалізацій: ' + (state.prestigeCount || 0) + '</span>' +
+                    '</div>' + action +
+                '</div>';
+        }
+
+        window.doPrestige = async () => {
+            const avail = state.prestigeAvailable || 0;
+            tg.showConfirm('Легалізуватись? Баланс, апгрейди й рівень схрону скинуться до нуля. Отримаєш ' + avail + ' довідок (+' + Math.round(avail * ECONOMY.PRESTIGE_BONUS_PER_POINT * 100) + '% до доходу назавжди).', async (ok) => {
+                if (!ok) return;
+                const res = await apiFetch('/api/prestige/claim', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id })
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Помилка');
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert('📜 Легалізовано! +' + data.gained + ' довідок. Твій множник тепер x' + data.multiplier.toFixed(2));
+                await init();
+            });
+        };
 
         // ===== Вилазки =====
         function fmtLeft(ms) {
