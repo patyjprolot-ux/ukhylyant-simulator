@@ -350,7 +350,16 @@ const PETS = [
     { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.webp', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
     { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.webp', price: 8000, desc: '+15% до сили кліку' },
     { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.webp', price: 6000, desc: '+30% до швидкості відновлення енергії' },
+    { id: 'dog', name: 'Двірняга-нюхач', emoji: '🐕', price: 15000, desc: '+40% здобичі з вилазок (винюхує краще)' },
+    { id: 'rat', name: 'Щур-розвідник', emoji: '🐀', price: 25000, desc: '-50% до ризику спалитись на вилазці' },
+    { id: 'pigeon', name: 'Голуб-курʼєр', emoji: '🕊️', price: 40000, desc: 'Вилазки тривають на 25% менше часу' },
 ];
+// Множники компаньйонів для вилазок (усе інше — у ECONOMY.PET_*).
+const PET_EXPEDITION = {
+    dog: { lootMult: 1.4 },
+    rat: { riskMult: 0.5 },
+    pigeon: { timeMult: 0.75 },
+};
 
 // Гардероб — суто косметичні CSS/emoji-оверлеї на персонажі (без нових зображень),
 // по одному предмету на слот одночасно. Жодного впливу на економіку.
@@ -446,6 +455,13 @@ const ROOM_ITEMS = [
     { id: 'radio', name: 'Радіоприймач', emoji: '📻', price: 700, pos: 'bottom-left' },
     { id: 'rug', name: 'Килимок для конспірації', img: '/images/qte-rug.webp', price: 900, pos: 'bottom-center' },
     { id: 'suitcase', name: 'Тривожна валізка', emoji: '🧳', price: 1100, pos: 'bottom-right' },
+    // Другий ряд декору — дорожчий, для тих, хто вже обставився
+    { id: 'fridge', name: 'Холодильник із запасами', emoji: '🧊', price: 2500, pos: 'mid-center' },
+    { id: 'guitar', name: 'Гітара для нудьги', emoji: '🎸', price: 1800, pos: 'top-far-left' },
+    { id: 'books', name: 'Стос книжок "про запас"', emoji: '📚', price: 1400, pos: 'mid-far-left' },
+    { id: 'cactus', name: 'Кактус-мовчун', emoji: '🌵', price: 1600, pos: 'bottom-far-left' },
+    { id: 'trophy', name: 'Кубок "Найкращий син"', emoji: '🏆', price: 3200, pos: 'top-far-right' },
+    { id: 'safe', name: 'Сейф із заначкою', emoji: '🔐', price: 5000, pos: 'mid-far-right' },
 ];
 
 // Дрібна ненасильницька помста інспектору — розблоковується після кількох виживаних
@@ -1442,8 +1458,15 @@ app.post('/api/expedition/start', requireTelegramAuth, (req, res) => {
     if (user.expedition) return res.json({ success: false, message: 'Ти вже на вилазці' });
     if (user.level < exp.minLevel) return res.json({ success: false, message: `Потрібен ${exp.minLevel} рівень схрону` });
 
+    // Голуб-курʼєр скорочує час вилазки. Фіксуємо активного компаньйона в самій вилазці,
+    // щоб гравець не міг зняти його після старту й усе одно отримати бонус до здобичі.
+    const pet = PET_EXPEDITION[user.petId] || {};
+    const minutes = exp.minutes * (pet.timeMult || 1);
     const now = Date.now();
-    user.expedition = { id: exp.id, startedAt: now, endsAt: now + exp.minutes * 60 * 1000 };
+    user.expedition = {
+        id: exp.id, startedAt: now, endsAt: now + minutes * 60 * 1000,
+        petId: user.petId || null,
+    };
     res.json({ success: true, expedition: user.expedition });
 });
 
@@ -1454,13 +1477,16 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     if (Date.now() < user.expedition.endsAt) return res.json({ success: false, message: 'Вилазка ще триває' });
 
     const exp = EXPEDITION_BY_ID[user.expedition.id];
+    // Компаньйон береться той, що був НА МОМЕНТ СТАРТУ вилазки (записаний у ній),
+    // інакше можна було б зняти щура перед стартом і вдягнути пса перед клеймом.
+    const pet = PET_EXPEDITION[user.expedition.petId] || {};
     user.expedition = null;
     user.expeditionsDone = (user.expeditionsDone || 0) + 1;
 
     // Щит від облав (Білий Квиток / липова довідка) прибирає ризик спалитись —
     // це робить крафт щитів осмисленим і для вилазок теж.
     const shielded = hasActiveShield(user);
-    if (!shielded && Math.random() < exp.risk) {
+    if (!shielded && Math.random() < exp.risk * (pet.riskMult || 1)) {
         return res.json({
             success: true, caught: true,
             message: 'Тебе помітили — довелось тікати без здобичі.',
@@ -1471,7 +1497,8 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     const gained = [];
     for (const entry of exp.loot) {
         const meta = RESOURCE_BY_ID[entry.res];
-        const qty = Math.round(entry.min + Math.random() * (entry.max - entry.min));
+        const base = entry.min + Math.random() * (entry.max - entry.min);
+        const qty = Math.max(1, Math.round(base * (pet.lootMult || 1)));
         const { added, lost } = addResource(user, entry.res, qty);
         if (added > 0 || lost > 0) gained.push({ emoji: meta.emoji, name: meta.name, added, lost });
     }
@@ -2026,6 +2053,14 @@ function buildHtml(botUsername) {
         .pos-bottom-left { bottom: 6%; left: 4%; }
         .pos-bottom-center { bottom: 6%; left: 26%; }
         .pos-bottom-right { bottom: 6%; left: 48%; }
+        /* Другий ряд декору — між сіткою 3x3 і зоною персонажа (права третина кадру
+           лишається вільною, там стоїть персонаж і лежить його гардероб). */
+        .pos-top-far-left { top: 24%; left: 15%; }
+        .pos-mid-far-left { top: 60%; left: 15%; }
+        .pos-bottom-far-left { bottom: 24%; left: 4%; }
+        .pos-mid-center { top: 24%; left: 37%; }
+        .pos-top-far-right { top: 60%; left: 37%; }
+        .pos-mid-far-right { bottom: 24%; left: 48%; }
     </style>
 </head>
 <body>
@@ -2657,8 +2692,11 @@ function buildHtml(botUsername) {
                     : equipped
                         ? '<button onclick="equipPet(null)">Зняти</button>'
                         : '<button onclick="equipPet(\\'' + p.id + '\\')">Екіпірувати</button>';
+                const visual = p.img
+                    ? '<img class="btn-icon" src="' + p.img + '" alt="">'
+                    : '<span class="btn-emoji">' + (p.emoji || '🐾') + '</span>';
                 return '<div class="pet-card' + (equipped ? ' equipped' : '') + '">' +
-                    '<div class="pet-title"><img class="btn-icon" src="' + p.img + '" alt="">' + p.name + (equipped ? ' (активний)' : '') + '</div>' +
+                    '<div class="pet-title">' + visual + p.name + (equipped ? ' (активний)' : '') + '</div>' +
                     '<div class="pet-desc">' + p.desc + '</div>' + btn + '</div>';
             }).join('');
         }
