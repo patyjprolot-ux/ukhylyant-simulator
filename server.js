@@ -504,12 +504,13 @@ const REVENGE_LINES = [
     'Ти включив йому на телефоні будильник із гуком гусака на повну гучність.',
 ];
 
-// Тіньова біржа — курси гуляють кожні 3 хв (див. tickMarket нижче).
-const MARKET_ASSETS = [
-    { id: 'buckwheat', name: 'Гречка', emoji: '🌾', basePrice: 100 },
-    { id: 'salt', name: 'Сіль', emoji: '🧂', basePrice: 50 },
-    { id: 'tushonka', name: 'Тушонка', emoji: '🥫', basePrice: 300 },
-];
+// Тіньова біржа торгує СПРАВЖНІМИ ресурсами з кладовки (раніше це були окремі
+// абстрактні товари, ніяк не повʼязані з рештою гри). Курс гуляє кожні 3 хв, тож
+// ресурси вигідно продавати на піку, а на дні — докуповувати під крафт замість
+// того, щоб фармити ящики. Білий Квиток (тір 4) не торгується: він має здобуватись.
+const MARKET_ASSETS = RESOURCES
+    .filter((r) => r.tier <= 3)
+    .map((r) => ({ id: r.id, name: r.name, emoji: r.emoji, img: r.img, basePrice: r.sell }));
 
 // Колесо Зради та Перемоги — 1 безкоштовний прокрут/день, результат обирає сервер.
 const WHEEL_SEGMENTS = [
@@ -719,7 +720,28 @@ function migrateUser(user) {
         if (typeof user.upgrades[k] !== 'number') user.upgrades[k] = 0;
     }
     installBalanceTracking(user);
+    migrateLegacyPortfolio(user);
     return user;
+}
+
+// Раніше біржа торгувала окремими абстрактними товарами (гречка/сіль/тушонка), які
+// лежали в user.portfolio. Тепер біржа торгує справжніми ресурсами з кладовки, і ті
+// товари зникли — тому повертаємо гравцю їхню вартість монетами, щоб вкладене не
+// згоріло мовчки. Базові ціни зафіксовані тут, бо в коді їх уже немає.
+const LEGACY_ASSET_PRICES = { buckwheat: 100, salt: 50, tushonka: 300 };
+function migrateLegacyPortfolio(user) {
+    if (!user.portfolio) { user.portfolio = {}; return; }
+    let refund = 0;
+    for (const [assetId, qty] of Object.entries(user.portfolio)) {
+        if (LEGACY_ASSET_PRICES[assetId] && qty > 0) {
+            refund += LEGACY_ASSET_PRICES[assetId] * qty;
+            delete user.portfolio[assetId];
+        }
+    }
+    if (refund > 0) {
+        user.balance += refund;
+        user.legacyRefund = (user.legacyRefund || 0) + refund;
+    }
 }
 
 function getUser(id, name) {
@@ -1419,9 +1441,12 @@ app.post('/api/storage/sell', requireTelegramAuth, (req, res) => {
     if (qty <= 0) return res.json({ success: false, message: 'Немає що продавати' });
     user.resources[resId] = have - qty;
     if (user.resources[resId] <= 0) delete user.resources[resId];
-    const earned = qty * meta.sell;
+    // Ціна — за поточним курсом біржі (meta.sell лишається базою, навколо якої він гуляє).
+    // Тому вигідно поглядати на біржу перед тим, як здавати запаси.
+    const price = marketState.prices[resId] || meta.sell;
+    const earned = qty * price;
     user.balance += earned;
-    res.json({ success: true, earned, balance: user.balance, ...storageSnapshot(user) });
+    res.json({ success: true, earned, price, balance: user.balance, ...storageSnapshot(user) });
 });
 
 // ---- Престиж: "Легалізація" ----
@@ -1686,17 +1711,28 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
 
     if (action === 'buy') {
         if (user.balance < total) return res.json({ success: false, message: 'Недостатньо ТК' });
+        // Куплене йде в кладовку, тому вона має вмістити покупку цілком —
+        // інакше частина ресурсу згоріла б одразу після оплати.
+        const free = storageCapacity(user) - storageUsed(user);
+        if (free < quantity) {
+            return res.json({ success: false, message: `У кладовці лише ${free} вільних місць` });
+        }
         user.balance -= total;
-        user.portfolio[assetId] = (user.portfolio[assetId] || 0) + quantity;
+        addResource(user, assetId, quantity);
     } else {
-        const held = user.portfolio[assetId] || 0;
-        if (held < quantity) return res.json({ success: false, message: 'Недостатньо активів у портфелі' });
-        user.portfolio[assetId] = held - quantity;
+        const held = user.resources[assetId] || 0;
+        if (held < quantity) return res.json({ success: false, message: 'Стільки немає в кладовці' });
+        user.resources[assetId] = held - quantity;
+        if (user.resources[assetId] <= 0) delete user.resources[assetId];
         user.balance += total;
     }
     user.tradesCount += 1;
     user.dailyTrades += 1;
-    res.json({ success: true, balance: user.balance, portfolio: user.portfolio });
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, balance: user.balance, price,
+        unlockedAchievements: unlocked, ...storageSnapshot(user),
+    });
 });
 
 // ---- Клани ("Чат ОСББ") ----
@@ -2166,7 +2202,7 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="market" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Тіньова біржа. Купуй на низах, продавай на хаях. Курс оновлюється кожні 3 хв.</p>
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Тут торгують ресурсами з твоєї кладовки. Курс гуляє кожні 3 хв: продавай на піку, а на дні — докуповуй під крафт замість фарму ящиків.</p>
         <button onclick="loadMarket()">🔄 Оновити курс</button>
         <div id="market-list"></div>
     </div>
@@ -2213,7 +2249,7 @@ function buildHtml(botUsername) {
             <div class="tab" onclick="switchStorageTab(event, 'storage-exp')">🌙 Вилазки</div>
         </div>
         <div id="storage-res" class="panel active">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавай перекупу за ТК або тримай на крафт — крафт вигідніший.</p>
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавати можна прямо тут — але за <b>поточним курсом біржі</b>, тож спершу глянь на 📈 Біржу.</p>
             <div id="resources-list"></div>
         </div>
         <div id="storage-craft" class="panel">
@@ -2612,6 +2648,12 @@ function buildHtml(botUsername) {
             } catch (e) {
                 console.error('Не вдалося завантажити стан гравця', e);
             }
+            // Курс біржі потрібен ще й кладовці (ціна здачі ресурсів), тому тягнемо
+            // його одразу на старті, а не лише при відкритті вкладки біржі.
+            try {
+                const mres = await fetch('/api/market');
+                state.marketPrices = (await mres.json()).prices;
+            } catch (e) { /* не критично — покажемо базові ціни */ }
             updateUI();
             renderOwnedStuff();
             renderAchievements();
@@ -3066,8 +3108,13 @@ function buildHtml(botUsername) {
 
             list.innerHTML = RESOURCES.map(r => {
                 const qty = (state.resources || {})[r.id] || 0;
+                // Ціна — поточний курс біржі; поки він не завантажився, показуємо базу.
+                const price = (state.marketPrices || {})[r.id] || r.sell;
+                const diff = Math.round(100 * (price - r.sell) / r.sell);
+                const trend = diff > 0 ? ' <span style="color:#39ff14">▲' + diff + '%</span>'
+                    : (diff < 0 ? ' <span style="color:#ff5722">▼' + Math.abs(diff) + '%</span>' : '');
                 const sellBtn = qty > 0
-                    ? '<button onclick="sellResource(\\'' + r.id + '\\')">Здати все (+' + (qty * r.sell).toLocaleString('uk-UA') + ' 🪙)</button>'
+                    ? '<button onclick="sellResource(\\'' + r.id + '\\')">Здати все (+' + (qty * price).toLocaleString('uk-UA') + ' 🪙)</button>'
                     : '';
                 const visual = r.img
                     ? '<img class="res-img" src="' + r.img + '" alt="">'
@@ -3075,7 +3122,7 @@ function buildHtml(botUsername) {
                 return '<div class="res-card res-tier-' + r.tier + (qty === 0 ? ' empty' : '') + '">' +
                     visual +
                     '<div class="res-info"><div class="res-name">' + r.name + '</div>' +
-                    '<div class="res-meta">тір ' + r.tier + ' · ' + r.sell + ' 🪙 за шт.</div></div>' +
+                    '<div class="res-meta">тір ' + r.tier + ' · ' + price + ' 🪙 за шт.' + trend + '</div></div>' +
                     '<span class="res-qty">' + qty + '</span>' + sellBtn +
                 '</div>';
             }).join('');
@@ -3558,12 +3605,25 @@ function buildHtml(botUsername) {
             list.innerHTML = 'Завантаження...';
             const res = await fetch('/api/market');
             const data = await res.json();
+            state.marketPrices = data.prices;
             list.innerHTML = MARKET_ASSETS.map(a => {
                 const price = data.prices[a.id];
-                const held = state.portfolio[a.id] || 0;
-                const pts = sparklinePoints(data.history[a.id], 70, 24);
+                const held = (state.resources || {})[a.id] || 0;
+                const hist = data.history[a.id] || [];
+                const pts = sparklinePoints(hist, 70, 24);
+                // Порівнюємо поточний курс із базовим, щоб гравець одразу бачив,
+                // зараз вигідно продавати чи навпаки докуповувати.
+                const base = a.basePrice;
+                const diff = Math.round(100 * (price - base) / base);
+                const trend = diff > 0
+                    ? '<span style="color:#39ff14">+' + diff + '%</span>'
+                    : (diff < 0 ? '<span style="color:#ff5722">' + diff + '%</span>' : '<span style="color:#9fb4c7">0%</span>');
+                const visual = a.img
+                    ? '<img class="res-img" src="' + a.img + '" alt="">'
+                    : a.emoji;
                 return '<div class="asset-row">' +
-                    '<div><div class="asset-name">' + a.emoji + ' ' + a.name + '</div><div style="font-size:11px;color:#aaa;">В портфелі: ' + held + '</div></div>' +
+                    '<div><div class="asset-name">' + visual + ' ' + a.name + '</div>' +
+                    '<div style="font-size:11px;color:#aaa;">У кладовці: ' + held + ' · ' + trend + ' до бази</div></div>' +
                     '<svg class="sparkline" viewBox="0 0 70 24"><polyline points="' + pts + '" fill="none" stroke="#ffd700" stroke-width="2"/></svg>' +
                     '<div class="asset-price">' + price + ' 🪙</div>' +
                     '<div class="asset-controls">' +
@@ -3581,8 +3641,16 @@ function buildHtml(botUsername) {
             const res = await apiFetch('/api/market/trade', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, assetId, action, qty }) });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка угоди');
-            state.balance = data.balance; state.portfolio = data.portfolio;
+            state.balance = data.balance;
+            state.resources = data.resources;
+            state.storageUsed = data.used;
             tg.HapticFeedback.notificationOccurred('success');
+            if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                renderAchievements();
+            }
+            renderStorage();
+            renderRecipes();
             updateUI();
             loadMarket();
         };
