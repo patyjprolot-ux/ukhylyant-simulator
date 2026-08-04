@@ -44,25 +44,44 @@ let HTML_CONTENT = ''; // формується після старту (щоб �
 // (єдине джерело правди для цін/нагород — і бек, і фронт орієнтуються на ці числа)
 // ==========================================
 const ECONOMY = {
-    HAT_PRICE: 100, HAT_CLICK_BONUS: 1,
-    JAM_PRICE: 500, JAM_PASSIVE_BONUS: 5,
-    ENERGY_DRINK_PRICE: 300,
-    THERMOS_PRICE: 1500, THERMOS_CLICK_BONUS: 3,
-    GENERATOR_PRICE: 4000, GENERATOR_PASSIVE_BONUS: 10,
-    BASEMENT_PRICE: 2000,
+    // --- Апгрейди магазину: тепер БАГАТОРІВНЕВІ (купуються нескінченно) ---
+    // Ціна рівня N = base * UPGRADE_GROWTH^N. Ціни стартово низькі, але ростуть швидко —
+    // це головний нескінченний сток валюти, щоб гра не проходилась за вечір.
+    UPGRADE_GROWTH: 1.55,
+    HAT_PRICE: 40, HAT_CLICK_BONUS: 1,
+    JAM_PRICE: 150, JAM_PASSIVE_BONUS: 1,
+    THERMOS_PRICE: 900, THERMOS_CLICK_BONUS: 3,
+    GENERATOR_PRICE: 2200, GENERATOR_PASSIVE_BONUS: 4,
+    ENERGY_DRINK_PRICE: 120,
+
+    // --- Енергія: головний обмежувач темпу ---
+    // Раніше регенерація була +2 за тік (20/сек!) — бак наповнювався за 5 секунд і
+    // енергія взагалі нічого не обмежувала. Тепер ~1/сек: 100 енергії = 50 кліків,
+    // повне відновлення ~100 секунд. Саме це робить прогрес повільним і осмисленим.
+    ENERGY_REGEN_PER_TICK: 0.1,
+    ENERGY_PER_CLICK: 2,
+
+    // --- Еволюція схрону ---
+    BASEMENT_PRICE: 1500,
     BALKAN_PRICE: 6000,
-    TISA_PRICE: 20000,
-    ABROAD_PRICE: 50000,
-    BUNKER_PRICE: 150000,
+    TISA_PRICE: 25000,
+    ABROAD_PRICE: 90000,
+    BUNKER_PRICE: 350000,
+
+    // --- Кладовка (склад ресурсів) ---
+    STORAGE_BASE_CAPACITY: 60,
+    STORAGE_CAPACITY_PER_LEVEL: 40,
+    STORAGE_UPGRADE_BASE: 800,
+    STORAGE_UPGRADE_GROWTH: 1.6,
+    STORAGE_MAX_LEVEL: 20,
+
     REVENGE_UNLOCK_RAIDS: 3,
-    REVENGE_REWARD_MIN: 300,
-    REVENGE_REWARD_MAX: 800,
-    GACHA_PRICE: 1000,
+    REVENGE_REWARD_MIN: 80,
+    REVENGE_REWARD_MAX: 220,
     VIP_PRICE_STARS: 500,
-    GACHA_PREMIUM_STARS: 100,
     DONATE_AMOUNTS: [50, 100, 250, 500], // Stars — чиста підтримка розробників, без ігрових бонусів
-    DAILY_REWARDS: [2000, 2500, 3000, 3500, 4000, 5000, 15000], // індекс = поточний день серії - 1, індекс 6 = День 7 (джекпот)
-    REFERRAL_REWARD: 5000,
+    DAILY_REWARDS: [400, 550, 700, 900, 1200, 1600, 4000], // індекс = поточний день серії - 1, індекс 6 = День 7 (джекпот)
+    REFERRAL_REWARD: 1500,
     RAID_CHANCE: 0.1,
     RAID_INTERVAL_MS: 45000,
     RAID_DURATION_S: 10,
@@ -73,8 +92,8 @@ const ECONOMY = {
     QTE_KNOCK_PENALTY_PCT: 0.15,
     AIRDROP_CHANCE: 0.25,
     AIRDROP_INTERVAL_MS: 20000,
-    AIRDROP_MIN: 300,
-    AIRDROP_MAX: 800,
+    AIRDROP_MIN: 60,
+    AIRDROP_MAX: 180,
     CLAN_PASSIVE_BONUS: 0.05,
     OFFLINE_CAP_SECONDS: 8 * 3600,
     OFFLINE_MIN_SECONDS: 30,
@@ -82,6 +101,200 @@ const ECONOMY = {
     PET_CAT_ENERGY_MULT: 1.3,
     PET_NEIGHBOR_RAID_MULT: 0.9,
 };
+
+// ==========================================
+// 2.1 РЕСУРСИ ТА КЛАДОВКА
+// ==========================================
+// Ресурси падають із ящиків і йдуть на крафт. Кожен займає 1 місце в кладовці,
+// тому місткість складу — окремий сток валюти й привід апгрейдити кладовку.
+// `sell` — за скільки ТК можна здати одиницю перекупу (швидкі гроші, але крафт вигідніший).
+const RESOURCES = [
+    { id: 'cans', name: 'Консерви', emoji: '🥫', tier: 1, sell: 25 },
+    { id: 'battery', name: 'Батарейки', emoji: '🔋', tier: 1, sell: 30 },
+    { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 20 },
+    { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 35 },
+    { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 130 },
+    { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 160 },
+    { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
+    { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
+    { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
+    { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
+];
+const RESOURCE_BY_ID = Object.fromEntries(RESOURCES.map((r) => [r.id, r]));
+
+// Ящики. `loot` — таблиця дропу з вагами (шанс = вага / сума ваг). Шанси показуються
+// гравцю у грі: чесний гача без прихованих ймовірностей.
+// type: 'res' (ресурс), 'coins' (валюта), 'energy' (повна енергія), 'cosmetic' (випадкова
+// невідкрита косметика), 'nothing' (порожньо — лише в найдешевших ящиках).
+const CRATES = [
+    {
+        id: 'cardboard', name: 'Картонна коробка', emoji: '📦', img: '/images/gacha-box-regular.webp',
+        price: 400, currency: 'coins',
+        desc: 'Знайдена біля смітника. Всередині — щось. Можливо, нічого.',
+        loot: [
+            { type: 'nothing', weight: 18 },
+            { type: 'res', res: 'paper', min: 1, max: 4, weight: 22 },
+            { type: 'res', res: 'cans', min: 1, max: 3, weight: 20 },
+            { type: 'res', res: 'battery', min: 1, max: 3, weight: 18 },
+            { type: 'res', res: 'tape', min: 1, max: 2, weight: 12 },
+            { type: 'coins', min: 300, max: 900, weight: 8 },
+            { type: 'res', res: 'meds', min: 1, max: 1, weight: 2 },
+        ],
+    },
+    {
+        id: 'humanitarian', name: 'Гуманітарний ящик', emoji: '🧰', img: '/images/gacha-box-regular.webp',
+        price: 2500, currency: 'coins',
+        desc: 'Офіційна гумдопомога. Хтось уже перебрав, але дещо лишилось.',
+        loot: [
+            { type: 'nothing', weight: 8 },
+            { type: 'res', res: 'cans', min: 3, max: 7, weight: 20 },
+            { type: 'res', res: 'battery', min: 3, max: 6, weight: 18 },
+            { type: 'res', res: 'tape', min: 2, max: 5, weight: 14 },
+            { type: 'res', res: 'meds', min: 1, max: 3, weight: 15 },
+            { type: 'res', res: 'fuel', min: 1, max: 2, weight: 10 },
+            { type: 'coins', min: 1500, max: 4000, weight: 8 },
+            { type: 'energy', weight: 5 },
+            { type: 'res', res: 'sim', min: 1, max: 1, weight: 2 },
+        ],
+    },
+    {
+        id: 'parcel', name: 'Посилка від родичів', emoji: '🎁', img: '/images/gacha-box-elite.webp',
+        price: 9000, currency: 'coins',
+        desc: 'Тітка з-за кордону передала. Сало, ліки і трохи валюти.',
+        loot: [
+            { type: 'res', res: 'meds', min: 3, max: 8, weight: 20 },
+            { type: 'res', res: 'fuel', min: 2, max: 6, weight: 18 },
+            { type: 'res', res: 'sim', min: 2, max: 5, weight: 16 },
+            { type: 'res', res: 'cans', min: 8, max: 15, weight: 12 },
+            { type: 'coins', min: 6000, max: 15000, weight: 12 },
+            { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
+            { type: 'cosmetic', weight: 8 },
+            { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
+        ],
+    },
+    {
+        id: 'contraband', name: 'Контрабандний контейнер', emoji: '🚢', img: '/images/gacha-box-elite.webp',
+        price: 35000, currency: 'coins',
+        desc: 'Приплив по Тисі. Питань не задаємо, вміст не коментуємо.',
+        loot: [
+            { type: 'res', res: 'cash', min: 2, max: 6, weight: 22 },
+            { type: 'res', res: 'sim', min: 5, max: 12, weight: 18 },
+            { type: 'res', res: 'fuel', min: 6, max: 14, weight: 16 },
+            { type: 'coins', min: 25000, max: 60000, weight: 14 },
+            { type: 'res', res: 'stamp', min: 1, max: 3, weight: 12 },
+            { type: 'cosmetic', weight: 10 },
+            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 5 },
+            { type: 'energy', weight: 3 },
+        ],
+    },
+    // --- Донатні ящики (за Telegram Stars). Жодного 'nothing' — за реальні гроші
+    // скам-результат нечесний. Різні цінові рівні під різні цілі гравця. ---
+    {
+        id: 'starter', name: 'Стартовий пакет', emoji: '🥡', img: '/images/gacha-box-regular.webp',
+        price: 25, currency: 'stars',
+        desc: 'Дешевий вхід. Трохи всього, щоб розкрутитись на старті.',
+        loot: [
+            { type: 'res', res: 'cans', min: 10, max: 20, weight: 24 },
+            { type: 'res', res: 'battery', min: 8, max: 16, weight: 22 },
+            { type: 'res', res: 'meds', min: 3, max: 8, weight: 20 },
+            { type: 'coins', min: 8000, max: 20000, weight: 18 },
+            { type: 'res', res: 'fuel', min: 3, max: 7, weight: 12 },
+            { type: 'res', res: 'cash', min: 1, max: 2, weight: 4 },
+        ],
+    },
+    {
+        id: 'elite', name: 'Елітний контейнер', emoji: '💎', img: '/images/gacha-box-elite.webp',
+        price: 75, currency: 'stars',
+        desc: 'Збалансований донат-ящик: ресурси середнього й високого тіру.',
+        loot: [
+            { type: 'res', res: 'cash', min: 4, max: 10, weight: 22 },
+            { type: 'res', res: 'stamp', min: 2, max: 5, weight: 20 },
+            { type: 'coins', min: 50000, max: 120000, weight: 18 },
+            { type: 'res', res: 'sim', min: 10, max: 20, weight: 14 },
+            { type: 'cosmetic', weight: 13 },
+            { type: 'res', res: 'ticket', min: 1, max: 2, weight: 13 },
+        ],
+    },
+    {
+        id: 'wardrobe', name: 'Модна валіза', emoji: '👗', img: '/images/gacha-box-elite.webp',
+        price: 150, currency: 'stars',
+        desc: 'ГАРАНТОВАНО рідкісна річ у гардероб + бонус зверху. Для колекціонерів.',
+        guaranteedCosmetic: true,
+        loot: [
+            { type: 'cosmetic', weight: 60 },
+            { type: 'res', res: 'cash', min: 5, max: 12, weight: 15 },
+            { type: 'coins', min: 60000, max: 140000, weight: 15 },
+            { type: 'res', res: 'stamp', min: 3, max: 7, weight: 10 },
+        ],
+    },
+    {
+        id: 'legendary', name: 'Легендарний схрон', emoji: '🏆', img: '/images/gacha-premium-jackpot.webp',
+        price: 250, currency: 'stars',
+        desc: 'Схрон самого начальника ТЦК. Тільки топові дропи, шанс на Білі Квитки.',
+        loot: [
+            { type: 'res', res: 'ticket', min: 2, max: 5, weight: 25 },
+            { type: 'res', res: 'stamp', min: 5, max: 12, weight: 22 },
+            { type: 'res', res: 'cash', min: 10, max: 25, weight: 20 },
+            { type: 'coins', min: 200000, max: 500000, weight: 18 },
+            { type: 'cosmetic', weight: 15 },
+        ],
+    },
+];
+const CRATE_BY_ID = Object.fromEntries(CRATES.map((c) => [c.id, c]));
+
+// Крафт — головний спосіб перетворити ресурси на постійні бонуси. Навмисно дорожчий
+// за пряму купівлю апгрейдів, але дає те, що за валюту не купиш (щити, множники).
+const RECIPES = [
+    {
+        id: 'energy_pack', name: 'Саморобний енергопак', emoji: '🔌',
+        cost: { battery: 6, tape: 3 },
+        desc: 'Повністю відновлює енергію',
+        effect: { type: 'energy' },
+    },
+    {
+        id: 'click_mod', name: 'Прокачаний мозоль', emoji: '💪',
+        cost: { tape: 10, battery: 8, cans: 5 },
+        desc: '+4 до сили кліку (назавжди)',
+        effect: { type: 'click', amount: 4 },
+    },
+    {
+        id: 'passive_scheme', name: 'Схема з гумштабом', emoji: '📋',
+        cost: { paper: 15, cans: 12, meds: 4 },
+        desc: '+5 до пасивного доходу (назавжди)',
+        effect: { type: 'passive', amount: 5 },
+    },
+    {
+        id: 'fake_note', name: 'Липова довідка', emoji: '📄',
+        cost: { paper: 20, stamp: 1, meds: 5 },
+        desc: 'Щит від облав на 2 години',
+        effect: { type: 'shield', hours: 2 },
+    },
+    {
+        id: 'smuggle_kit', name: 'Набір контрабандиста', emoji: '🎒',
+        cost: { fuel: 12, sim: 8, cash: 3 },
+        desc: 'Продається перекупу за 40 000 ТК',
+        effect: { type: 'coins', amount: 40000 },
+    },
+    {
+        id: 'energy_tank', name: 'Розширений бак', emoji: '🛢️',
+        cost: { fuel: 20, tape: 15, cash: 2 },
+        desc: '+25 до максимальної енергії (назавжди)',
+        effect: { type: 'maxEnergy', amount: 25 },
+    },
+    {
+        id: 'golden_stamp', name: 'Золота печатка', emoji: '🏅',
+        cost: { stamp: 8, cash: 10, ticket: 1 },
+        desc: '+15 до сили кліку та +20 до пасиву (назавжди)',
+        effect: { type: 'combo', click: 15, passive: 20 },
+    },
+    {
+        id: 'white_ticket', name: 'Справжній Білий Квиток', emoji: '🎫',
+        cost: { ticket: 5, stamp: 15, cash: 25 },
+        desc: 'ПОСТІЙНИЙ імунітет до облав. Фінальна ціль гри.',
+        effect: { type: 'permanent_shield' },
+    },
+];
+const RECIPE_BY_ID = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
 
 // 4 етапи еволюції схованки. `img` — квадратна картинка для головної кнопки-клікера
 // (персонаж по центру). `roomImg` — окрема широка картинка для екрана "Кімната"
@@ -179,10 +392,12 @@ const COSMETICS = [
 
 // Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
 const QUESTS = [
-    { id: 'q_clicks', name: 'Розігрів', desc: 'Зроби 200 кліків сьогодні', target: 200, reward: 800, metric: 'dailyClicks' },
-    { id: 'q_trade', name: 'Спекулянт', desc: 'Заверши 3 угоди на біржі сьогодні', target: 3, reward: 600, metric: 'dailyTrades' },
-    { id: 'q_gacha', name: 'Розпакування', desc: 'Відкрий 1 коробку гуманітарки сьогодні', target: 1, reward: 500, metric: 'dailyBoxes' },
-    { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 700, metric: 'dailyRaids' },
+    { id: 'q_clicks', name: 'Розігрів', desc: 'Зроби 200 кліків сьогодні', target: 200, reward: 350, metric: 'dailyClicks' },
+    { id: 'q_trade', name: 'Спекулянт', desc: 'Заверши 3 угоди на біржі сьогодні', target: 3, reward: 300, metric: 'dailyTrades' },
+    { id: 'q_gacha', name: 'Розпакування', desc: 'Відкрий 2 ящики сьогодні', target: 2, reward: 400, metric: 'dailyBoxes' },
+    { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 350, metric: 'dailyRaids' },
+    { id: 'q_craft', name: 'Умілі руки', desc: 'Скрафти 1 предмет сьогодні', target: 1, reward: 600, metric: 'dailyCrafts' },
+    { id: 'q_res', name: 'Мародер', desc: 'Назбирай 25 ресурсів сьогодні', target: 25, reward: 500, metric: 'dailyResources' },
 ];
 
 // Речі для декору кімнати — можна володіти й показувати одразу кількома (на відміну від
@@ -220,39 +435,51 @@ const MARKET_ASSETS = [
 
 // Колесо Зради та Перемоги — 1 безкоштовний прокрут/день, результат обирає сервер.
 const WHEEL_SEGMENTS = [
-    { label: '500 🪙', type: 'balance', amount: 500, weight: 25, color: '#4e4e50' },
-    { label: '1000 🪙', type: 'balance', amount: 1000, weight: 20, color: '#c3073f' },
-    { label: 'Нічого', type: 'none', amount: 0, weight: 20, color: '#2a2a2d' },
-    { label: '2000 🪙', type: 'balance', amount: 2000, weight: 15, color: '#4e4e50' },
-    { label: 'Енергія', type: 'energy', amount: 0, weight: 10, color: '#2b5c8f' },
-    { label: '5000 🪙', type: 'balance', amount: 5000, weight: 6, color: '#c3073f' },
-    { label: 'Нічого', type: 'none', amount: 0, weight: 3, color: '#2a2a2d' },
-    { label: 'ДЖЕКПОТ 20000', type: 'balance', amount: 20000, weight: 1, color: '#ffd700' },
+    { label: '150 🪙', type: 'balance', amount: 150, weight: 24, color: '#4e4e50' },
+    { label: '300 🪙', type: 'balance', amount: 300, weight: 18, color: '#c3073f' },
+    { label: 'Нічого', type: 'none', amount: 0, weight: 18, color: '#2a2a2d' },
+    { label: 'Ресурс', type: 'resource', tier: 1, weight: 14, color: '#2e7d32' },
+    { label: '700 🪙', type: 'balance', amount: 700, weight: 12, color: '#4e4e50' },
+    { label: 'Енергія', type: 'energy', amount: 0, weight: 8, color: '#2b5c8f' },
+    { label: 'Рідкісний ресурс', type: 'resource', tier: 2, weight: 5, color: '#6a1b9a' },
+    { label: 'ДЖЕКПОТ 5000', type: 'balance', amount: 5000, weight: 1, color: '#ffd700' },
 ];
 
 // Досягнення. check() виконується лише на сервері (не серіалізується клієнту);
 // клієнт отримує ACHIEVEMENTS_META (без check) + масив розблокованих id користувача.
 const ACHIEVEMENTS = [
-    { id: 'clicks_1000', name: 'Перші мозолі', desc: 'Зроби 1 000 кліків', reward: 500, check: (u) => u.totalClicks >= 1000 },
-    { id: 'clicks_10000', name: 'Мозоль на пальці', desc: 'Зроби 10 000 кліків', reward: 5000, check: (u) => u.totalClicks >= 10000 },
-    { id: 'clicks_100000', name: 'Легенда мозолів', desc: 'Зроби 100 000 кліків', reward: 20000, check: (u) => u.totalClicks >= 100000 },
-    { id: 'boxes_5', name: 'Колекціонер шкарпеток', desc: 'Відкрий 5 коробок гуманітарки', reward: 3000, check: (u) => u.boxesOpened >= 5 },
-    { id: 'boxes_25', name: 'Постійний клієнт гумштабу', desc: 'Відкрий 25 коробок гуманітарки', reward: 8000, check: (u) => u.boxesOpened >= 25 },
-    { id: 'raids_3', name: 'Профі втечі', desc: 'Пережий 3 облави', reward: 4000, check: (u) => u.raidsSurvived >= 3 },
-    { id: 'raids_10', name: 'Ветеран втеч', desc: 'Пережий 10 облав', reward: 8000, check: (u) => u.raidsSurvived >= 10 },
-    { id: 'wealth_100000', name: 'Тіньовий мільйонер', desc: 'Накопич 100 000 ТК', reward: 10000, check: (u) => u.balance >= 100000 },
-    { id: 'wealth_1000000', name: 'Тіньовий олігарх', desc: 'Накопич 1 000 000 ТК', reward: 50000, check: (u) => u.balance >= 1000000 },
-    { id: 'trades_10', name: 'Біржовий вовк', desc: 'Заверши 10 угод на тіньовій біржі', reward: 3000, check: (u) => u.tradesCount >= 10 },
-    { id: 'wheel_7', name: 'Колесо фортуни', desc: 'Крути Колесо Зради 7 разів', reward: 2500, check: (u) => u.wheelSpinsCount >= 7 },
-    { id: 'pets_all', name: 'Зоопарк', desc: 'Здобудь усіх компаньйонів', reward: 6000, check: (u) => u.ownedPets.length >= PETS.length },
-    { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 4000, check: (u) => u.ownedCosmetics.length >= 5 },
-    { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 12000, check: (u) => u.ownedCosmetics.length >= 15 },
-    { id: 'cosmetics_30', name: 'Ходяча вітрина', desc: 'Придбай 30 предметів гардеробу', reward: 20000, check: (u) => u.ownedCosmetics.length >= 30 },
-    { id: 'room_all', name: 'Затишний барліг', desc: 'Обстав кімнату всіма речами', reward: 10000, check: (u) => u.ownedRoomItems.length >= ROOM_ITEMS.length },
-    { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 8000, check: (u) => u.level >= 5 },
-    { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 15000, check: (u) => u.level >= 6 },
-    { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 1500, check: (u) => !!u.clanId },
-    { id: 'referral_5', name: 'Мережа перевізників', desc: 'Здай 5 друзів', reward: 5000, check: (u) => u.refCount >= 5 },
+    { id: 'clicks_1000', name: 'Перші мозолі', desc: 'Зроби 1 000 кліків', reward: 300, check: (u) => u.totalClicks >= 1000 },
+    { id: 'clicks_10000', name: 'Мозоль на пальці', desc: 'Зроби 10 000 кліків', reward: 2000, check: (u) => u.totalClicks >= 10000 },
+    { id: 'clicks_100000', name: 'Легенда мозолів', desc: 'Зроби 100 000 кліків', reward: 15000, check: (u) => u.totalClicks >= 100000 },
+    { id: 'boxes_5', name: 'Колекціонер шкарпеток', desc: 'Відкрий 5 ящиків', reward: 800, check: (u) => u.boxesOpened >= 5 },
+    { id: 'boxes_25', name: 'Постійний клієнт гумштабу', desc: 'Відкрий 25 ящиків', reward: 4000, check: (u) => u.boxesOpened >= 25 },
+    { id: 'boxes_100', name: 'Розпакувальник року', desc: 'Відкрий 100 ящиків', reward: 25000, check: (u) => u.boxesOpened >= 100 },
+    { id: 'raids_3', name: 'Профі втечі', desc: 'Пережий 3 облави', reward: 1500, check: (u) => u.raidsSurvived >= 3 },
+    { id: 'raids_10', name: 'Ветеран втеч', desc: 'Пережий 10 облав', reward: 5000, check: (u) => u.raidsSurvived >= 10 },
+    { id: 'wealth_100000', name: 'Тіньовий мільйонер', desc: 'Накопич 100 000 ТК', reward: 8000, check: (u) => u.balance >= 100000 },
+    { id: 'wealth_1000000', name: 'Тіньовий олігарх', desc: 'Накопич 1 000 000 ТК', reward: 40000, check: (u) => u.balance >= 1000000 },
+    { id: 'trades_10', name: 'Біржовий вовк', desc: 'Заверши 10 угод на тіньовій біржі', reward: 1200, check: (u) => u.tradesCount >= 10 },
+    { id: 'wheel_7', name: 'Колесо фортуни', desc: 'Крути Колесо Зради 7 разів', reward: 1000, check: (u) => u.wheelSpinsCount >= 7 },
+    { id: 'pets_all', name: 'Зоопарк', desc: 'Здобудь усіх компаньйонів', reward: 4000, check: (u) => u.ownedPets.length >= PETS.length },
+    { id: 'cosmetics_5', name: 'Модник', desc: 'Придбай 5 предметів гардеробу', reward: 1500, check: (u) => u.ownedCosmetics.length >= 5 },
+    { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 6000, check: (u) => u.ownedCosmetics.length >= 15 },
+    { id: 'cosmetics_30', name: 'Ходяча вітрина', desc: 'Придбай 30 предметів гардеробу', reward: 15000, check: (u) => u.ownedCosmetics.length >= 30 },
+    { id: 'room_all', name: 'Затишний барліг', desc: 'Обстав кімнату всіма речами', reward: 6000, check: (u) => u.ownedRoomItems.length >= ROOM_ITEMS.length },
+    { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 6000, check: (u) => u.level >= 5 },
+    { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 20000, check: (u) => u.level >= 6 },
+    { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 800, check: (u) => !!u.clanId },
+    { id: 'referral_5', name: 'Мережа перевізників', desc: 'Здай 5 друзів', reward: 3000, check: (u) => u.refCount >= 5 },
+    // --- Кладовка, ресурси, крафт ---
+    { id: 'res_100', name: 'Запасливий', desc: 'Назбирай 100 ресурсів усього', reward: 1000, check: (u) => (u.resourcesCollected || 0) >= 100 },
+    { id: 'res_1000', name: 'Комірник', desc: 'Назбирай 1 000 ресурсів усього', reward: 8000, check: (u) => (u.resourcesCollected || 0) >= 1000 },
+    { id: 'res_10000', name: 'Барон кладовки', desc: 'Назбирай 10 000 ресурсів усього', reward: 50000, check: (u) => (u.resourcesCollected || 0) >= 10000 },
+    { id: 'storage_5', name: 'Розширення житлоплощі', desc: 'Прокачай кладовку до 5 рівня', reward: 3000, check: (u) => (u.storageLevel || 0) >= 5 },
+    { id: 'storage_10', name: 'Приватний склад', desc: 'Прокачай кладовку до 10 рівня', reward: 12000, check: (u) => (u.storageLevel || 0) >= 10 },
+    { id: 'craft_1', name: 'Перший крафт', desc: 'Скрафти будь-що', reward: 500, check: (u) => (u.craftedCount || 0) >= 1 },
+    { id: 'craft_10', name: 'Рукастий', desc: 'Скрафти 10 предметів', reward: 5000, check: (u) => (u.craftedCount || 0) >= 10 },
+    { id: 'craft_50', name: 'Підпільний завод', desc: 'Скрафти 50 предметів', reward: 30000, check: (u) => (u.craftedCount || 0) >= 50 },
+    { id: 'white_ticket', name: 'НЕДОТОРКАНИЙ', desc: 'Скрафти справжній Білий Квиток', reward: 100000, check: (u) => !!u.permanentShield },
+    { id: 'ticket_hoarder', name: 'Квитковий ділок', desc: 'Май 3 Білих Квитки в кладовці одночасно', reward: 20000, check: (u) => (u.resources && u.resources.ticket || 0) >= 3 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -334,14 +561,66 @@ function createFreshUser(id, name) {
         revengeLastDate: null,
         tradesCount: 0,
         wheelSpinsCount: 0,
+        // --- Кладовка та крафт ---
+        resources: {},              // { cans: 12, battery: 3, ... }
+        storageLevel: 0,            // місткість = BASE + level * PER_LEVEL
+        upgrades: { hat: 0, jam: 0, thermos: 0, generator: 0 }, // рівні багаторівневих апгрейдів
+        craftedCount: 0,
+        cratesOpened: {},           // { cardboard: 5, elite: 1, ... } — для статистики й досягнень
+        shieldUntil: 0,             // timestamp: до якого моменту діє щит від облав
+        permanentShield: false,     // Білий Квиток — постійний імунітет
+        resourcesCollected: 0,      // lifetime-лічильник для досягнень
+        // Лічильник серверних змін балансу. Баланс лишається клієнт-авторитетним (клікер),
+        // АЛЕ ящики/крафт/апгрейди міняють його на сервері. Без цього лічильника автозбереження
+        // клієнта (раз на 5с) могло б надіслати застарілий баланс і затерти щойно куплений ящик
+        // (гравець отримав би дроп безкоштовно) або, навпаки, стерти нарахований дроп.
+        balanceRev: 0,
         questsDate: null,
         dailyClicks: 0,
         dailyTrades: 0,
         dailyBoxes: 0,
         dailyRaids: 0,
+        dailyCrafts: 0,
+        dailyResources: 0,
         claimedQuests: [],
         createdAt: Date.now(),
     };
+}
+
+// Робить balance акцесором, який рахує КОЖНУ зміну балансу (balanceRev). Так /api/save
+// може відрізнити "клієнт надіслав актуальне значення" від "клієнт надіслав застаріле,
+// бо між його останньою синхронізацією і збереженням сервер уже нарахував дроп з ящика".
+// Без цього автозбереження раз на 5с могло затерти серверні нарахування або, навпаки,
+// повернути витрачені на ящик гроші.
+function installBalanceTracking(user) {
+    const existing = Object.getOwnPropertyDescriptor(user, 'balance');
+    if (existing && existing.get) return; // вже встановлено
+    let value = typeof user.balance === 'number' ? user.balance : 0;
+    Object.defineProperty(user, 'balance', {
+        get() { return value; },
+        set(v) { value = v; this.balanceRev = (this.balanceRev || 0) + 1; },
+        enumerable: true,
+        configurable: true,
+    });
+}
+
+// Дописує поля, яких не було в старіших версіях збереження, щоб гравці зі
+// збереженням із попередньої версії гри не ловили undefined на нових механіках.
+function migrateUser(user) {
+    const fresh = createFreshUser(user.id, user.name);
+    for (const key of Object.keys(fresh)) {
+        if (user[key] === undefined) user[key] = fresh[key];
+    }
+    if (typeof user.resources !== 'object' || user.resources === null) user.resources = {};
+    if (typeof user.cratesOpened !== 'object' || user.cratesOpened === null) user.cratesOpened = {};
+    if (typeof user.upgrades !== 'object' || user.upgrades === null) {
+        user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
+    }
+    for (const k of ['hat', 'jam', 'thermos', 'generator']) {
+        if (typeof user.upgrades[k] !== 'number') user.upgrades[k] = 0;
+    }
+    installBalanceTracking(user);
+    return user;
 }
 
 function getUser(id, name) {
@@ -349,7 +628,7 @@ function getUser(id, name) {
     if (!usersDB.has(id)) {
         usersDB.set(id, createFreshUser(id, name));
     }
-    const user = usersDB.get(id);
+    const user = migrateUser(usersDB.get(id));
     if (name) user.name = name;
     return user;
 }
@@ -403,6 +682,8 @@ function resetDailyIfNeeded(user) {
         user.dailyTrades = 0;
         user.dailyBoxes = 0;
         user.dailyRaids = 0;
+        user.dailyCrafts = 0;
+        user.dailyResources = 0;
         user.claimedQuests = [];
     }
 }
@@ -417,23 +698,81 @@ function pickWeighted(segments) {
     return segments.length - 1;
 }
 
-// Преміальна гуманітарка (за Stars) — завжди дає щось цінне, без "порожніх шкарпеток",
-// бо це вже реальна оплата і скам-результат тут буде нечесним по відношенню до гравця.
-function rollPremiumGacha(user) {
-    const rand = Math.random();
-    if (rand < 0.25) {
-        user.balance += 25000;
-        return { title: 'ДЖЕКПОТ!', img: '/images/gacha-premium-jackpot.webp', desc: 'Валізу з гумдопомоги завезли прямо тобі! +25 000 ТК' };
-    } else if (rand < 0.6) {
-        user.passive += 15;
-        return { title: 'Елітний набір', img: '/images/gacha-premium-sausage.webp', desc: 'Справжня фермерська ковбаса! +15 до пасивного доходу' };
-    } else if (rand < 0.85) {
-        user.energy = user.maxEnergy;
-        user.clickVal += 2;
-        return { title: 'Бойовий заряд', img: '/images/gacha-premium-charge.webp', desc: 'Енергію відновлено та +2 до сили кліку!' };
+// ===== Кладовка: місткість, підрахунок, додавання ресурсів =====
+function storageCapacity(user) {
+    return ECONOMY.STORAGE_BASE_CAPACITY + (user.storageLevel || 0) * ECONOMY.STORAGE_CAPACITY_PER_LEVEL;
+}
+
+function storageUsed(user) {
+    return Object.values(user.resources || {}).reduce((s, n) => s + (n || 0), 0);
+}
+
+function storageUpgradeCost(user) {
+    return Math.round(ECONOMY.STORAGE_UPGRADE_BASE * Math.pow(ECONOMY.STORAGE_UPGRADE_GROWTH, user.storageLevel || 0));
+}
+
+// Додає ресурс із урахуванням ліміту складу. Повертає скільки реально влізло —
+// надлишок згорає (і клієнт про це чесно повідомляє, щоб апгрейд кладовки мав сенс).
+function addResource(user, resId, amount) {
+    const free = Math.max(0, storageCapacity(user) - storageUsed(user));
+    const added = Math.min(free, amount);
+    if (added > 0) {
+        user.resources[resId] = (user.resources[resId] || 0) + added;
+        user.resourcesCollected = (user.resourcesCollected || 0) + added;
+        user.dailyResources = (user.dailyResources || 0) + added;
     }
-    user.balance += 10000;
-    return { title: 'Непогано', img: '/images/gacha-box-regular.webp', desc: 'Стандартний пакунок гумдопомоги. +10 000 ТК' };
+    return { added, lost: amount - added };
+}
+
+// Ціна наступного рівня багаторівневого апгрейда магазину.
+function upgradeCost(user, key) {
+    const base = { hat: ECONOMY.HAT_PRICE, jam: ECONOMY.JAM_PRICE, thermos: ECONOMY.THERMOS_PRICE, generator: ECONOMY.GENERATOR_PRICE }[key];
+    const lvl = (user.upgrades && user.upgrades[key]) || 0;
+    return Math.round(base * Math.pow(ECONOMY.UPGRADE_GROWTH, lvl));
+}
+
+function hasActiveShield(user) {
+    return !!user.permanentShield || (user.shieldUntil || 0) > Date.now();
+}
+
+// Розкриває один ящик: обирає дроп за вагами і одразу застосовує ефект до гравця.
+// Повертає опис результату для анімації на клієнті.
+function rollCrate(user, crate) {
+    const entry = crate.loot[pickWeighted(crate.loot)];
+    user.cratesOpened[crate.id] = (user.cratesOpened[crate.id] || 0) + 1;
+    user.boxesOpened = (user.boxesOpened || 0) + 1;
+    user.dailyBoxes = (user.dailyBoxes || 0) + 1;
+
+    if (entry.type === 'nothing') {
+        return { kind: 'nothing', title: 'Пусто...', emoji: '🧦', desc: 'Тільки діряві шкарпетки. Буває.' };
+    }
+    if (entry.type === 'coins') {
+        const amount = Math.round(entry.min + Math.random() * (entry.max - entry.min));
+        user.balance += amount;
+        return { kind: 'coins', title: 'Готівка!', emoji: '🪙', amount, desc: `+${amount.toLocaleString('uk-UA')} ТК` };
+    }
+    if (entry.type === 'energy') {
+        user.energy = user.maxEnergy;
+        return { kind: 'energy', title: 'Павербанк', emoji: '🔋', desc: 'Енергію відновлено повністю!' };
+    }
+    if (entry.type === 'cosmetic') {
+        const notOwned = COSMETICS.filter((c) => !user.ownedCosmetics.includes(c.id));
+        if (notOwned.length === 0) {
+            user.balance += 20000;
+            return { kind: 'coins', title: 'Гардероб повний', emoji: '🪙', amount: 20000, desc: 'Все вже є — тобі компенсували 20 000 ТК' };
+        }
+        const pick = notOwned[Math.floor(Math.random() * notOwned.length)];
+        user.ownedCosmetics.push(pick.id);
+        return { kind: 'cosmetic', title: 'Рідкісна річ!', emoji: pick.emoji || '👕', img: pick.img, desc: pick.name, cosmeticId: pick.id };
+    }
+    // entry.type === 'res'
+    const meta = RESOURCE_BY_ID[entry.res];
+    const amount = Math.round(entry.min + Math.random() * (entry.max - entry.min));
+    const { added, lost } = addResource(user, entry.res, amount);
+    return {
+        kind: 'res', title: meta.name, emoji: meta.emoji, resId: entry.res, amount: added, lost,
+        desc: lost > 0 ? `+${added} ${meta.emoji} (${lost} згоріло — кладовка повна!)` : `+${added} ${meta.emoji}`,
+    };
 }
 
 // ==========================================
@@ -503,17 +842,33 @@ function verifyInitData(initData, botToken, maxAgeSeconds = 86400) {
 // ідентифікатор користувача в req.telegramUser. Усі ендпоінти, що читають/пишуть
 // баланс, VIP чи створюють інвойси, мають використовувати САМЕ req.telegramUser.id,
 // а не id з тіла запиту (його будь-хто може підмінити).
+// Будь-яка відповідь, що містить `balance`, автоматично отримує й `balanceRev` —
+// щоб клієнт завжди знав актуальну ревізію і його автозбереження не було відхилене.
+// Робимо це в одному місці, а не в кожному ендпоінті окремо (щоб не забути новий).
+function attachBalanceRev(req, res) {
+    const originalJson = res.json.bind(res);
+    res.json = (payload) => {
+        if (payload && typeof payload === 'object' && 'balance' in payload && payload.balanceRev === undefined) {
+            const u = usersDB.get(String(req.telegramUser.id));
+            if (u) payload.balanceRev = u.balanceRev;
+        }
+        return originalJson(payload);
+    };
+}
+
 function requireTelegramAuth(req, res, next) {
     const initData = req.headers['x-telegram-init-data'];
     const verifiedUser = verifyInitData(initData, BOT_TOKEN);
     if (verifiedUser) {
         req.telegramUser = { id: String(verifiedUser.id), first_name: verifiedUser.first_name || 'Ухилянт' };
+        attachBalanceRev(req, res);
         return next();
     }
     if (DEV_MODE_INSECURE) {
         const fallbackId = req.body?.id || req.query?.id;
         if (fallbackId) {
             req.telegramUser = { id: String(fallbackId), first_name: req.body?.name || req.query?.name || 'DevТестер' };
+            attachBalanceRev(req, res);
             return next();
         }
     }
@@ -563,10 +918,17 @@ bot.on('successful_payment', (ctx) => {
     if (type === 'vip') {
         user.isVip = true;
         ctx.reply('🎉 Оплата успішна! Ти отримав VIP-Схрон: x3 дохід, безлімітна енергія та імунітет до Облав. Перезапусти гру, щоб побачити зміни.');
-    } else if (type === 'gacha') {
-        const reward = rollPremiumGacha(user);
-        user.lastPremiumReward = reward;
-        ctx.reply(`🎉 Оплата успішна! Елітна гуманітарка: ${reward.title} — ${reward.desc}`);
+    } else if (type.startsWith('crate-')) {
+        // Ящик за Stars: розкриваємо одразу на сервері, результат чекає гравця в грі
+        // (клієнт забирає його через /api/user?consume=1 і програє анімацію).
+        const crate = CRATE_BY_ID[type.slice('crate-'.length)];
+        if (crate) {
+            const reward = rollCrate(user, crate);
+            user.lastPremiumReward = { ...reward, crateId: crate.id };
+            ctx.reply(`🎉 Оплата успішна! ${crate.name}: ${reward.title} — ${reward.desc}`);
+        } else {
+            ctx.reply('🎉 Оплата успішна!');
+        }
     } else if (type === 'donate') {
         ctx.reply('❤️ Дякуємо за підтримку розробників! Жодних ігрових бонусів це не дає — просто дуже приємно. Ти найкращий.');
     } else {
@@ -591,11 +953,15 @@ app.post('/api/invoice', requireTelegramAuth, async (req, res) => {
             description = 'Х3 клік, безлімітна енергія, захист від Облав!';
             amount = ECONOMY.VIP_PRICE_STARS;
             payloadPrefix = 'vip';
-        } else if (type === 'gacha_premium') {
-            title = 'Елітна гуманітарка';
-            description = 'Преміальна коробка без шансу на порожні шкарпетки!';
-            amount = ECONOMY.GACHA_PREMIUM_STARS;
-            payloadPrefix = 'gacha';
+        } else if (type === 'crate') {
+            const crate = CRATE_BY_ID[req.body.crateId];
+            if (!crate || crate.currency !== 'stars') {
+                return res.status(400).json({ error: 'Невідомий ящик' });
+            }
+            title = crate.name;
+            description = crate.desc;
+            amount = crate.price;
+            payloadPrefix = 'crate-' + crate.id;
         } else if (type === 'donate') {
             const requested = Number(req.body.amount);
             if (!ECONOMY.DONATE_AMOUNTS.includes(requested)) {
@@ -663,6 +1029,23 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         clanName: clan.clanName,
         clanBonus: clan.bonus,
         wheelClaimedToday: user.wheelLastSpinDate === today,
+        balanceRev: user.balanceRev,
+        // Кладовка, крафт, багаторівневі апгрейди
+        resources: user.resources,
+        storageLevel: user.storageLevel,
+        storageCapacity: storageCapacity(user),
+        storageUsed: storageUsed(user),
+        storageUpgradeCost: user.storageLevel >= ECONOMY.STORAGE_MAX_LEVEL ? null : storageUpgradeCost(user),
+        upgrades: user.upgrades,
+        upgradeCosts: {
+            hat: upgradeCost(user, 'hat'), jam: upgradeCost(user, 'jam'),
+            thermos: upgradeCost(user, 'thermos'), generator: upgradeCost(user, 'generator'),
+        },
+        craftedCount: user.craftedCount,
+        cratesOpened: user.cratesOpened,
+        shieldUntil: user.shieldUntil,
+        permanentShield: user.permanentShield,
+        resourcesCollected: user.resourcesCollected,
     };
     // ?consume=1 — забрати одноразову преміальну нагороду, щоб вона не показувалась повторно
     if (req.query.consume === '1') user.lastPremiumReward = null;
@@ -683,7 +1066,13 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     if (typeof boxesOpened === 'number') user.dailyBoxes += Math.max(0, boxesOpened - user.boxesOpened);
     if (typeof raidsSurvived === 'number') user.dailyRaids += Math.max(0, raidsSurvived - user.raidsSurvived);
 
-    if (typeof balance === 'number') user.balance = balance;
+    // Баланс приймаємо лише якщо клієнт бачив актуальну серверну ревізію. Інакше його
+    // значення застаріле (сервер щойно нарахував дроп із ящика / списав за крафт) —
+    // тоді лишаємо серверне і повідомляємо клієнту, щоб він підхопив авторитетне.
+    const clientRev = Number(req.body.balanceRev);
+    const balanceAccepted = Number.isFinite(clientRev) && clientRev === user.balanceRev;
+    if (balanceAccepted && typeof balance === 'number') user.balance = balance;
+
     if (typeof clickVal === 'number') user.clickVal = clickVal;
     if (typeof passive === 'number') user.passive = passive;
     if (typeof level === 'number') user.level = level;
@@ -695,7 +1084,10 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     user.lastSeenAt = Date.now();
 
     const unlocked = checkAchievements(user);
-    res.json({ ok: true, balance: user.balance, unlockedAchievements: unlocked });
+    res.json({
+        ok: true, balance: user.balance, balanceRev: user.balanceRev,
+        balanceRejected: !balanceAccepted, unlockedAchievements: unlocked,
+    });
 });
 
 // Відновлення прогресу з резервної копії, яку клієнт тримає в Telegram CloudStorage
@@ -703,7 +1095,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // новому контейнері). Викликається лише коли сервер бачить "свіжого" гравця (без
 // прогресу), а в CloudStorage лежить копія зі старим прогресом. Без анти-чіт перевірок —
 // жартівливий проєкт для друзів, довіряємо клієнту так само, як і в /api/save.
-const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount'];
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
@@ -727,6 +1119,13 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
     }
     if (backup.portfolio && typeof backup.portfolio === 'object') user.portfolio = backup.portfolio;
     if (typeof backup.isVip === 'boolean') user.isVip = backup.isVip;
+    if (typeof backup.permanentShield === 'boolean') user.permanentShield = backup.permanentShield;
+    if (backup.resources && typeof backup.resources === 'object') user.resources = backup.resources;
+    if (backup.upgrades && typeof backup.upgrades === 'object') {
+        for (const k of ['hat', 'jam', 'thermos', 'generator']) {
+            if (typeof backup.upgrades[k] === 'number') user.upgrades[k] = backup.upgrades[k];
+        }
+    }
     user.lastSeenAt = Date.now();
 
     res.json({ ok: true });
@@ -852,6 +1251,140 @@ app.post('/api/room/toggle', requireTelegramAuth, (req, res) => {
     res.json({ success: true, equippedRoomItems: user.equippedRoomItems });
 });
 
+// ---- Кладовка: стан складу, апгрейд місткості, продаж ресурсів ----
+function storageSnapshot(user) {
+    return {
+        resources: user.resources,
+        storageLevel: user.storageLevel,
+        capacity: storageCapacity(user),
+        used: storageUsed(user),
+        upgradeCost: user.storageLevel >= ECONOMY.STORAGE_MAX_LEVEL ? null : storageUpgradeCost(user),
+        maxLevel: ECONOMY.STORAGE_MAX_LEVEL,
+    };
+}
+
+app.get('/api/storage', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json({ success: true, ...storageSnapshot(user), balance: user.balance });
+});
+
+app.post('/api/storage/upgrade', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (user.storageLevel >= ECONOMY.STORAGE_MAX_LEVEL) {
+        return res.json({ success: false, message: 'Кладовка вже максимального розміру' });
+    }
+    const cost = storageUpgradeCost(user);
+    if (user.balance < cost) return res.json({ success: false, message: 'Недостатньо ТК' });
+    user.balance -= cost;
+    user.storageLevel += 1;
+    res.json({ success: true, balance: user.balance, ...storageSnapshot(user) });
+});
+
+app.post('/api/storage/sell', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const { resId } = req.body;
+    const meta = RESOURCE_BY_ID[resId];
+    if (!meta) return res.status(400).json({ error: 'Невідомий ресурс' });
+    const have = user.resources[resId] || 0;
+    const qty = req.body.all ? have : Math.min(have, Math.max(1, Number(req.body.qty) || 1));
+    if (qty <= 0) return res.json({ success: false, message: 'Немає що продавати' });
+    user.resources[resId] = have - qty;
+    if (user.resources[resId] <= 0) delete user.resources[resId];
+    const earned = qty * meta.sell;
+    user.balance += earned;
+    res.json({ success: true, earned, balance: user.balance, ...storageSnapshot(user) });
+});
+
+// ---- Ящики за ігрову валюту (за Stars — через /api/invoice) ----
+app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    const crate = CRATE_BY_ID[req.body.crateId];
+    if (!crate) return res.status(400).json({ error: 'Невідомий ящик' });
+    if (crate.currency !== 'coins') return res.json({ success: false, message: 'Цей ящик купується за Stars' });
+    if (user.balance < crate.price) return res.json({ success: false, message: 'Недостатньо ТК на ящик' });
+
+    user.balance -= crate.price;
+    const reward = rollCrate(user, crate);
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, reward, balance: user.balance,
+        ownedCosmetics: user.ownedCosmetics, energy: user.energy,
+        unlockedAchievements: unlocked, ...storageSnapshot(user),
+    });
+});
+
+// ---- Крафт ----
+app.post('/api/craft', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    const recipe = RECIPE_BY_ID[req.body.recipeId];
+    if (!recipe) return res.status(400).json({ error: 'Невідомий рецепт' });
+
+    for (const [resId, need] of Object.entries(recipe.cost)) {
+        if ((user.resources[resId] || 0) < need) {
+            return res.json({ success: false, message: `Не вистачає: ${RESOURCE_BY_ID[resId].name}` });
+        }
+    }
+    if (recipe.effect.type === 'permanent_shield' && user.permanentShield) {
+        return res.json({ success: false, message: 'Білий Квиток у тебе вже є' });
+    }
+
+    for (const [resId, need] of Object.entries(recipe.cost)) {
+        user.resources[resId] -= need;
+        if (user.resources[resId] <= 0) delete user.resources[resId];
+    }
+    user.craftedCount = (user.craftedCount || 0) + 1;
+    user.dailyCrafts = (user.dailyCrafts || 0) + 1;
+
+    const eff = recipe.effect;
+    let message;
+    if (eff.type === 'energy') { user.energy = user.maxEnergy; message = 'Енергію відновлено!'; }
+    else if (eff.type === 'click') { user.clickVal += eff.amount; message = `+${eff.amount} до сили кліку`; }
+    else if (eff.type === 'passive') { user.passive += eff.amount; message = `+${eff.amount} до пасиву`; }
+    else if (eff.type === 'coins') { user.balance += eff.amount; message = `+${eff.amount.toLocaleString('uk-UA')} ТК`; }
+    else if (eff.type === 'maxEnergy') { user.maxEnergy += eff.amount; user.energy = user.maxEnergy; message = `+${eff.amount} до макс. енергії`; }
+    else if (eff.type === 'combo') { user.clickVal += eff.click; user.passive += eff.passive; message = `+${eff.click} клік, +${eff.passive} пасив`; }
+    else if (eff.type === 'shield') {
+        const base = Math.max(Date.now(), user.shieldUntil || 0);
+        user.shieldUntil = base + eff.hours * 3600 * 1000;
+        message = `Щит від облав на ${eff.hours} год`;
+    }
+    else if (eff.type === 'permanent_shield') { user.permanentShield = true; message = 'ПОСТІЙНИЙ імунітет до облав!'; }
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, message, recipeId: recipe.id,
+        balance: user.balance, clickVal: user.clickVal, passive: user.passive,
+        energy: user.energy, maxEnergy: user.maxEnergy,
+        shieldUntil: user.shieldUntil, permanentShield: user.permanentShield,
+        craftedCount: user.craftedCount, unlockedAchievements: unlocked,
+        ...storageSnapshot(user),
+    });
+});
+
+// ---- Багаторівневі апгрейди магазину (ціна росте з кожним рівнем) ----
+app.post('/api/upgrade/buy', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const key = req.body.key;
+    if (!['hat', 'jam', 'thermos', 'generator'].includes(key)) {
+        return res.status(400).json({ error: 'Невідомий апгрейд' });
+    }
+    const cost = upgradeCost(user, key);
+    if (user.balance < cost) return res.json({ success: false, message: 'Недостатньо ТК' });
+    user.balance -= cost;
+    user.upgrades[key] += 1;
+    if (key === 'hat') user.clickVal += ECONOMY.HAT_CLICK_BONUS;
+    if (key === 'jam') user.passive += ECONOMY.JAM_PASSIVE_BONUS;
+    if (key === 'thermos') user.clickVal += ECONOMY.THERMOS_CLICK_BONUS;
+    if (key === 'generator') user.passive += ECONOMY.GENERATOR_PASSIVE_BONUS;
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, balance: user.balance, clickVal: user.clickVal, passive: user.passive,
+        upgrades: user.upgrades, nextCost: upgradeCost(user, key), unlockedAchievements: unlocked,
+    });
+});
+
 // ---- Помста інспектору (флейвор, розблок після кількох виживаних облав) ----
 app.post('/api/revenge', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
@@ -876,6 +1409,7 @@ app.get('/api/quests', requireTelegramAuth, (req, res) => {
     res.json({
         dailyClicks: user.dailyClicks, dailyTrades: user.dailyTrades,
         dailyBoxes: user.dailyBoxes, dailyRaids: user.dailyRaids,
+        dailyCrafts: user.dailyCrafts, dailyResources: user.dailyResources,
         claimedQuests: user.claimedQuests,
     });
 });
@@ -984,12 +1518,28 @@ app.post('/api/wheel/spin', requireTelegramAuth, (req, res) => {
 
     const index = pickWeighted(WHEEL_SEGMENTS);
     const segment = WHEEL_SEGMENTS[index];
+    let resultNote = null;
     if (segment.type === 'balance') user.balance += segment.amount;
     if (segment.type === 'energy') user.energy = user.maxEnergy;
+    if (segment.type === 'resource') {
+        // Випадковий ресурс потрібного тіру — кількість тим менша, чим цінніший тір.
+        const pool = RESOURCES.filter((r) => r.tier === segment.tier);
+        const meta = pool[Math.floor(Math.random() * pool.length)];
+        const qty = segment.tier === 1 ? 3 + Math.floor(Math.random() * 5) : 1 + Math.floor(Math.random() * 3);
+        const { added, lost } = addResource(user, meta.id, qty);
+        resultNote = lost > 0
+            ? `+${added} ${meta.emoji} ${meta.name} (${lost} згоріло — кладовка повна)`
+            : `+${added} ${meta.emoji} ${meta.name}`;
+    }
     user.wheelLastSpinDate = today;
     user.wheelSpinsCount += 1;
+    const unlocked = checkAchievements(user);
 
-    res.json({ success: true, index, segment, balance: user.balance, energy: user.energy });
+    res.json({
+        success: true, index, segment, resultNote,
+        balance: user.balance, energy: user.energy,
+        resources: user.resources, unlockedAchievements: unlocked,
+    });
 });
 
 // ==========================================
@@ -1044,6 +1594,126 @@ function buildHtml(botUsername) {
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .premium-btn { background: linear-gradient(45deg, #5b1fb3, #00c3ff); border: 1px solid #fff; }
         .dev-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.4); color: #ffca6a; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
+
+        /* ===== Ящики ===== */
+        .crate-card { background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+        .crate-card.stars { border-color: rgba(255,224,102,0.5); background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(255,224,102,0.08)); }
+        .crate-top { display: flex; align-items: center; gap: 10px; }
+        .crate-top img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
+        .crate-name { font-weight: 700; font-size: 14px; }
+        .crate-desc { font-size: 11px; color: #9fb4c7; line-height: 1.4; margin-top: 2px; }
+        .crate-card button { margin: 10px 0 0; }
+        .crate-odds-toggle { background: none; border: none; color: var(--accent2); font-size: 11px; padding: 6px 0 0; margin: 0; width: auto; text-decoration: underline; cursor: pointer; }
+        .crate-odds { font-size: 11px; color: #9fb4c7; margin-top: 6px; border-top: 1px solid #2a2a3d; padding-top: 6px; }
+        .crate-odds div { display: flex; justify-content: space-between; padding: 1px 0; }
+
+        /* ===== Анімація відкривання ящика ===== */
+        #crate-overlay { position: fixed; inset: 0; z-index: 1800; background: rgba(4,4,10,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+        #crate-stage { position: relative; width: 260px; height: 260px; display: flex; align-items: center; justify-content: center; }
+        #crate-box { position: relative; width: 150px; height: 150px; }
+        #crate-box img { width: 100%; height: 100%; object-fit: contain; }
+        #crate-rays { position: absolute; width: 340px; height: 340px; border-radius: 50%; opacity: 0; pointer-events: none;
+            background: conic-gradient(from 0deg, transparent 0deg 8deg, rgba(255,224,102,0.55) 8deg 16deg, transparent 16deg 24deg); }
+        #crate-sparks { position: absolute; inset: 0; pointer-events: none; }
+        .crate-spark { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); opacity: 0; }
+        #crate-prize { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0; transform: scale(0.4); pointer-events: none; }
+        #crate-prize-icon { font-size: 76px; line-height: 1; filter: drop-shadow(0 0 18px rgba(255,224,102,0.8)); }
+        #crate-prize-icon img { width: 96px; height: 96px; object-fit: contain; }
+        #crate-prize-title { font-family: 'Orbitron', sans-serif; font-size: 19px; font-weight: 700; color: var(--gold); text-shadow: 0 0 12px rgba(255,224,102,0.7); text-align: center; }
+        #crate-prize-desc { font-size: 14px; color: var(--text); text-align: center; max-width: 78vw; }
+        #crate-close, #crate-again { width: auto; padding: 12px 32px; margin: 0; }
+        #crate-again { background: linear-gradient(45deg, #ff9800, #ff5722); }
+
+        /* Крок 1: коробка нервово трясеться */
+        #crate-overlay.stage-shake #crate-box { animation: crateShake 0.45s ease-in-out infinite; }
+        @keyframes crateShake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            20% { transform: translateX(-7px) rotate(-5deg); }
+            45% { transform: translateX(6px) rotate(4deg); }
+            70% { transform: translateX(-4px) rotate(-3deg); }
+        }
+        /* Крок 2: спалах, промені, коробка розлітається */
+        #crate-overlay.stage-burst #crate-rays { animation: crateRays 1.1s ease-out forwards; }
+        @keyframes crateRays {
+            0% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+            35% { opacity: 0.9; }
+            100% { opacity: 0; transform: scale(1.5) rotate(150deg); }
+        }
+        /* Кінцевий стан задано і класом, і анімацією: якщо анімація чомусь не відпрацює
+           (фонова вкладка, prefers-reduced-motion), приз усе одно буде видимий. */
+        #crate-overlay.stage-burst #crate-box { opacity: 0; animation: crateBurst 0.55s ease-in forwards; }
+        @keyframes crateBurst {
+            0% { transform: scale(1); opacity: 1; }
+            35% { transform: scale(1.35); opacity: 1; }
+            100% { transform: scale(0.2); opacity: 0; }
+        }
+        #crate-overlay.stage-burst .crate-spark { animation: crateSpark 0.9s ease-out forwards; }
+        @keyframes crateSpark {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2); }
+        }
+        /* Крок 3: приз виїжджає */
+        #crate-overlay.stage-reveal #crate-prize { opacity: 1; transform: scale(1); animation: cratePrize 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+        @keyframes cratePrize {
+            0% { opacity: 0; transform: scale(0.4); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        /* Гарантований фінальний стан. Ключове: якщо анімація не встигла відпрацювати
+           (згорнута вкладка, енергозбереження, reduced-motion), вона лишається замороженою
+           на 0% кейфреймі й перекриває звичайні правила — тому тут ми її взагалі вимикаємо
+           (animation: none) і жорстко фіксуємо кінцевий вигляд. Без цього гравець міг би
+           побачити зависле віко ящика й невидимий приз. */
+        #crate-overlay.anim-done #crate-box { animation: none !important; opacity: 0; }
+        #crate-overlay.anim-done #crate-rays { animation: none !important; opacity: 0; }
+        #crate-overlay.anim-done .crate-spark { animation: none !important; opacity: 0; }
+        #crate-overlay.anim-done #crate-prize { animation: none !important; opacity: 1; transform: scale(1); }
+
+        @media (prefers-reduced-motion: reduce) {
+            #crate-box, #crate-rays, .crate-spark, #crate-prize { animation: none !important; }
+            #crate-overlay.stage-reveal #crate-prize { opacity: 1; transform: scale(1); }
+        }
+
+        /* Порожній дроп — без золотого святкування, приз просто сумно зʼявляється */
+        #crate-overlay.result-nothing #crate-prize-icon { filter: grayscale(1) drop-shadow(0 0 8px rgba(0,0,0,0.6)); }
+        #crate-overlay.result-nothing #crate-prize-title { color: #7d8b99; text-shadow: none; }
+
+        /* ===== Кладовка ===== */
+        .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .storage-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+        .storage-bar { width: 100%; height: 10px; background: #1c1c2b; border-radius: 5px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .storage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #39ff14, #ffe066); transition: width 0.3s; }
+        .storage-fill.full { background: linear-gradient(90deg, #ff5722, #ff1744); }
+        .storage-header button { margin: 10px 0 0; font-size: 13px; padding: 9px; }
+        .res-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
+        .res-card.empty { opacity: 0.4; }
+        .res-emoji { font-size: 24px; }
+        .res-info { flex: 1; min-width: 0; }
+        .res-name { font-size: 13px; font-weight: 600; }
+        .res-meta { font-size: 10px; color: #9fb4c7; }
+        .res-qty { font-family: 'Orbitron', sans-serif; font-size: 16px; color: var(--gold); min-width: 34px; text-align: right; }
+        .res-card button { width: auto; margin: 0; padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+        .res-tier-1 { border-left: 3px solid #78909c; }
+        .res-tier-2 { border-left: 3px solid #29b6f6; }
+        .res-tier-3 { border-left: 3px solid #ab47bc; }
+        .res-tier-4 { border-left: 3px solid var(--gold); }
+        .recipe-card { background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 9px; padding: 11px; margin-bottom: 9px; }
+        .recipe-card.ready { border-color: rgba(57,255,20,0.5); }
+        .recipe-title { font-size: 14px; font-weight: 700; }
+        .recipe-desc { font-size: 11px; color: #9fb4c7; margin: 3px 0 7px; }
+        .recipe-cost { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .recipe-ing { font-size: 11px; padding: 3px 7px; border-radius: 5px; background: #1c1c2b; border: 1px solid #333; }
+        .recipe-ing.ok { border-color: rgba(57,255,20,0.6); color: #b9ffb0; }
+        .recipe-ing.missing { border-color: rgba(255,87,34,0.6); color: #ffb59c; }
+        .recipe-card button { margin: 0; padding: 8px; font-size: 12px; }
+        .shield-note { background: rgba(57,255,20,0.1); border: 1px solid rgba(57,255,20,0.4); color: #b9ffb0; border-radius: 6px; padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
+
+        /* ===== Багаторівневі апгрейди магазину ===== */
+        .upg-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; }
+        .upg-card img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
+        .upg-info { flex: 1; min-width: 0; }
+        .upg-name { font-size: 13px; font-weight: 600; }
+        .upg-meta { font-size: 10px; color: #9fb4c7; }
+        .upg-card button { width: auto; margin: 0; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
         .stars-section-title { font-size: 14px; margin: 0 0 8px; text-align: center; color: #eee; }
         .donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .donate-btn { background: linear-gradient(45deg, #ff2ea6, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
@@ -1205,7 +1875,8 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="switchTab(event, 'quests')">📋 Квести</div>
         <div class="tab" onclick="switchTab(event, 'market')">📈 Біржа</div>
         <div class="tab" onclick="switchTab(event, 'clan')">🏘 Клани</div>
-        <div class="tab" onclick="switchTab(event, 'gacha')">📦 Гуманітарка</div>
+        <div class="tab" onclick="switchTab(event, 'gacha')">📦 Ящики</div>
+        <div class="tab" onclick="switchTab(event, 'storage')">🗄 Кладовка</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
         <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
         <div class="tab" onclick="switchTab(event, 'stars')">💎 Донат</div>
@@ -1213,12 +1884,9 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="shop" class="panel active">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Прокачай свій сховок:</p>
-        <button onclick="buy('hat', ${ECONOMY.HAT_PRICE})"><img class="btn-icon" src="/images/shop-hat.webp" alt="">Шапочка з фольги (+1/клік) | ${ECONOMY.HAT_PRICE} 🪙</button>
-        <button onclick="buy('jam', ${ECONOMY.JAM_PRICE})"><img class="btn-icon" src="/images/shop-jam.webp" alt="">Закрутка (+5/сек) | ${ECONOMY.JAM_PRICE} 🪙</button>
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Апгрейди купуються нескінченно — кожен наступний рівень дорожчий.</p>
+        <div id="upgrades-list"></div>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
-        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><img class="btn-icon" src="/images/shop-thermos.webp" alt="">Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
-        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><img class="btn-icon" src="/images/shop-generator.webp" alt="">Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Еволюція:</h3>
         <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.webp" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
         <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.webp" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
@@ -1254,18 +1922,39 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="gacha" class="panel">
-        <div style="text-align: center; margin-bottom: 15px;">
-            <img src="/images/gacha-box-regular.webp" alt="" style="width:80px; height:80px; object-fit:contain; margin-bottom: 10px;">
-            <p style="font-size: 13px; color: #aaa;">Відкрий гуманітарну коробку. Всередині може бути джекпот або старі шкарпетки.</p>
-        </div>
-        <button class="gacha-btn" onclick="openGacha(${ECONOMY.GACHA_PRICE})"><img class="btn-icon" src="/images/gacha-box-regular.webp" alt="">Відкрити коробку (${ECONOMY.GACHA_PRICE} 🪙)</button>
-        <button class="gacha-btn gacha-btn-premium" onclick="openGachaPremium()"><img class="btn-icon" src="/images/gacha-box-elite.webp" alt="">Елітна коробка (${ECONOMY.GACHA_PREMIUM_STARS} ⭐)</button>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Колесо Зради та Перемоги (1 раз/день, безкоштовно):</h3>
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Ящики — головне джерело ресурсів для кладовки й крафту. Шанси показані чесно, тицьни «шанси» під ящиком.</p>
+        <div id="crates-list"></div>
+        <h3 style="font-size:14px; margin: 20px 0 5px; border-bottom: 1px solid #444;">Колесо Зради та Перемоги (1 раз/день, безкоштовно):</h3>
         <div class="wheel-wrap">
             <div class="wheel-pointer"></div>
             <div id="wheel"></div>
         </div>
         <button id="wheel-btn" onclick="spinWheel()">🎡 Крутити колесо</button>
+    </div>
+
+    <div id="storage" class="panel">
+        <div class="storage-header">
+            <div class="storage-bar-wrap">
+                <div class="storage-bar-label">
+                    <span>🗄 Кладовка (рівень <b id="storage-level">0</b>)</span>
+                    <span id="storage-count">0 / 60</span>
+                </div>
+                <div class="storage-bar"><div id="storage-fill" class="storage-fill"></div></div>
+            </div>
+            <button id="storage-upgrade-btn" onclick="upgradeStorage()">Розширити кладовку</button>
+        </div>
+        <div class="tabs-container">
+            <div class="tab active" onclick="switchStorageTab(event, 'storage-res')">📦 Ресурси</div>
+            <div class="tab" onclick="switchStorageTab(event, 'storage-craft')">🔨 Крафт</div>
+        </div>
+        <div id="storage-res" class="panel active">
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків. Здавай перекупу за ТК або тримай на крафт — крафт вигідніший.</p>
+            <div id="resources-list"></div>
+        </div>
+        <div id="storage-craft" class="panel">
+            <p style="margin-top:0; color:#aaa; font-size:12px;">Крафт дає те, що за валюту не купиш: щити від облав, розширення бака, постійні множники.</p>
+            <div id="recipes-list"></div>
+        </div>
     </div>
 
     <div id="friends" class="panel">
@@ -1325,6 +2014,28 @@ function buildHtml(botUsername) {
         <button onclick="document.getElementById('gacha-result').classList.add('hidden')">Забрати</button>
     </div>
 
+    <!-- Анімація відкривання ящика: коробка трясеться, потім "вибухає" променями
+         і зʼявляється приз. Кроки керуються класами .stage-* із JS (openCrate). -->
+    <div id="crate-overlay" class="hidden">
+        <div id="crate-stage">
+            <div id="crate-rays"></div>
+            <div id="crate-box">
+                <img id="crate-box-img" src="" alt="">
+                <div id="crate-lid"></div>
+            </div>
+            <div id="crate-sparks"></div>
+            <div id="crate-prize">
+                <div id="crate-prize-icon"></div>
+                <div id="crate-prize-title"></div>
+                <div id="crate-prize-desc"></div>
+            </div>
+        </div>
+        <button id="crate-close" class="hidden" onclick="closeCrateOverlay()">Забрати</button>
+        <div id="crate-again-wrap" class="hidden">
+            <button id="crate-again" onclick="repeatCrate()">Відкрити ще раз</button>
+        </div>
+    </div>
+
     <div id="raid-screen" class="hidden">
         <h1>🚨 ОБЛАВА НА РИНКУ! 🚨</h1>
         <p style="color:#fff; font-size:18px;">Тікай! Клікай швидко, щоб перелізти паркан!</p>
@@ -1381,7 +2092,17 @@ function buildHtml(botUsername) {
         // щоб сервер міг довіряти, що запит справді від цього користувача.
         function apiFetch(url, options = {}) {
             options.headers = Object.assign({}, options.headers, { 'X-Telegram-Init-Data': tg.initData || '' });
-            return fetch(url, options);
+            // Кожна відповідь із balanceRev одразу оновлює локальну ревізію — так автозбереження
+            // завжди шле актуальну, і сервер не відхиляє наш баланс без потреби.
+            return fetch(url, options).then(res => {
+                const origJson = res.json.bind(res);
+                res.json = async () => {
+                    const data = await origJson();
+                    if (data && typeof data.balanceRev === 'number') state.balanceRev = data.balanceRev;
+                    return data;
+                };
+                return res;
+            });
         }
 
         const BOT_USERNAME = '${botUsername}';
@@ -1394,6 +2115,10 @@ function buildHtml(botUsername) {
         const COSMETICS = ${JSON.stringify(COSMETICS)};
         const QUESTS = ${JSON.stringify(QUESTS)};
         const ROOM_ITEMS = ${JSON.stringify(ROOM_ITEMS)};
+        const RESOURCES = ${JSON.stringify(RESOURCES)};
+        const RESOURCE_BY_ID = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
+        const CRATES = ${JSON.stringify(CRATES)};
+        const RECIPES = ${JSON.stringify(RECIPES)};
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
 
@@ -1407,8 +2132,13 @@ function buildHtml(botUsername) {
             ownedRoomItems: [], equippedRoomItems: [],
             portfolio: {}, clanId: null, clanName: null, clanBonus: 1,
             dailyStreak: 0, wheelClaimedToday: false,
-            dailyClicks: 0, dailyTrades: 0, dailyBoxes: 0, dailyRaids: 0, claimedQuests: [],
+            dailyClicks: 0, dailyTrades: 0, dailyBoxes: 0, dailyRaids: 0,
+            dailyCrafts: 0, dailyResources: 0, claimedQuests: [],
             revengeUnlocked: false, revengeClaimedToday: false,
+            resources: {}, storageLevel: 0, storageCapacity: 0, storageUsed: 0, storageUpgradeCost: 0,
+            upgrades: { hat: 0, jam: 0, thermos: 0, generator: 0 }, upgradeCosts: {},
+            craftedCount: 0, shieldUntil: 0, permanentShield: false,
+            balanceRev: 0,
         };
 
         const ui = {
@@ -1420,6 +2150,11 @@ function buildHtml(botUsername) {
             refCount: document.getElementById('ref-count'), clanLine: document.getElementById('clan-line'),
             streakNote: document.getElementById('streak-note'),
         };
+
+        // Щит від облав: тимчасовий (крафт "Липова довідка") або постійний (Білий Квиток).
+        function hasShield() {
+            return !!state.permanentShield || (state.shieldUntil || 0) > Date.now();
+        }
 
         function petMult(kind) {
             if (kind === 'click') return state.petId === 'goose' ? ECONOMY.PET_GOOSE_CLICK_MULT : 1;
@@ -1470,6 +2205,10 @@ function buildHtml(botUsername) {
             renderCosmetics();
             applyCosmeticOverlay();
             renderRoomItemsOverlay();
+            renderUpgrades();
+            renderCrates();
+            renderStorage();
+            renderRecipes();
         }
 
         // ===== Резервна копія в Telegram CloudStorage =====
@@ -1491,6 +2230,9 @@ function buildHtml(botUsername) {
                 ownedCosmetics: state.ownedCosmetics, equippedCosmetics: state.equippedCosmetics,
                 ownedRoomItems: state.ownedRoomItems, equippedRoomItems: state.equippedRoomItems,
                 portfolio: state.portfolio,
+                resources: state.resources, storageLevel: state.storageLevel,
+                upgrades: state.upgrades, craftedCount: state.craftedCount,
+                shieldUntil: state.shieldUntil, permanentShield: state.permanentShield,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -1544,10 +2286,23 @@ function buildHtml(botUsername) {
                 state.revengeUnlocked = data.revengeUnlocked; state.revengeClaimedToday = data.revengeClaimedToday;
                 state.portfolio = data.portfolio || {}; state.clanId = data.clanId; state.clanName = data.clanName; state.clanBonus = data.clanBonus;
                 state.dailyStreak = data.dailyStreak; state.wheelClaimedToday = data.wheelClaimedToday;
+                // Кладовка / крафт / багаторівневі апгрейди
+                state.resources = data.resources || {};
+                state.storageLevel = data.storageLevel || 0;
+                state.storageCapacity = data.storageCapacity || 0;
+                state.storageUsed = data.storageUsed || 0;
+                state.storageUpgradeCost = data.storageUpgradeCost;
+                state.upgrades = data.upgrades || { hat: 0, jam: 0, thermos: 0, generator: 0 };
+                state.upgradeCosts = data.upgradeCosts || {};
+                state.craftedCount = data.craftedCount || 0;
+                state.shieldUntil = data.shieldUntil || 0;
+                state.permanentShield = !!data.permanentShield;
+
                 if (data.lastPremiumReward) {
-                    showGachaModal(data.lastPremiumReward.title, data.lastPremiumReward.img, data.lastPremiumReward.desc);
+                    // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
+                    playCrateAnimation(data.lastPremiumReward, data.lastPremiumReward.crateId || 'elite');
                 } else if (data.offlineEarnings > 0) {
-                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.webp', 'Ти тихо відсидівся і заробив +' + data.offlineEarnings + ' ТК!');
+                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.webp', 'Ти тихо відсидівся і заробив +' + Math.round(data.offlineEarnings) + ' ТК!');
                 }
             } catch (e) {
                 console.error('Не вдалося завантажити стан гравця', e);
@@ -1572,11 +2327,19 @@ function buildHtml(botUsername) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: user.id, name: user.first_name, balance: state.balance,
+                    balanceRev: state.balanceRev,
                     clickVal: state.clickVal, passive: state.passive, level: state.level,
                     energy: state.energy, maxEnergy: state.maxEnergy,
                     totalClicks: state.totalClicks, boxesOpened: state.boxesOpened, raidsSurvived: state.raidsSurvived,
                 })
             }).then(r => r.json()).then(data => {
+                // Сервер відхилив наш баланс — значить він змінював його сам (ящик/крафт/апгрейд),
+                // поки ми не встигли синхронізуватись. Беремо його значення як авторитетне.
+                if (data.balanceRejected && typeof data.balance === 'number') {
+                    state.balance = data.balance;
+                    updateUI();
+                }
+                if (typeof data.balanceRev === 'number') state.balanceRev = data.balanceRev;
                 if (data.unlockedAchievements && data.unlockedAchievements.length) {
                     state.balance = data.balance;
                     data.unlockedAchievements.forEach(a => { state.achievements.push(a.id); });
@@ -1600,7 +2363,7 @@ function buildHtml(botUsername) {
             let earned = state.clickVal * petMult('click') * (state.isVip ? 3 : 1);
             state.balance += earned;
             state.totalClicks += 1;
-            if (!state.isVip) state.energy = Math.max(0, state.energy - 2);
+            if (!state.isVip) state.energy = Math.max(0, state.energy - ECONOMY.ENERGY_PER_CLICK);
 
             let x = e.touches ? e.touches[0].clientX : e.clientX;
             let y = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1620,9 +2383,13 @@ function buildHtml(botUsername) {
         }
 
         // ===== Ігрові цикли =====
+        // Енергія — головний обмежувач темпу гри. Регенерація ~1/сек (ENERGY_REGEN_PER_TICK
+        // за тік у 100мс): повний бак на 100 енергії відновлюється ~100 секунд.
         setInterval(() => {
             if (state.passive > 0) state.balance += (state.passive * state.clanBonus * (state.isVip ? 3 : 1)) / 10;
-            if (state.energy < state.maxEnergy) state.energy = Math.min(state.maxEnergy, state.energy + 2 * petMult('energy'));
+            if (state.energy < state.maxEnergy) {
+                state.energy = Math.min(state.maxEnergy, state.energy + ECONOMY.ENERGY_REGEN_PER_TICK * petMult('energy'));
+            }
             updateUI();
         }, 100);
 
@@ -1639,17 +2406,18 @@ function buildHtml(botUsername) {
             if (tabId === 'clan') { renderClanMine(); loadClanList(); loadClanLeaderboard(); }
             if (tabId === 'quests') loadQuests();
             if (tabId === 'revenge') renderRevengeTab();
+            if (tabId === 'shop') renderUpgrades();
+            if (tabId === 'gacha') renderCrates();
+            if (tabId === 'storage') { renderStorage(); renderRecipes(); }
         };
 
         // ===== Магазин =====
+        // Апгрейди кліку/пасиву тепер багаторівневі й купуються через buyUpgrade() на сервері.
+        // Тут лишились разові покупки: енергетик і переїзди між локаціями.
         window.buy = (item, price) => {
             if (state.balance < price) return tg.showAlert('Недостатньо ТК!');
             state.balance -= price;
-            if (item === 'hat') state.clickVal += ECONOMY.HAT_CLICK_BONUS;
-            if (item === 'jam') state.passive += ECONOMY.JAM_PASSIVE_BONUS;
             if (item === 'energy_drink') state.energy = state.maxEnergy;
-            if (item === 'thermos') state.clickVal += ECONOMY.THERMOS_CLICK_BONUS;
-            if (item === 'generator') state.passive += ECONOMY.GENERATOR_PASSIVE_BONUS;
             if (item === 'basement' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
             if (item === 'balkan' && state.level < 3) { state.level = 3; state.maxEnergy = LOCATIONS[2].maxEnergy; state.energy = state.maxEnergy; }
             if (item === 'tisa' && state.level < 4) { state.level = 4; state.maxEnergy = LOCATIONS[3].maxEnergy; state.energy = state.maxEnergy; }
@@ -1778,6 +2546,353 @@ function buildHtml(botUsername) {
             document.getElementById(tabId).classList.add('active');
             if (tabId === 'room-wardrobe') renderCosmetics();
             if (tabId === 'room-shop') renderRoomItems();
+        };
+
+        // ==========================================
+        // ЯЩИКИ (список, шанси, анімація відкривання)
+        // ==========================================
+        function lootLabel(entry) {
+            if (entry.type === 'nothing') return '🧦 Пусто';
+            if (entry.type === 'coins') return '🪙 ' + entry.min.toLocaleString('uk-UA') + '–' + entry.max.toLocaleString('uk-UA') + ' ТК';
+            if (entry.type === 'energy') return '🔋 Повна енергія';
+            if (entry.type === 'cosmetic') return '👕 Річ у гардероб';
+            const meta = RESOURCE_BY_ID[entry.res];
+            return meta.emoji + ' ' + meta.name + ' ' + entry.min + (entry.max > entry.min ? '–' + entry.max : '');
+        }
+
+        function renderCrates() {
+            const list = document.getElementById('crates-list');
+            if (!list) return;
+            list.innerHTML = CRATES.map(c => {
+                const totalWeight = c.loot.reduce((s, e) => s + e.weight, 0);
+                const odds = c.loot.map(e =>
+                    '<div><span>' + lootLabel(e) + '</span><span>' + (100 * e.weight / totalWeight).toFixed(1) + '%</span></div>'
+                ).join('');
+                const priceLabel = c.currency === 'stars'
+                    ? c.price + ' ⭐'
+                    : c.price.toLocaleString('uk-UA') + ' 🪙';
+                const btnClass = c.currency === 'stars' ? 'gacha-btn gacha-btn-premium' : 'gacha-btn';
+                return '<div class="crate-card' + (c.currency === 'stars' ? ' stars' : '') + '">' +
+                    '<div class="crate-top">' +
+                        '<img src="' + c.img + '" alt="">' +
+                        '<div><div class="crate-name">' + c.emoji + ' ' + c.name + '</div>' +
+                        '<div class="crate-desc">' + c.desc + '</div></div>' +
+                    '</div>' +
+                    '<button class="' + btnClass + '" onclick="openCrate(\\'' + c.id + '\\')">Відкрити — ' + priceLabel + '</button>' +
+                    '<button class="crate-odds-toggle" onclick="toggleOdds(\\'' + c.id + '\\')">шанси ▾</button>' +
+                    '<div class="crate-odds hidden" id="odds-' + c.id + '">' + odds + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.toggleOdds = (crateId) => {
+            document.getElementById('odds-' + crateId).classList.toggle('hidden');
+        };
+
+        let lastCrateId = null;
+
+        // Програє триетапну анімацію: трясіння → вибух із іскрами → поява призу.
+        function playCrateAnimation(reward, crateId) {
+            const crate = CRATES.find(c => c.id === crateId) || CRATES[0];
+            const overlay = document.getElementById('crate-overlay');
+            const sparks = document.getElementById('crate-sparks');
+            const prizeIcon = document.getElementById('crate-prize-icon');
+
+            document.getElementById('crate-box-img').src = crate.img;
+            overlay.className = '';
+            document.getElementById('crate-close').classList.add('hidden');
+            document.getElementById('crate-again-wrap').classList.add('hidden');
+
+            // Іскри розлітаються по колу від центру
+            sparks.innerHTML = '';
+            for (let i = 0; i < 14; i++) {
+                const s = document.createElement('div');
+                s.className = 'crate-spark';
+                const angle = (i / 14) * Math.PI * 2;
+                const dist = 90 + Math.random() * 60;
+                s.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+                s.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+                sparks.appendChild(s);
+            }
+
+            prizeIcon.innerHTML = reward.img
+                ? '<img src="' + reward.img + '" alt="">'
+                : (reward.emoji || '🎁');
+            document.getElementById('crate-prize-title').innerText = reward.title || '';
+            document.getElementById('crate-prize-desc').innerText = reward.desc || '';
+
+            overlay.classList.add('stage-shake');
+            if (reward.kind === 'nothing') overlay.classList.add('result-nothing');
+            tg.HapticFeedback.impactOccurred('medium');
+
+            setTimeout(() => {
+                overlay.classList.remove('stage-shake');
+                overlay.classList.add('stage-burst');
+                tg.HapticFeedback.impactOccurred('heavy');
+            }, 900);
+
+            setTimeout(() => {
+                overlay.classList.add('stage-reveal');
+                tg.HapticFeedback.notificationOccurred(reward.kind === 'nothing' ? 'warning' : 'success');
+                document.getElementById('crate-close').classList.remove('hidden');
+                // Повторне відкриття доступне лише для ящиків за ігрову валюту —
+                // за Stars повтор має йти через звичайний платіжний флоу, без "ще раз" в один тап.
+                if (crate.currency === 'coins') {
+                    lastCrateId = crate.id;
+                    document.getElementById('crate-again-wrap').classList.remove('hidden');
+                    document.getElementById('crate-again').innerText = 'Ще раз — ' + crate.price.toLocaleString('uk-UA') + ' 🪙';
+                }
+            }, 1500);
+
+            // Страховка: коли анімація мала б завершитись, жорстко фіксуємо фінальний стан.
+            // Якщо вкладка була згорнута, CSS-анімації не просувались і зависли б на 0%.
+            setTimeout(() => overlay.classList.add('anim-done'), 2100);
+        }
+
+        window.closeCrateOverlay = () => {
+            document.getElementById('crate-overlay').className = 'hidden';
+        };
+
+        window.repeatCrate = () => {
+            if (lastCrateId) openCrate(lastCrateId);
+        };
+
+        window.openCrate = async (crateId) => {
+            const crate = CRATES.find(c => c.id === crateId);
+            if (!crate) return;
+
+            if (crate.currency === 'stars') {
+                try {
+                    const res = await apiFetch('/api/invoice', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: user.id, type: 'crate', crateId: crate.id })
+                    });
+                    const data = await res.json();
+                    if (!data.link) return tg.showAlert('Помилка створення інвойсу');
+                    tg.openInvoice(data.link, async (status) => {
+                        // Результат уже розкрито на сервері — init() підхопить і покаже анімацію
+                        if (status === 'paid') await init();
+                    });
+                } catch (e) { tg.showAlert('Помилка генерації інвойсу'); }
+                return;
+            }
+
+            if (state.balance < crate.price) return tg.showAlert('Не вистачає ТК на цей ящик!');
+            document.getElementById('crate-overlay').classList.remove('hidden');
+
+            try {
+                const res = await apiFetch('/api/crate/open', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, crateId: crate.id })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    document.getElementById('crate-overlay').className = 'hidden';
+                    return tg.showAlert(data.message || 'Помилка');
+                }
+                state.balance = data.balance;
+                state.boxesOpened += 1;
+                state.resources = data.resources;
+                state.storageUsed = data.used;
+                state.storageCapacity = data.capacity;
+                if (data.ownedCosmetics) state.ownedCosmetics = data.ownedCosmetics;
+                if (typeof data.energy === 'number') state.energy = data.energy;
+                playCrateAnimation(data.reward, crate.id);
+                if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                    data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                }
+                updateUI();
+                renderStorage();
+                renderRecipes();
+                renderCosmetics();
+            } catch (e) {
+                document.getElementById('crate-overlay').className = 'hidden';
+                tg.showAlert('Помилка відкриття ящика');
+            }
+        };
+
+        // ==========================================
+        // КЛАДОВКА (склад ресурсів + крафт)
+        // ==========================================
+        window.switchStorageTab = (evt, tabId) => {
+            const root = document.getElementById('storage');
+            root.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            root.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            evt.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'storage-craft') renderRecipes();
+            else renderStorage();
+        };
+
+        function renderStorage() {
+            const list = document.getElementById('resources-list');
+            if (!list) return;
+
+            const cap = state.storageCapacity || 0;
+            const used = Object.values(state.resources || {}).reduce((s, n) => s + (n || 0), 0);
+            state.storageUsed = used;
+            document.getElementById('storage-level').innerText = state.storageLevel || 0;
+            document.getElementById('storage-count').innerText = used + ' / ' + cap;
+            const fill = document.getElementById('storage-fill');
+            fill.style.width = (cap ? Math.min(100, 100 * used / cap) : 0) + '%';
+            fill.classList.toggle('full', cap > 0 && used >= cap);
+
+            const upgBtn = document.getElementById('storage-upgrade-btn');
+            if (state.storageUpgradeCost == null) {
+                upgBtn.innerText = 'Кладовка максимального розміру';
+                upgBtn.disabled = true;
+            } else {
+                upgBtn.innerText = 'Розширити (+' + ECONOMY.STORAGE_CAPACITY_PER_LEVEL + ' місць) — ' + state.storageUpgradeCost.toLocaleString('uk-UA') + ' 🪙';
+                upgBtn.disabled = false;
+            }
+
+            list.innerHTML = RESOURCES.map(r => {
+                const qty = (state.resources || {})[r.id] || 0;
+                const sellBtn = qty > 0
+                    ? '<button onclick="sellResource(\\'' + r.id + '\\')">Здати все (+' + (qty * r.sell).toLocaleString('uk-UA') + ' 🪙)</button>'
+                    : '';
+                return '<div class="res-card res-tier-' + r.tier + (qty === 0 ? ' empty' : '') + '">' +
+                    '<span class="res-emoji">' + r.emoji + '</span>' +
+                    '<div class="res-info"><div class="res-name">' + r.name + '</div>' +
+                    '<div class="res-meta">тір ' + r.tier + ' · ' + r.sell + ' 🪙 за шт.</div></div>' +
+                    '<span class="res-qty">' + qty + '</span>' + sellBtn +
+                '</div>';
+            }).join('');
+        }
+
+        function renderRecipes() {
+            const list = document.getElementById('recipes-list');
+            if (!list) return;
+
+            let note = '';
+            if (state.permanentShield) {
+                note = '<div class="shield-note">🎫 У тебе Білий Квиток — облави тобі більше не страшні. Назавжди.</div>';
+            } else if ((state.shieldUntil || 0) > Date.now()) {
+                const mins = Math.ceil((state.shieldUntil - Date.now()) / 60000);
+                note = '<div class="shield-note">📄 Щит від облав активний ще ' + mins + ' хв.</div>';
+            }
+
+            list.innerHTML = note + RECIPES.map(rc => {
+                const ings = Object.entries(rc.cost).map(([resId, need]) => {
+                    const have = (state.resources || {})[resId] || 0;
+                    const meta = RESOURCE_BY_ID[resId];
+                    const ok = have >= need;
+                    return '<span class="recipe-ing ' + (ok ? 'ok' : 'missing') + '">' +
+                        meta.emoji + ' ' + have + '/' + need + '</span>';
+                }).join('');
+                const canCraft = Object.entries(rc.cost).every(([resId, need]) => ((state.resources || {})[resId] || 0) >= need);
+                const alreadyHas = rc.effect.type === 'permanent_shield' && state.permanentShield;
+                const btn = alreadyHas
+                    ? '<button disabled>Вже отримано</button>'
+                    : '<button onclick="craft(\\'' + rc.id + '\\')"' + (canCraft ? '' : ' disabled') + '>' +
+                      (canCraft ? '🔨 Скрафтити' : 'Не вистачає ресурсів') + '</button>';
+                return '<div class="recipe-card' + (canCraft && !alreadyHas ? ' ready' : '') + '">' +
+                    '<div class="recipe-title">' + rc.emoji + ' ' + rc.name + '</div>' +
+                    '<div class="recipe-desc">' + rc.desc + '</div>' +
+                    '<div class="recipe-cost">' + ings + '</div>' + btn +
+                '</div>';
+            }).join('');
+        }
+
+        window.upgradeStorage = async () => {
+            const res = await apiFetch('/api/storage/upgrade', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance;
+            state.storageLevel = data.storageLevel;
+            state.storageCapacity = data.capacity;
+            state.storageUpgradeCost = data.upgradeCost;
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+            renderStorage();
+        };
+
+        window.sellResource = async (resId) => {
+            const res = await apiFetch('/api/storage/sell', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, resId, all: true })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance;
+            state.resources = data.resources;
+            state.storageUsed = data.used;
+            tg.HapticFeedback.notificationOccurred('success');
+            updateUI();
+            renderStorage();
+            renderRecipes();
+        };
+
+        window.craft = async (recipeId) => {
+            const res = await apiFetch('/api/craft', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, recipeId })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance; state.clickVal = data.clickVal; state.passive = data.passive;
+            state.energy = data.energy; state.maxEnergy = data.maxEnergy;
+            state.resources = data.resources; state.storageUsed = data.used;
+            state.shieldUntil = data.shieldUntil; state.permanentShield = data.permanentShield;
+            state.craftedCount = data.craftedCount;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('🔨 ' + data.message);
+            if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                renderAchievements();
+            }
+            updateUI();
+            renderStorage();
+            renderRecipes();
+        };
+
+        // ==========================================
+        // БАГАТОРІВНЕВІ АПГРЕЙДИ МАГАЗИНУ
+        // ==========================================
+        const UPGRADE_META = [
+            { key: 'hat', name: 'Шапочка з фольги', img: '/images/shop-hat.webp', bonus: '+' + ECONOMY.HAT_CLICK_BONUS + ' до кліку' },
+            { key: 'jam', name: 'Закрутка', img: '/images/shop-jam.webp', bonus: '+' + ECONOMY.JAM_PASSIVE_BONUS + ' до пасиву' },
+            { key: 'thermos', name: 'Термос кави', img: '/images/shop-thermos.webp', bonus: '+' + ECONOMY.THERMOS_CLICK_BONUS + ' до кліку' },
+            { key: 'generator', name: 'Генератор', img: '/images/shop-generator.webp', bonus: '+' + ECONOMY.GENERATOR_PASSIVE_BONUS + ' до пасиву' },
+        ];
+
+        function renderUpgrades() {
+            const list = document.getElementById('upgrades-list');
+            if (!list) return;
+            list.innerHTML = UPGRADE_META.map(u => {
+                const lvl = (state.upgrades || {})[u.key] || 0;
+                const cost = (state.upgradeCosts || {})[u.key] || 0;
+                const afford = state.balance >= cost;
+                return '<div class="upg-card">' +
+                    '<img src="' + u.img + '" alt="">' +
+                    '<div class="upg-info"><div class="upg-name">' + u.name + ' <span style="color:var(--gold)">Ур. ' + lvl + '</span></div>' +
+                    '<div class="upg-meta">' + u.bonus + ' за рівень</div></div>' +
+                    '<button onclick="buyUpgrade(\\'' + u.key + '\\')"' + (afford ? '' : ' disabled') + '>' +
+                    cost.toLocaleString('uk-UA') + ' 🪙</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.buyUpgrade = async (key) => {
+            const res = await apiFetch('/api/upgrade/buy', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, key })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance; state.clickVal = data.clickVal; state.passive = data.passive;
+            state.upgrades = data.upgrades;
+            state.upgradeCosts[key] = data.nextCost;
+            tg.HapticFeedback.notificationOccurred('success');
+            if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                renderAchievements();
+            }
+            updateUI();
+            renderUpgrades();
         };
 
         function renderRoomItemsOverlay() {
@@ -2016,45 +3131,6 @@ function buildHtml(botUsername) {
             document.getElementById('gacha-result').classList.remove('hidden');
         }
 
-        window.openGacha = (price) => {
-            if (state.balance < price) return tg.showAlert('Не вистачає ТК на коробку!');
-            state.balance -= price;
-            state.boxesOpened += 1;
-            tg.HapticFeedback.impactOccurred('heavy');
-
-            let rand = Math.random();
-            if (rand < 0.1) {
-                state.balance += 10000;
-                showGachaModal('ДЖЕКПОТ!', '/images/gacha-jackpot.webp', 'Ти знайшов заначку діда! +10 000 ТК');
-            } else if (rand < 0.4) {
-                state.passive += 5;
-                showGachaModal('Непогано!', '/images/gacha-tushonka.webp', 'Імпортна тушонка! +5 до пасивного доходу.');
-            } else if (rand < 0.7) {
-                state.energy = state.maxEnergy;
-                showGachaModal('Нормально.', '/images/gacha-powerbank.webp', 'Павербанк. Енергія відновлена повністю!');
-            } else {
-                showGachaModal('Ой...', '/images/gacha-scam-socks.webp', 'Коробка виявилась порожньою (тільки діряві шкарпетки).');
-            }
-            tg.HapticFeedback.notificationOccurred('success');
-            updateUI();
-            saveState();
-        };
-
-        // ===== Gacha (елітна, за реальні Stars) =====
-        window.openGachaPremium = async () => {
-            try {
-                let res = await apiFetch('/api/invoice', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: user.id, type: 'gacha_premium' })
-                });
-                let data = await res.json();
-                if (!data.link) return tg.showAlert('Помилка створення інвойсу');
-                tg.openInvoice(data.link, async (status) => {
-                    if (status === 'paid') await init();
-                });
-            } catch (e) { tg.showAlert('Помилка генерації інвойсу'); }
-        };
-
         // ===== Колесо Зради та Перемоги =====
         function buildWheelGradient() {
             const n = WHEEL_SEGMENTS.length;
@@ -2087,9 +3163,14 @@ function buildHtml(botUsername) {
 
             setTimeout(() => {
                 state.balance = data.balance; state.energy = data.energy; state.wheelClaimedToday = true;
+                if (data.resources) state.resources = data.resources;
                 tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert('🎡 Випало: ' + data.segment.label);
-                updateUI(); renderWheel();
+                tg.showAlert('🎡 Випало: ' + (data.resultNote || data.segment.label));
+                if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                    data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                    renderAchievements();
+                }
+                updateUI(); renderWheel(); renderStorage(); renderRecipes();
             }, 4100);
         };
 
@@ -2215,7 +3296,7 @@ function buildHtml(botUsername) {
         // МЕХАНІКА ОБЛАВИ (БОС-ФАЙТ)
         // ==========================================
         setInterval(() => {
-            if (state.isVip || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid')) return;
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid')) return;
 
             const raidScreen = document.getElementById('raid-screen');
             const timerEl = document.getElementById('raid-timer');
@@ -2272,7 +3353,7 @@ function buildHtml(botUsername) {
         // QTE: СТУК У ДВЕРІ
         // ==========================================
         setInterval(() => {
-            if (state.isVip || Math.random() > ECONOMY.QTE_KNOCK_CHANCE) return;
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.QTE_KNOCK_CHANCE) return;
 
             const overlay = document.getElementById('knock-screen');
             const timerEl = document.getElementById('knock-timer');
