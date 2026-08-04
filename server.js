@@ -1921,6 +1921,12 @@ function buildHtml(botUsername) {
         .recipe-card button { margin: 0; padding: 8px; font-size: 12px; }
         .shield-note { background: rgba(57,255,20,0.1); border: 1px solid rgba(57,255,20,0.4); color: #b9ffb0; border-radius: 6px; padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
 
+        /* ===== Статистика та колекція ===== */
+        .stat-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; padding: 6px 2px; border-bottom: 1px solid #22222f; }
+        .stat-row b { font-family: 'Orbitron', sans-serif; color: var(--gold); font-size: 12px; white-space: nowrap; }
+        .coll-row { margin-bottom: 9px; }
+        .coll-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+
         /* ===== Багаторівневі апгрейди магазину ===== */
         .upg-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; }
         .upg-card img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
@@ -2231,6 +2237,11 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="top" class="panel">
+        <h3 style="font-size:14px; margin: 0 0 8px; border-bottom: 1px solid #444;">📊 Твоя статистика</h3>
+        <div id="stats-box"></div>
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🎯 Колекція</h3>
+        <div id="collection-box"></div>
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🏆 Рейтинг гравців</h3>
         <img src="/images/leaderboard-trophy.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <button onclick="loadTop()">🔄 Оновити рейтинг</button>
         <ol id="leaderboard-list" style="padding-left: 20px; font-family: monospace; font-size: 14px; line-height: 1.8;"></ol>
@@ -2653,7 +2664,7 @@ function buildHtml(botUsername) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             evt.currentTarget.classList.add('active');
             document.getElementById(tabId).classList.add('active');
-            if (tabId === 'top') { loadTop(); renderAchievements(); }
+            if (tabId === 'top') { loadTop(); renderAchievements(); renderStats(); renderCollection(); }
             if (tabId === 'market') loadMarket();
             if (tabId === 'clan') { renderClanMine(); loadClanList(); loadClanLeaderboard(); }
             if (tabId === 'quests') loadQuests();
@@ -3046,6 +3057,52 @@ function buildHtml(botUsername) {
                     '<div class="recipe-title">' + rc.emoji + ' ' + rc.name + '</div>' +
                     '<div class="recipe-desc">' + rc.desc + '</div>' +
                     '<div class="recipe-cost">' + ings + '</div>' + btn +
+                '</div>';
+            }).join('');
+        }
+
+        // ===== Статистика та колекція =====
+        function fmtNum(n) { return Math.round(n || 0).toLocaleString('uk-UA'); }
+
+        function renderStats() {
+            const box = document.getElementById('stats-box');
+            if (!box) return;
+            const rows = [
+                ['🖱 Всього кліків', fmtNum(state.totalClicks)],
+                ['💰 Зароблено за все життя', fmtNum(state.totalEarned) + ' ТК'],
+                ['📦 Відкрито ящиків', fmtNum(state.boxesOpened)],
+                ['🌙 Завершено вилазок', fmtNum(state.expeditionsDone)],
+                ['🔨 Скрафтено предметів', fmtNum(state.craftedCount)],
+                ['🚨 Пережито облав', fmtNum(state.raidsSurvived)],
+                ['📜 Довідок престижу', fmtNum(state.prestigePoints) + ' (x' + (state.prestigeMultiplier || 1).toFixed(2) + ')'],
+                ['🗄 Рівень кладовки', fmtNum(state.storageLevel) + ' (' + fmtNum(state.storageCapacity) + ' місць)'],
+            ];
+            box.innerHTML = rows.map(([k, v]) =>
+                '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
+            ).join('');
+        }
+
+        // Прогрес-бари по колекціях. Головна мета — показати гравцю, скільки лишилось
+        // зібрати: видима незавершеність мотивує сильніше за будь-який банер.
+        function renderCollection() {
+            const box = document.getElementById('collection-box');
+            if (!box) return;
+            const groups = [
+                ['🎩 Головні убори', COSMETICS.filter(c => c.slot === 'hat'), state.ownedCosmetics],
+                ['😷 Маски', COSMETICS.filter(c => c.slot === 'face'), state.ownedCosmetics],
+                ['🧣 Аксесуари', COSMETICS.filter(c => c.slot === 'neck'), state.ownedCosmetics],
+                ['✨ Рамки', COSMETICS.filter(c => c.slot === 'frame'), state.ownedCosmetics],
+                ['🛋 Декор кімнати', ROOM_ITEMS, state.ownedRoomItems],
+                ['🐾 Компаньйони', PETS, state.ownedPets],
+                ['🏅 Досягнення', ACHIEVEMENTS_META, state.achievements],
+            ];
+            box.innerHTML = groups.map(([name, all, owned]) => {
+                const have = all.filter(x => (owned || []).includes(x.id)).length;
+                const pct = all.length ? Math.round(100 * have / all.length) : 0;
+                const done = have === all.length;
+                return '<div class="coll-row">' +
+                    '<div class="coll-head"><span>' + name + (done ? ' ✅' : '') + '</span><span>' + have + ' / ' + all.length + '</span></div>' +
+                    '<div class="storage-bar"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
                 '</div>';
             }).join('');
         }
