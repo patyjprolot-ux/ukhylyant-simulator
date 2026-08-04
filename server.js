@@ -543,6 +543,14 @@ const WHEEL_SEGMENTS = [
     { label: 'ДЖЕКПОТ 5000', type: 'balance', amount: 5000, weight: 1, color: '#ffd700' },
 ];
 
+// Скільки гравець усього вніс у скарбницю свого чату (0, якщо не в чаті).
+// Оголошено тут, бо використовується в ACHIEVEMENTS нижче.
+function clanContributionOf(user) {
+    if (!user.clanId || !clansDB.has(user.clanId)) return 0;
+    const clan = clansDB.get(user.clanId);
+    return (clan.contributions && clan.contributions[user.id]) || 0;
+}
+
 // Досягнення. check() виконується лише на сервері (не серіалізується клієнту);
 // клієнт отримує ACHIEVEMENTS_META (без check) + масив розблокованих id користувача.
 const ACHIEVEMENTS = [
@@ -586,6 +594,10 @@ const ACHIEVEMENTS = [
     { id: 'prestige_1', name: 'Легалізований', desc: 'Легалізуйся вперше', reward: 10000, check: (u) => (u.prestigeCount || 0) >= 1 },
     { id: 'prestige_5', name: 'Рецидивіст', desc: 'Легалізуйся 5 разів', reward: 60000, check: (u) => (u.prestigeCount || 0) >= 5 },
     { id: 'prestige_pts_25', name: 'Стос довідок', desc: 'Накопич 25 довідок престижу', reward: 150000, check: (u) => (u.prestigePoints || 0) >= 25 },
+    // --- Клани ---
+    { id: 'clan_donate_1', name: 'Скинувся на ОСББ', desc: 'Внеси щось у скарбницю чату', reward: 1000, check: (u) => clanContributionOf(u) > 0 },
+    { id: 'clan_donate_100k', name: 'Голова правління', desc: 'Внеси 100 000 ТК у скарбницю чату', reward: 15000, check: (u) => clanContributionOf(u) >= 100000 },
+    { id: 'clan_donate_1m', name: 'Спонсор кварталу', desc: 'Внеси 1 000 000 ТК у скарбницю чату', reward: 80000, check: (u) => clanContributionOf(u) >= 1000000 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -1856,10 +1868,11 @@ app.post('/api/clan/donate', requireTelegramAuth, (req, res) => {
     clan.treasury = (clan.treasury || 0) + amount;
     clan.contributions[user.id] = (clan.contributions[user.id] || 0) + amount;
     const after = clanLevel(clan);
+    const unlocked = checkAchievements(user);
 
     res.json({
         success: true, balance: user.balance,
-        leveledUp: after > before, ...getClanInfo(user),
+        leveledUp: after > before, unlockedAchievements: unlocked, ...getClanInfo(user),
     });
 });
 
@@ -3825,6 +3838,10 @@ function buildHtml(botUsername) {
                 state.clanNextLevelCost = data.nextLevelCost;
                 state.clanMyContribution = data.myContribution;
                 tg.HapticFeedback.notificationOccurred('success');
+                if (data.unlockedAchievements && data.unlockedAchievements.length) {
+                    data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
+                    renderAchievements();
+                }
                 if (data.leveledUp) tg.showAlert('🏘 Чат ОСББ виріс до ' + data.clanLevel + ' рівня! Бонус до пасиву тепер +' + Math.round((data.bonus - 1) * 100) + '% усім.');
                 input.value = '';
                 updateUI();
