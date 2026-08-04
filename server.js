@@ -255,6 +255,20 @@ const CRATES = [
 ];
 const CRATE_BY_ID = Object.fromEntries(CRATES.map((c) => [c.id, c]));
 
+// Щоденна акція: один ящик за ігрову валюту дешевший на DAILY_DEAL_OFF.
+// Вибір детермінований від дати, тому в усіх гравців акція однакова і її не можна
+// "перекрутити", перезайшовши в гру. Донатні ящики не знижуємо.
+const DAILY_DEAL_OFF = 0.35;
+function dailyDealCrateId(date = new Date()) {
+    const coinCrates = CRATES.filter((c) => c.currency === 'coins');
+    const dayNumber = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86400000);
+    return coinCrates[dayNumber % coinCrates.length].id;
+}
+function cratePriceFor(crate) {
+    if (crate.currency !== 'coins' || crate.id !== dailyDealCrateId()) return crate.price;
+    return Math.round(crate.price * (1 - DAILY_DEAL_OFF));
+}
+
 // Крафт — головний спосіб перетворити ресурси на постійні бонуси. Навмисно дорожчий
 // за пряму купівлю апгрейдів, але дає те, що за валюту не купиш (щити, множники).
 const RECIPES = [
@@ -1164,6 +1178,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         clanBonus: clan.bonus,
         wheelClaimedToday: user.wheelLastSpinDate === today,
         balanceRev: user.balanceRev,
+        dailyDeal: { crateId: dailyDealCrateId(), off: DAILY_DEAL_OFF },
         // Кладовка, крафт, багаторівневі апгрейди
         resources: user.resources,
         storageLevel: user.storageLevel,
@@ -1568,9 +1583,11 @@ app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
     const crate = CRATE_BY_ID[req.body.crateId];
     if (!crate) return res.status(400).json({ error: 'Невідомий ящик' });
     if (crate.currency !== 'coins') return res.json({ success: false, message: 'Цей ящик купується за Stars' });
-    if (user.balance < crate.price) return res.json({ success: false, message: 'Недостатньо ТК на ящик' });
+    // Ціну рахує сервер (з урахуванням щоденної акції) — клієнту тут не довіряємо.
+    const price = cratePriceFor(crate);
+    if (user.balance < price) return res.json({ success: false, message: 'Недостатньо ТК на ящик' });
 
-    user.balance -= crate.price;
+    user.balance -= price;
     const reward = rollCrate(user, crate);
     const unlocked = checkAchievements(user);
     res.json({
@@ -1875,6 +1892,8 @@ function buildHtml(botUsername) {
         /* ===== Ящики ===== */
         .crate-card { background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
         .crate-card.stars { border-color: rgba(255,224,102,0.5); background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(255,224,102,0.08)); }
+        .crate-card.on-sale { border-color: rgba(57,255,20,0.55); box-shadow: 0 0 14px rgba(57,255,20,0.15); }
+        .sale-badge { display: inline-block; margin-left: 7px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #39ff14; color: #07230a; vertical-align: middle; }
         .crate-top { display: flex; align-items: center; gap: 10px; }
         .crate-top img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
         .crate-name { font-weight: 700; font-size: 14px; }
@@ -2633,6 +2652,7 @@ function buildHtml(botUsername) {
                 state.permanentShield = !!data.permanentShield;
                 state.expedition = data.expedition || null;
                 state.expeditionsDone = data.expeditionsDone || 0;
+                state.dailyDeal = data.dailyDeal || null;
                 state.totalEarned = data.totalEarned || 0;
                 state.prestigePoints = data.prestigePoints || 0;
                 state.prestigeCount = data.prestigeCount || 0;
@@ -2910,6 +2930,14 @@ function buildHtml(botUsername) {
         // ==========================================
         // ЯЩИКИ (список, шанси, анімація відкривання)
         // ==========================================
+        // Ціна ящика з урахуванням щоденної акції. Це лише для показу й перевірки
+        // «чи вистачає» — авторитетну ціну все одно рахує сервер при відкритті.
+        function clientCratePrice(crate) {
+            const deal = state.dailyDeal || {};
+            if (crate.currency !== 'coins' || crate.id !== deal.crateId) return crate.price;
+            return Math.round(crate.price * (1 - deal.off));
+        }
+
         function lootLabel(entry) {
             if (entry.type === 'nothing') return '🧦 Пусто';
             if (entry.type === 'coins') return '🪙 ' + entry.min.toLocaleString('uk-UA') + '–' + entry.max.toLocaleString('uk-UA') + ' ТК';
@@ -2927,14 +2955,22 @@ function buildHtml(botUsername) {
                 const odds = c.loot.map(e =>
                     '<div><span>' + lootLabel(e) + '</span><span>' + (100 * e.weight / totalWeight).toFixed(1) + '%</span></div>'
                 ).join('');
+                const deal = state.dailyDeal || {};
+                const onSale = c.currency === 'coins' && c.id === deal.crateId;
+                const salePrice = onSale ? Math.round(c.price * (1 - deal.off)) : c.price;
                 const priceLabel = c.currency === 'stars'
                     ? c.price + ' ⭐'
-                    : c.price.toLocaleString('uk-UA') + ' 🪙';
+                    : (onSale
+                        ? '<s style="opacity:0.55">' + c.price.toLocaleString('uk-UA') + '</s> ' + salePrice.toLocaleString('uk-UA') + ' 🪙'
+                        : c.price.toLocaleString('uk-UA') + ' 🪙');
                 const btnClass = c.currency === 'stars' ? 'gacha-btn gacha-btn-premium' : 'gacha-btn';
-                return '<div class="crate-card' + (c.currency === 'stars' ? ' stars' : '') + '">' +
+                const saleBadge = onSale
+                    ? '<span class="sale-badge">−' + Math.round(deal.off * 100) + '% сьогодні</span>'
+                    : '';
+                return '<div class="crate-card' + (c.currency === 'stars' ? ' stars' : '') + (onSale ? ' on-sale' : '') + '">' +
                     '<div class="crate-top">' +
                         '<img src="' + c.img + '" alt="">' +
-                        '<div><div class="crate-name">' + c.emoji + ' ' + c.name + '</div>' +
+                        '<div><div class="crate-name">' + c.emoji + ' ' + c.name + saleBadge + '</div>' +
                         '<div class="crate-desc">' + c.desc + '</div></div>' +
                     '</div>' +
                     '<button class="' + btnClass + '" onclick="openCrate(\\'' + c.id + '\\')">Відкрити — ' + priceLabel + '</button>' +
@@ -2999,7 +3035,7 @@ function buildHtml(botUsername) {
                 if (crate.currency === 'coins') {
                     lastCrateId = crate.id;
                     document.getElementById('crate-again-wrap').classList.remove('hidden');
-                    document.getElementById('crate-again').innerText = 'Ще раз — ' + crate.price.toLocaleString('uk-UA') + ' 🪙';
+                    document.getElementById('crate-again').innerText = 'Ще раз — ' + clientCratePrice(crate).toLocaleString('uk-UA') + ' 🪙';
                 }
             }, 1500);
 
@@ -3036,7 +3072,7 @@ function buildHtml(botUsername) {
                 return;
             }
 
-            if (state.balance < crate.price) return tg.showAlert('Не вистачає ТК на цей ящик!');
+            if (state.balance < clientCratePrice(crate)) return tg.showAlert('Не вистачає ТК на цей ящик!');
             document.getElementById('crate-overlay').classList.remove('hidden');
 
             try {
