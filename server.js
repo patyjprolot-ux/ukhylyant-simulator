@@ -289,6 +289,18 @@ const RECIPES = [
         effect: { type: 'coins', amount: 40000 },
     },
     {
+        id: 'feast', name: 'Бенкет на районі', emoji: '🍽️',
+        cost: { sausage: 10, cans: 20, meds: 3 },
+        desc: 'Наївся від душі: +30 до максимальної енергії',
+        effect: { type: 'maxEnergy', amount: 30 },
+    },
+    {
+        id: 'bribe_basket', name: 'Кошик "для вирішення питання"', emoji: '🧺',
+        cost: { sausage: 15, cash: 4, stamp: 2 },
+        desc: 'Щит від облав на 8 годин',
+        effect: { type: 'shield', hours: 8 },
+    },
+    {
         id: 'energy_tank', name: 'Розширений бак', emoji: '🛢️',
         cost: { fuel: 20, tape: 15, cash: 2 },
         desc: '+25 до максимальної енергії (назавжди)',
@@ -329,9 +341,19 @@ const EXPEDITIONS = [
         loot: [{ res: 'meds', min: 6, max: 14 }, { res: 'fuel', min: 5, max: 12 }, { res: 'sim', min: 3, max: 8 }],
     },
     {
+        id: 'village', name: 'Поїздка до баби в село', emoji: '🚜', minutes: 240, minLevel: 3, risk: 0.15,
+        desc: 'Чотири години, майже безпечно. Баба нагодує і дасть із собою.',
+        loot: [{ res: 'sausage', min: 5, max: 12 }, { res: 'cans', min: 10, max: 22 }, { res: 'meds', min: 2, max: 6 }],
+    },
+    {
         id: 'border', name: 'Прогулянка до кордону', emoji: '🌲', minutes: 720, minLevel: 5, risk: 0.35,
         desc: 'Дванадцять годин лісом. Найризикованіше, але й найцінніше.',
         loot: [{ res: 'cash', min: 2, max: 6 }, { res: 'stamp', min: 1, max: 3 }, { res: 'fuel', min: 8, max: 20 }],
+    },
+    {
+        id: 'tcc_office', name: 'Нічний візит у ТЦК', emoji: '🏢', minutes: 600, minLevel: 6, risk: 0.45,
+        desc: 'Десять годин. Найбезумніша ідея в грі — і єдиний спосіб дістати печатки пачками.',
+        loot: [{ res: 'stamp', min: 4, max: 10 }, { res: 'ticket', min: 1, max: 2 }, { res: 'cash', min: 5, max: 12 }],
     },
 ];
 const EXPEDITION_BY_ID = Object.fromEntries(EXPEDITIONS.map((e) => [e.id, e]));
