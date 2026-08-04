@@ -103,6 +103,11 @@ const ECONOMY = {
     AIRDROP_MIN: 60,
     AIRDROP_MAX: 180,
     CLAN_PASSIVE_BONUS: 0.05,
+    // Скарбниця клану: учасники скидаються ТК, клан росте в рівні, і бонус до пасиву
+    // росте разом із ним. Дає сенс гуртуватись, а не просто числитись у списку.
+    CLAN_LEVEL_COST: 60000,
+    CLAN_BONUS_PER_LEVEL: 0.02,
+    CLAN_MAX_LEVEL: 15,
     OFFLINE_CAP_SECONDS: 8 * 3600,
     OFFLINE_MIN_SECONDS: 30,
     PET_GOOSE_CLICK_MULT: 1.15,
@@ -768,10 +773,31 @@ function getUser(id, name) {
     return user;
 }
 
+// Рівень клану росте від скарбниці по кореню — кожен наступний рівень коштує
+// відчутно більше, тож великий клан не злітає на максимум за вечір.
+function clanLevel(clan) {
+    const treasury = (clan && clan.treasury) || 0;
+    return Math.min(ECONOMY.CLAN_MAX_LEVEL, Math.floor(Math.sqrt(treasury / ECONOMY.CLAN_LEVEL_COST)));
+}
+
+function clanNextLevelCost(clan) {
+    const lvl = clanLevel(clan);
+    if (lvl >= ECONOMY.CLAN_MAX_LEVEL) return null;
+    return Math.pow(lvl + 1, 2) * ECONOMY.CLAN_LEVEL_COST;
+}
+
 function getClanInfo(user) {
     if (!user.clanId || !clansDB.has(user.clanId)) return { clanId: null, clanName: null, memberCount: 0, bonus: 1 };
     const clan = clansDB.get(user.clanId);
-    return { clanId: clan.id, clanName: clan.name, memberCount: clan.members.length, bonus: 1 + ECONOMY.CLAN_PASSIVE_BONUS };
+    const lvl = clanLevel(clan);
+    return {
+        clanId: clan.id, clanName: clan.name, memberCount: clan.members.length,
+        bonus: 1 + ECONOMY.CLAN_PASSIVE_BONUS + lvl * ECONOMY.CLAN_BONUS_PER_LEVEL,
+        clanLevel: lvl,
+        treasury: clan.treasury || 0,
+        nextLevelCost: clanNextLevelCost(clan),
+        myContribution: (clan.contributions && clan.contributions[user.id]) || 0,
+    };
 }
 
 function makeClanId() {
@@ -1196,6 +1222,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         clanId: clan.clanId,
         clanName: clan.clanName,
         clanBonus: clan.bonus,
+        clanLevel: clan.clanLevel || 0,
+        clanTreasury: clan.treasury || 0,
+        clanNextLevelCost: clan.nextLevelCost,
+        clanMyContribution: clan.myContribution || 0,
         wheelClaimedToday: user.wheelLastSpinDate === today,
         balanceRev: user.balanceRev,
         dailyDeal: { crateId: dailyDealCrateId(), off: DAILY_DEAL_OFF },
@@ -1775,8 +1805,8 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
 // ---- Клани ("Чат ОСББ") ----
 app.get('/api/clan/list', (req, res) => {
     const list = Array.from(clansDB.values())
-        .map((c) => ({ id: c.id, name: c.name, members: c.members.length }))
-        .sort((a, b) => b.members - a.members)
+        .map((c) => ({ id: c.id, name: c.name, members: c.members.length, level: clanLevel(c) }))
+        .sort((a, b) => b.level - a.level || b.members - a.members)
         .slice(0, 20);
     res.json(list);
 });
@@ -1785,9 +1815,12 @@ app.get('/api/clan/leaderboard', (req, res) => {
     const top = Array.from(clansDB.values())
         .map((c) => ({
             id: c.id, name: c.name, members: c.members.length,
+            level: clanLevel(c), treasury: c.treasury || 0,
             totalBalance: Math.floor(c.members.reduce((sum, id) => sum + (usersDB.get(id)?.balance || 0), 0)),
         }))
-        .sort((a, b) => b.totalBalance - a.totalBalance)
+        // Сортуємо за скарбницею: вона показує реальний внесок клану, а не просто
+        // хто випадково має багатих учасників.
+        .sort((a, b) => b.treasury - a.treasury || b.totalBalance - a.totalBalance)
         .slice(0, 10);
     res.json(top);
 });
@@ -1797,10 +1830,37 @@ app.post('/api/clan/create', requireTelegramAuth, (req, res) => {
     if (user.clanId && clansDB.has(user.clanId)) return res.json({ success: false, message: 'Ти вже в чаті ОСББ. Спочатку вийди.' });
     const name = String(req.body.name || '').trim().slice(0, 30);
     if (!name) return res.json({ success: false, message: 'Вкажи назву чату' });
-    const clan = { id: makeClanId(), name, ownerId: user.id, members: [user.id] };
+    const clan = { id: makeClanId(), name, ownerId: user.id, members: [user.id], treasury: 0, contributions: {} };
     clansDB.set(clan.id, clan);
     user.clanId = clan.id;
     res.json({ success: true, clanId: clan.id, clanName: clan.name });
+});
+
+// Внесок у скарбницю клану: підвищує рівень клану, а з ним — бонус до пасиву
+// для ВСІХ учасників. Внесок незворотний, тому підтвердження робимо на клієнті.
+app.post('/api/clan/donate', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (!user.clanId || !clansDB.has(user.clanId)) {
+        return res.json({ success: false, message: 'Ти не в чаті ОСББ' });
+    }
+    const amount = Math.floor(Number(req.body.amount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+        return res.json({ success: false, message: 'Вкажи суму' });
+    }
+    if (user.balance < amount) return res.json({ success: false, message: 'Недостатньо ТК' });
+
+    const clan = clansDB.get(user.clanId);
+    if (!clan.contributions) clan.contributions = {};
+    const before = clanLevel(clan);
+    user.balance -= amount;
+    clan.treasury = (clan.treasury || 0) + amount;
+    clan.contributions[user.id] = (clan.contributions[user.id] || 0) + amount;
+    const after = clanLevel(clan);
+
+    res.json({
+        success: true, balance: user.balance,
+        leveledUp: after > before, ...getClanInfo(user),
+    });
 });
 
 app.post('/api/clan/join', requireTelegramAuth, (req, res) => {
@@ -2255,7 +2315,7 @@ function buildHtml(botUsername) {
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Приєднатися</h3>
         <button onclick="loadClanList()">🔄 Оновити список чатів</button>
         <div id="clan-list"></div>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Топ чатів ОСББ (за спільним багатством)</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Топ чатів ОСББ (за скарбницею)</h3>
         <button onclick="loadClanLeaderboard()">🔄 Оновити рейтинг кланів</button>
         <div id="clan-leaderboard"></div>
     </div>
@@ -2658,6 +2718,8 @@ function buildHtml(botUsername) {
                 state.ownedRoomItems = data.ownedRoomItems || []; state.equippedRoomItems = data.equippedRoomItems || [];
                 state.revengeUnlocked = data.revengeUnlocked; state.revengeClaimedToday = data.revengeClaimedToday;
                 state.portfolio = data.portfolio || {}; state.clanId = data.clanId; state.clanName = data.clanName; state.clanBonus = data.clanBonus;
+                state.clanLevel = data.clanLevel || 0; state.clanTreasury = data.clanTreasury || 0;
+                state.clanNextLevelCost = data.clanNextLevelCost; state.clanMyContribution = data.clanMyContribution || 0;
                 state.dailyStreak = data.dailyStreak; state.wheelClaimedToday = data.wheelClaimedToday;
                 // Кладовка / крафт / багаторівневі апгрейди
                 state.resources = data.resources || {};
@@ -3714,12 +3776,62 @@ function buildHtml(botUsername) {
         // ===== Клани =====
         function renderClanMine() {
             const el = document.getElementById('clan-mine');
-            if (state.clanId) {
-                el.innerHTML = '<div class="clan-card"><div><b>🏘 ' + state.clanName + '</b><br><span style="font-size:11px;color:#aaa;">+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву всім учасникам</span></div><button onclick="leaveClan()">Вийти</button></div>';
-            } else {
+            if (!state.clanId) {
                 el.innerHTML = '<p style="font-size:12px;color:#aaa;">Ти поки не в жодному чаті ОСББ.</p>';
+                return;
             }
+            const lvl = state.clanLevel || 0;
+            const treasury = state.clanTreasury || 0;
+            const next = state.clanNextLevelCost;
+            const pct = next ? Math.min(100, Math.round(100 * treasury / next)) : 100;
+            const progress = next
+                ? '<div class="storage-bar" style="margin:6px 0;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
+                  '<div style="font-size:11px;color:#9fb4c7;">До ' + (lvl + 1) + ' рівня: ' + treasury.toLocaleString('uk-UA') + ' / ' + next.toLocaleString('uk-UA') + ' 🪙</div>'
+                : '<div style="font-size:11px;color:var(--gold);margin-top:6px;">Максимальний рівень!</div>';
+
+            el.innerHTML =
+                '<div class="clan-card" style="display:block;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+                        '<div><b>🏘 ' + state.clanName + '</b> <span style="color:var(--gold)">Ур. ' + lvl + '</span><br>' +
+                        '<span style="font-size:11px;color:#aaa;">+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву всім учасникам</span></div>' +
+                        '<button onclick="leaveClan()" style="width:auto;margin:0;padding:6px 12px;font-size:12px;">Вийти</button>' +
+                    '</div>' +
+                    progress +
+                    '<div style="font-size:11px;color:#9fb4c7;margin-top:6px;">Твій внесок: ' + (state.clanMyContribution || 0).toLocaleString('uk-UA') + ' 🪙</div>' +
+                    '<div style="display:flex;gap:6px;margin-top:8px;">' +
+                        '<input type="number" id="clan-donate-amount" min="1" placeholder="Сума" style="flex:1;min-width:0;padding:8px;background:#222;border:1px solid #444;color:#fff;border-radius:5px;">' +
+                        '<button onclick="donateClan()" style="width:auto;margin:0;padding:8px 14px;font-size:12px;white-space:nowrap;">Внести</button>' +
+                    '</div>' +
+                '</div>';
         }
+
+        window.donateClan = async () => {
+            const input = document.getElementById('clan-donate-amount');
+            const amount = parseInt(input.value, 10) || 0;
+            if (amount <= 0) return tg.showAlert('Вкажи суму внеску');
+            if (state.balance < amount) return tg.showAlert('Недостатньо ТК');
+            tg.showConfirm('Внести ' + amount.toLocaleString('uk-UA') + ' ТК у скарбницю? Внесок незворотний — він піднімає рівень чату всім учасникам.', async (ok) => {
+                if (!ok) return;
+                const res = await apiFetch('/api/clan/donate', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, amount })
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Помилка');
+                state.balance = data.balance;
+                state.clanBonus = data.bonus;
+                state.clanLevel = data.clanLevel;
+                state.clanTreasury = data.treasury;
+                state.clanNextLevelCost = data.nextLevelCost;
+                state.clanMyContribution = data.myContribution;
+                tg.HapticFeedback.notificationOccurred('success');
+                if (data.leveledUp) tg.showAlert('🏘 Чат ОСББ виріс до ' + data.clanLevel + ' рівня! Бонус до пасиву тепер +' + Math.round((data.bonus - 1) * 100) + '% усім.');
+                input.value = '';
+                updateUI();
+                renderClanMine();
+                loadClanLeaderboard();
+            });
+        };
 
         window.createClan = async () => {
             const name = document.getElementById('clan-name-input').value.trim();
@@ -3752,7 +3864,12 @@ function buildHtml(botUsername) {
             list.innerHTML = 'Завантаження...';
             const res = await fetch('/api/clan/list');
             const data = await res.json();
-            list.innerHTML = data.map(c => '<div class="clan-card"><span>🏘 ' + c.name + ' (' + c.members + ')</span><button onclick="joinClan(\\'' + c.id + '\\')">Приєднатись</button></div>').join('') || '<p style="font-size:12px;color:#aaa;">Поки немає жодного чату. Створи перший!</p>';
+            list.innerHTML = data.map(c =>
+                '<div class="clan-card"><span>🏘 ' + c.name +
+                ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
+                ' <span style="font-size:11px;color:#9fb4c7;">(' + c.members + ' уч.)</span></span>' +
+                '<button onclick="joinClan(\\'' + c.id + '\\')">Приєднатись</button></div>'
+            ).join('') || '<p style="font-size:12px;color:#aaa;">Поки немає жодного чату. Створи перший!</p>';
         };
 
         window.loadClanLeaderboard = async () => {
@@ -3760,7 +3877,13 @@ function buildHtml(botUsername) {
             list.innerHTML = 'Завантаження...';
             const res = await fetch('/api/clan/leaderboard');
             const data = await res.json();
-            list.innerHTML = data.map((c, i) => '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + c.name + ' (' + c.members + ' уч.)</span><b style="color:var(--gold)">' + c.totalBalance + ' 🪙</b></div>').join('') || '<p style="font-size:12px;color:#aaa;">Поки немає рейтингу.</p>';
+            list.innerHTML = data.map((c, i) =>
+                '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + c.name +
+                ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
+                '<br><span style="font-size:11px;color:#9fb4c7;">' + c.members + ' уч.</span></span>' +
+                '<b style="color:var(--gold)">' + (c.treasury || 0).toLocaleString('uk-UA') + ' 🪙<br>' +
+                '<span style="font-size:10px;color:#9fb4c7;font-weight:normal;">скарбниця</span></b></div>'
+            ).join('') || '<p style="font-size:12px;color:#aaa;">Поки немає рейтингу.</p>';
         };
 
         // ===== Досягнення =====
