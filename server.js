@@ -2032,6 +2032,12 @@ function buildHtml(botUsername) {
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
         .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+
+        #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(4,4,10,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
+        #help-card { background: var(--panel-bg); border: 1px solid rgba(0,229,255,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(0,229,255,0.2); }
+        .help-step { font-size: 13px; line-height: 1.55; color: #cfe3f2; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
+        .help-step b { color: var(--text); }
 
         #room-screen { position: fixed; inset: 0; z-index: 1500; background: var(--bg); overflow-y: auto; padding: 15px; box-sizing: border-box; }
         .room-close { position: absolute; top: 10px; right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
@@ -2073,6 +2079,7 @@ function buildHtml(botUsername) {
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
         <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
+        <button class="help-btn" onclick="openHelp()" title="Як грати">?</button>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div style="font-size: 14px; margin-bottom: 5px;">
@@ -2254,6 +2261,20 @@ function buildHtml(botUsername) {
         <img id="gacha-icon" src="" alt="">
         <p id="gacha-desc">Ти отримав Білий Квиток!</p>
         <button onclick="document.getElementById('gacha-result').classList.add('hidden')">Забрати</button>
+    </div>
+
+    <!-- Коротка довідка. Показується один раз на першому запуску (прапорець у
+         localStorage) і далі відкривається кнопкою "?" у шапці. -->
+    <div id="help-overlay" class="hidden">
+        <div id="help-card">
+            <h2 style="margin-top:0; color:var(--gold); font-size:20px;">Як грати</h2>
+            <div class="help-step"><b>1. Клікай по персонажу</b><br>Кожен клік — ТК, але витрачає енергію. Енергія відновлюється ~1 за секунду, тож безкінечно клікати не вийде.</div>
+            <div class="help-step"><b>2. Поки чекаєш енергію — є чим зайнятись</b><br>Відкривай <b>ящики</b> (📦) заради ресурсів або відправляйся на <b>вилазку</b> (🗄 Кладовка → Вилазки) — вона йде реальний час, навіть коли гра закрита.</div>
+            <div class="help-step"><b>3. Ресурси йдуть у крафт</b><br>У <b>Кладовці</b> можна здати ресурси за ТК або скрафтити те, що за гроші не купиш: щити від облав, +клік і +пасив назавжди.</div>
+            <div class="help-step"><b>4. Прокачуйся в Магазині</b><br>Апгрейди купуються нескінченно, кожен рівень дорожчий. Далі — переїзд у кращий схрон.</div>
+            <div class="help-step"><b>5. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
+            <button onclick="closeHelp()">Зрозуміло</button>
+        </div>
     </div>
 
     <!-- Анімація відкривання ящика: коробка трясеться, потім "вибухає" променями
@@ -2573,6 +2594,7 @@ function buildHtml(botUsername) {
                     setTimeout(() => splash.remove(), 400);
                 }, 600);
             }
+            maybeShowHelpOnFirstRun();
         }
         init();
 
@@ -3059,6 +3081,21 @@ function buildHtml(botUsername) {
                     '<div class="recipe-cost">' + ings + '</div>' + btn +
                 '</div>';
             }).join('');
+        }
+
+        // ===== Довідка "Як грати" =====
+        // Показуємо автоматично лише один раз — прапорець тримаємо в localStorage,
+        // щоб не залежати від серверного стану (і не питати CloudStorage на старті).
+        const HELP_SEEN_KEY = 'ukh_help_seen_v1';
+        window.openHelp = () => document.getElementById('help-overlay').classList.remove('hidden');
+        window.closeHelp = () => {
+            document.getElementById('help-overlay').classList.add('hidden');
+            try { localStorage.setItem(HELP_SEEN_KEY, '1'); } catch (e) {}
+        };
+        function maybeShowHelpOnFirstRun() {
+            let seen = false;
+            try { seen = localStorage.getItem(HELP_SEEN_KEY) === '1'; } catch (e) {}
+            if (!seen) setTimeout(openHelp, 1200); // після сплеш-екрана
         }
 
         // ===== Статистика та колекція =====
