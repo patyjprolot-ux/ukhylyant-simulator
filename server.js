@@ -116,12 +116,15 @@ const ECONOMY = {
 // Ресурси падають із ящиків і йдуть на крафт. Кожен займає 1 місце в кладовці,
 // тому місткість складу — окремий сток валюти й привід апгрейдити кладовку.
 // `sell` — за скільки ТК можна здати одиницю перекупу (швидкі гроші, але крафт вигідніший).
+// `img` — намальована іконка (використовується в анімації відкривання ящика);
+// де картинки ще немає, показується emoji.
 const RESOURCES = [
-    { id: 'cans', name: 'Консерви', emoji: '🥫', tier: 1, sell: 25 },
-    { id: 'battery', name: 'Батарейки', emoji: '🔋', tier: 1, sell: 30 },
+    { id: 'cans', name: 'Консерви', emoji: '🥫', img: '/images/gacha-tushonka.webp', tier: 1, sell: 25 },
+    { id: 'battery', name: 'Батарейки', emoji: '🔋', img: '/images/gacha-powerbank.webp', tier: 1, sell: 30 },
     { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 20 },
     { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 35 },
     { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 130 },
+    { id: 'sausage', name: 'Домашня ковбаса', emoji: '🌭', img: '/images/gacha-premium-sausage.webp', tier: 2, sell: 145 },
     { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 160 },
     { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
     { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
@@ -161,6 +164,7 @@ const CRATES = [
             { type: 'res', res: 'meds', min: 1, max: 3, weight: 15 },
             { type: 'res', res: 'fuel', min: 1, max: 2, weight: 10 },
             { type: 'coins', min: 1500, max: 4000, weight: 8 },
+            { type: 'res', res: 'sausage', min: 1, max: 3, weight: 7 },
             { type: 'energy', weight: 5 },
             { type: 'res', res: 'sim', min: 1, max: 1, weight: 2 },
         ],
@@ -173,6 +177,7 @@ const CRATES = [
             { type: 'res', res: 'meds', min: 3, max: 8, weight: 20 },
             { type: 'res', res: 'fuel', min: 2, max: 6, weight: 18 },
             { type: 'res', res: 'sim', min: 2, max: 5, weight: 16 },
+            { type: 'res', res: 'sausage', min: 3, max: 8, weight: 14 },
             { type: 'res', res: 'cans', min: 8, max: 15, weight: 12 },
             { type: 'coins', min: 6000, max: 15000, weight: 12 },
             { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
@@ -254,7 +259,7 @@ const CRATE_BY_ID = Object.fromEntries(CRATES.map((c) => [c.id, c]));
 // за пряму купівлю апгрейдів, але дає те, що за валюту не купиш (щити, множники).
 const RECIPES = [
     {
-        id: 'energy_pack', name: 'Саморобний енергопак', emoji: '🔌',
+        id: 'energy_pack', name: 'Саморобний енергопак', emoji: '🔌', img: '/images/gacha-premium-charge.webp',
         cost: { battery: 6, tape: 3 },
         desc: 'Повністю відновлює енергію',
         effect: { type: 'energy' },
@@ -829,16 +834,16 @@ function rollCrate(user, crate) {
     user.dailyBoxes = (user.dailyBoxes || 0) + 1;
 
     if (entry.type === 'nothing') {
-        return { kind: 'nothing', title: 'Пусто...', emoji: '🧦', desc: 'Тільки діряві шкарпетки. Буває.' };
+        return { kind: 'nothing', title: 'Пусто...', emoji: '🧦', img: '/images/gacha-scam-socks.webp', desc: 'Тільки діряві шкарпетки. Буває.' };
     }
     if (entry.type === 'coins') {
         const amount = Math.round(entry.min + Math.random() * (entry.max - entry.min));
         user.balance += amount;
-        return { kind: 'coins', title: 'Готівка!', emoji: '🪙', amount, desc: `+${amount.toLocaleString('uk-UA')} ТК` };
+        return { kind: 'coins', title: 'Готівка!', emoji: '🪙', img: '/images/gacha-jackpot.webp', amount, desc: `+${amount.toLocaleString('uk-UA')} ТК` };
     }
     if (entry.type === 'energy') {
         user.energy = user.maxEnergy;
-        return { kind: 'energy', title: 'Павербанк', emoji: '🔋', desc: 'Енергію відновлено повністю!' };
+        return { kind: 'energy', title: 'Павербанк', emoji: '🔋', img: '/images/gacha-powerbank.webp', desc: 'Енергію відновлено повністю!' };
     }
     if (entry.type === 'cosmetic') {
         const notOwned = COSMETICS.filter((c) => !user.ownedCosmetics.includes(c.id));
@@ -855,7 +860,7 @@ function rollCrate(user, crate) {
     const amount = Math.round(entry.min + Math.random() * (entry.max - entry.min));
     const { added, lost } = addResource(user, entry.res, amount);
     return {
-        kind: 'res', title: meta.name, emoji: meta.emoji, resId: entry.res, amount: added, lost,
+        kind: 'res', title: meta.name, emoji: meta.emoji, img: meta.img, resId: entry.res, amount: added, lost,
         desc: lost > 0 ? `+${added} ${meta.emoji} (${lost} згоріло — кладовка повна!)` : `+${added} ${meta.emoji}`,
     };
 }
@@ -1900,7 +1905,8 @@ function buildHtml(botUsername) {
         .storage-header button { margin: 10px 0 0; font-size: 13px; padding: 9px; }
         .res-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
         .res-card.empty { opacity: 0.4; }
-        .res-emoji { font-size: 24px; }
+        .res-emoji { font-size: 24px; width: 28px; text-align: center; }
+        .res-img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
         .res-info { flex: 1; min-width: 0; }
         .res-name { font-size: 13px; font-weight: 600; }
         .res-meta { font-size: 10px; color: #9fb4c7; }
@@ -2144,6 +2150,7 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="clan" class="panel">
+        <img src="/images/clan-icon.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <div id="clan-mine"></div>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Створити чат ОСББ</h3>
         <input type="text" id="clan-name-input" placeholder="Назва чату" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
@@ -3040,8 +3047,11 @@ function buildHtml(botUsername) {
                 const sellBtn = qty > 0
                     ? '<button onclick="sellResource(\\'' + r.id + '\\')">Здати все (+' + (qty * r.sell).toLocaleString('uk-UA') + ' 🪙)</button>'
                     : '';
+                const visual = r.img
+                    ? '<img class="res-img" src="' + r.img + '" alt="">'
+                    : '<span class="res-emoji">' + r.emoji + '</span>';
                 return '<div class="res-card res-tier-' + r.tier + (qty === 0 ? ' empty' : '') + '">' +
-                    '<span class="res-emoji">' + r.emoji + '</span>' +
+                    visual +
                     '<div class="res-info"><div class="res-name">' + r.name + '</div>' +
                     '<div class="res-meta">тір ' + r.tier + ' · ' + r.sell + ' 🪙 за шт.</div></div>' +
                     '<span class="res-qty">' + qty + '</span>' + sellBtn +
@@ -3075,8 +3085,11 @@ function buildHtml(botUsername) {
                     ? '<button disabled>Вже отримано</button>'
                     : '<button onclick="craft(\\'' + rc.id + '\\')"' + (canCraft ? '' : ' disabled') + '>' +
                       (canCraft ? '🔨 Скрафтити' : 'Не вистачає ресурсів') + '</button>';
+                const icon = rc.img
+                    ? '<img class="btn-icon" src="' + rc.img + '" alt="">'
+                    : rc.emoji + ' ';
                 return '<div class="recipe-card' + (canCraft && !alreadyHas ? ' ready' : '') + '">' +
-                    '<div class="recipe-title">' + rc.emoji + ' ' + rc.name + '</div>' +
+                    '<div class="recipe-title">' + icon + rc.name + '</div>' +
                     '<div class="recipe-desc">' + rc.desc + '</div>' +
                     '<div class="recipe-cost">' + ings + '</div>' + btn +
                 '</div>';
