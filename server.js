@@ -89,64 +89,64 @@ const ECONOMY = {
 // під декор). Поки roomImg не заданий для локації — екран "Кімната" підставляє img
 // замість неї (буде виглядати не ідеально, це очікувано до генерації нової картинки).
 const LOCATIONS = [
-    { level: 1, name: 'Бабусин Диван', img: '/images/location-1-couch.png', roomImg: '/images/room-1-couch.png', maxEnergy: 100 },
-    { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.png', roomImg: '/images/room-2-basement.png', maxEnergy: 150 },
-    { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.png', roomImg: '/images/room-3-balkan.png', maxEnergy: 220 },
-    { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.png', maxEnergy: 300 },
-    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.png', roomImg: '/images/room-5-abroad.png', maxEnergy: 400 },
-    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.png', maxEnergy: 500 },
+    { level: 1, name: 'Бабусин Диван', img: '/images/location-1-couch.webp', roomImg: '/images/room-1-couch.webp', maxEnergy: 100 },
+    { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.webp', roomImg: '/images/room-2-basement.webp', maxEnergy: 150 },
+    { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.webp', roomImg: '/images/room-3-balkan.webp', maxEnergy: 220 },
+    { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.webp', maxEnergy: 300 },
+    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.webp', roomImg: '/images/room-5-abroad.webp', maxEnergy: 400 },
+    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.webp', maxEnergy: 500 },
 ];
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
 const PETS = [
-    { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.png', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
-    { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.png', price: 8000, desc: '+15% до сили кліку' },
-    { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.png', price: 6000, desc: '+30% до швидкості відновлення енергії' },
+    { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.webp', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
+    { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.webp', price: 8000, desc: '+15% до сили кліку' },
+    { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.webp', price: 6000, desc: '+30% до швидкості відновлення енергії' },
 ];
 
 // Гардероб — суто косметичні CSS/emoji-оверлеї на персонажі (без нових зображень),
 // по одному предмету на слот одночасно. Жодного впливу на економіку.
 const COSMETICS = [
     // Головні убори
-    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', img: '/images/cosmetic-hat-cap.png', price: 800 },
-    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', img: '/images/cosmetic-hat-ushanka.png', price: 1200 },
-    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', img: '/images/cosmetic-hat-strawhat.png', price: 900 },
-    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', img: '/images/cosmetic-hat-helmet.png', price: 1800 },
-    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', img: '/images/cosmetic-hat-tophat.png', price: 2500 },
-    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', img: '/images/cosmetic-hat-gradcap.png', price: 3000 },
-    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', img: '/images/cosmetic-hat-crown.png', price: 5000 },
-    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', img: '/images/cosmetic-hat-bucket.png', price: 600 },
-    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', img: '/images/cosmetic-hat-bush.png', price: 1100 },
-    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', img: '/images/cosmetic-hat-pumpkin.png', price: 1300 },
-    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', img: '/images/cosmetic-hat-mushroom.png', price: 1000 },
+    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', img: '/images/cosmetic-hat-cap.webp', price: 800 },
+    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', img: '/images/cosmetic-hat-ushanka.webp', price: 1200 },
+    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', img: '/images/cosmetic-hat-strawhat.webp', price: 900 },
+    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', img: '/images/cosmetic-hat-helmet.webp', price: 1800 },
+    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', img: '/images/cosmetic-hat-tophat.webp', price: 2500 },
+    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', img: '/images/cosmetic-hat-gradcap.webp', price: 3000 },
+    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', img: '/images/cosmetic-hat-crown.webp', price: 5000 },
+    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', img: '/images/cosmetic-hat-bucket.webp', price: 600 },
+    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', img: '/images/cosmetic-hat-bush.webp', price: 1100 },
+    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', img: '/images/cosmetic-hat-pumpkin.webp', price: 1300 },
+    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', img: '/images/cosmetic-hat-mushroom.webp', price: 1000 },
     { id: 'sock_hat', slot: 'hat', name: 'Шкарпетка на голові', emoji: '🧦', price: 700 },
-    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', img: '/images/cosmetic-hat-target.png', price: 2200 },
-    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', img: '/images/cosmetic-hat-toiletpaper.png', price: 500 },
-    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', img: '/images/cosmetic-hat-umbrella.png', price: 1400 },
-    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', img: '/images/cosmetic-hat-coconut.png', price: 1600 },
-    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', img: '/images/cosmetic-hat-icecube.png', price: 900 },
+    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', img: '/images/cosmetic-hat-target.webp', price: 2200 },
+    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', img: '/images/cosmetic-hat-toiletpaper.webp', price: 500 },
+    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', img: '/images/cosmetic-hat-umbrella.webp', price: 1400 },
+    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', img: '/images/cosmetic-hat-coconut.webp', price: 1600 },
+    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', img: '/images/cosmetic-hat-icecube.webp', price: 900 },
     // Маскування обличчя
-    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', img: '/images/cosmetic-face-glasses.png', price: 600 },
-    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', img: '/images/cosmetic-face-clown.png', price: 500 },
-    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', img: '/images/cosmetic-face-mask.png', price: 700 },
-    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', img: '/images/cosmetic-face-sunglasses.png', price: 1000 },
-    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', img: '/images/cosmetic-face-disguise.png', price: 1800 },
-    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', img: '/images/cosmetic-face-ninja.png', price: 2200 },
-    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', img: '/images/cosmetic-face-oni.png', price: 2000 },
-    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', img: '/images/cosmetic-face-tengu.png', price: 2000 },
-    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', img: '/images/cosmetic-face-skull.png', price: 2600 },
-    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', img: '/images/cosmetic-face-theater.png', price: 1900 },
-    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', img: '/images/cosmetic-face-goggles.png', price: 1100 },
-    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', img: '/images/cosmetic-face-bear.png', price: 1700 },
-    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', img: '/images/cosmetic-face-wolf.png', price: 1700 },
-    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', img: '/images/cosmetic-face-fox.png', price: 1700 },
-    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.png', price: 1700 },
-    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', img: '/images/cosmetic-face-pig.png', price: 1700 },
+    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', img: '/images/cosmetic-face-glasses.webp', price: 600 },
+    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', img: '/images/cosmetic-face-clown.webp', price: 500 },
+    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', img: '/images/cosmetic-face-mask.webp', price: 700 },
+    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', img: '/images/cosmetic-face-sunglasses.webp', price: 1000 },
+    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', img: '/images/cosmetic-face-disguise.webp', price: 1800 },
+    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', img: '/images/cosmetic-face-ninja.webp', price: 2200 },
+    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', img: '/images/cosmetic-face-oni.webp', price: 2000 },
+    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', img: '/images/cosmetic-face-tengu.webp', price: 2000 },
+    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', img: '/images/cosmetic-face-skull.webp', price: 2600 },
+    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', img: '/images/cosmetic-face-theater.webp', price: 1900 },
+    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', img: '/images/cosmetic-face-goggles.webp', price: 1100 },
+    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', img: '/images/cosmetic-face-bear.webp', price: 1700 },
+    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', img: '/images/cosmetic-face-wolf.webp', price: 1700 },
+    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', img: '/images/cosmetic-face-fox.webp', price: 1700 },
+    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.webp', price: 1700 },
+    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', img: '/images/cosmetic-face-pig.webp', price: 1700 },
     // Аксесуар на шию
-    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', img: '/images/cosmetic-neck-bowtie.png', price: 700 },
-    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', img: '/images/cosmetic-neck-scarf.png', price: 900 },
-    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', img: '/images/cosmetic-neck-tie.png', price: 1500 },
-    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', img: '/images/cosmetic-neck-medal.png', price: 3500 },
+    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', img: '/images/cosmetic-neck-bowtie.webp', price: 700 },
+    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', img: '/images/cosmetic-neck-scarf.webp', price: 900 },
+    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', img: '/images/cosmetic-neck-tie.webp', price: 1500 },
+    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', img: '/images/cosmetic-neck-medal.webp', price: 3500 },
     { id: 'chain', slot: 'neck', name: 'Золотий ланцюг авторитета', emoji: '🔗', price: 2400 },
     { id: 'beads', slot: 'neck', name: 'Чотки на удачу', emoji: '📿', price: 1300 },
     { id: 'sportmedal', slot: 'neck', name: 'Спортивна медаль', emoji: '🏅', price: 2000 },
@@ -194,7 +194,7 @@ const ROOM_ITEMS = [
     { id: 'plant', name: 'Вазон з фікусом', emoji: '🪴', price: 600, pos: 'mid-left' },
     { id: 'clock', name: 'Годинник із зозулею', emoji: '🕰️', price: 800, pos: 'mid-right' },
     { id: 'radio', name: 'Радіоприймач', emoji: '📻', price: 700, pos: 'bottom-left' },
-    { id: 'rug', name: 'Килимок для конспірації', img: '/images/qte-rug.png', price: 900, pos: 'bottom-center' },
+    { id: 'rug', name: 'Килимок для конспірації', img: '/images/qte-rug.webp', price: 900, pos: 'bottom-center' },
     { id: 'suitcase', name: 'Тривожна валізка', emoji: '🧳', price: 1100, pos: 'bottom-right' },
 ];
 
@@ -423,17 +423,17 @@ function rollPremiumGacha(user) {
     const rand = Math.random();
     if (rand < 0.25) {
         user.balance += 25000;
-        return { title: 'ДЖЕКПОТ!', img: '/images/gacha-premium-jackpot.png', desc: 'Валізу з гумдопомоги завезли прямо тобі! +25 000 ТК' };
+        return { title: 'ДЖЕКПОТ!', img: '/images/gacha-premium-jackpot.webp', desc: 'Валізу з гумдопомоги завезли прямо тобі! +25 000 ТК' };
     } else if (rand < 0.6) {
         user.passive += 15;
-        return { title: 'Елітний набір', img: '/images/gacha-premium-sausage.png', desc: 'Справжня фермерська ковбаса! +15 до пасивного доходу' };
+        return { title: 'Елітний набір', img: '/images/gacha-premium-sausage.webp', desc: 'Справжня фермерська ковбаса! +15 до пасивного доходу' };
     } else if (rand < 0.85) {
         user.energy = user.maxEnergy;
         user.clickVal += 2;
-        return { title: 'Бойовий заряд', img: '/images/gacha-premium-charge.png', desc: 'Енергію відновлено та +2 до сили кліку!' };
+        return { title: 'Бойовий заряд', img: '/images/gacha-premium-charge.webp', desc: 'Енергію відновлено та +2 до сили кліку!' };
     }
     user.balance += 10000;
-    return { title: 'Непогано', img: '/images/gacha-box-regular.png', desc: 'Стандартний пакунок гумдопомоги. +10 000 ТК' };
+    return { title: 'Непогано', img: '/images/gacha-box-regular.webp', desc: 'Стандартний пакунок гумдопомоги. +10 000 ТК' };
 }
 
 // ==========================================
@@ -1003,7 +1003,7 @@ function buildHtml(botUsername) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Симулятор Ухилянта</title>
-    <link rel="icon" type="image/png" href="/images/app-icon.png">
+    <link rel="icon" type="image/png" href="/images/app-icon.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -1056,8 +1056,8 @@ function buildHtml(botUsername) {
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1.5); opacity: 0; } }
 
         #raid-screen, #knock-screen { position: fixed; top:0; left:0; right:0; bottom:0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; background-size: cover; background-position: center; }
-        #raid-screen { background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.75)), url('/images/raid-background.png'); }
-        #knock-screen { background-image: linear-gradient(rgba(120,0,0,0.75), rgba(80,0,0,0.85)), url('/images/qte-knock-door.png'); }
+        #raid-screen { background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.75)), url('/images/raid-background.webp'); }
+        #knock-screen { background-image: linear-gradient(rgba(120,0,0,0.75), rgba(80,0,0,0.85)), url('/images/qte-knock-door.webp'); }
         #raid-screen h1, #knock-screen h1 { color: #ff0000; font-size: 36px; animation: blink 0.2s infinite; text-align: center; margin: 0; padding: 0 20px; }
         #raid-timer, #knock-timer { font-size: 30px; color: #fff; margin: 20px 0; }
         #raid-progress { width: 80%; height: 30px; background: #333; border: 2px solid #fff; border-radius: 15px; overflow: hidden; margin-bottom: 30px; }
@@ -1075,7 +1075,7 @@ function buildHtml(botUsername) {
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
 
-        #splash-screen { position: fixed; inset: 0; background: #000 url('/images/splash-banner.png') center/cover no-repeat; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; }
+        #splash-screen { position: fixed; inset: 0; background: #000 url('/images/splash-banner.webp') center/cover no-repeat; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; }
         #splash-screen span { color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -1175,7 +1175,7 @@ function buildHtml(botUsername) {
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
         <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
-        <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.png" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
+        <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div style="font-size: 14px; margin-bottom: 5px;">
             <span id="username">Ухилянт</span><span id="vip-badge" class="vip-badge hidden">VIP</span> | Lvl: <span id="level-display">1</span>
@@ -1192,7 +1192,7 @@ function buildHtml(botUsername) {
     <main>
         <div class="location-name" id="location-name">Бабусин Диван</div>
         <div id="clicker" class="clickable">
-            <img id="clicker-img" src="/images/location-1-couch.png" alt="Ухилянт">
+            <img id="clicker-img" src="/images/location-1-couch.webp" alt="Ухилянт">
             <div id="clicker-emoji" class="emoji-fallback hidden"></div>
             <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
             <div id="cosmetic-face" class="cosmetic-face hidden"></div>
@@ -1214,17 +1214,17 @@ function buildHtml(botUsername) {
 
     <div id="shop" class="panel active">
         <p style="margin-top:0; color:#aaa; font-size:12px;">Прокачай свій сховок:</p>
-        <button onclick="buy('hat', ${ECONOMY.HAT_PRICE})"><img class="btn-icon" src="/images/shop-hat.png" alt="">Шапочка з фольги (+1/клік) | ${ECONOMY.HAT_PRICE} 🪙</button>
-        <button onclick="buy('jam', ${ECONOMY.JAM_PRICE})"><img class="btn-icon" src="/images/shop-jam.png" alt="">Закрутка (+5/сек) | ${ECONOMY.JAM_PRICE} 🪙</button>
-        <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.png" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
-        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><img class="btn-icon" src="/images/shop-thermos.png" alt="">Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
-        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><img class="btn-icon" src="/images/shop-generator.png" alt="">Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
+        <button onclick="buy('hat', ${ECONOMY.HAT_PRICE})"><img class="btn-icon" src="/images/shop-hat.webp" alt="">Шапочка з фольги (+1/клік) | ${ECONOMY.HAT_PRICE} 🪙</button>
+        <button onclick="buy('jam', ${ECONOMY.JAM_PRICE})"><img class="btn-icon" src="/images/shop-jam.webp" alt="">Закрутка (+5/сек) | ${ECONOMY.JAM_PRICE} 🪙</button>
+        <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
+        <button onclick="buy('thermos', ${ECONOMY.THERMOS_PRICE})"><img class="btn-icon" src="/images/shop-thermos.webp" alt="">Термос кави (+${ECONOMY.THERMOS_CLICK_BONUS}/клік) | ${ECONOMY.THERMOS_PRICE} 🪙</button>
+        <button onclick="buy('generator', ${ECONOMY.GENERATOR_PRICE})"><img class="btn-icon" src="/images/shop-generator.webp" alt="">Генератор (+${ECONOMY.GENERATOR_PASSIVE_BONUS}/сек) | ${ECONOMY.GENERATOR_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Еволюція:</h3>
-        <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.png" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
-        <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.png" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
-        <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.png" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
-        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><img class="btn-icon" src="/images/location-5-abroad.png" alt="">Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
-        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><img class="btn-icon" src="/images/location-6-bunker.png" alt="">Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
+        <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.webp" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
+        <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.webp" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
+        <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.webp" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
+        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><img class="btn-icon" src="/images/location-5-abroad.webp" alt="">Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
+        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><img class="btn-icon" src="/images/location-6-bunker.webp" alt="">Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Компаньйони:</h3>
         <div id="pets-list"></div>
     </div>
@@ -1255,11 +1255,11 @@ function buildHtml(botUsername) {
 
     <div id="gacha" class="panel">
         <div style="text-align: center; margin-bottom: 15px;">
-            <img src="/images/gacha-box-regular.png" alt="" style="width:80px; height:80px; object-fit:contain; margin-bottom: 10px;">
+            <img src="/images/gacha-box-regular.webp" alt="" style="width:80px; height:80px; object-fit:contain; margin-bottom: 10px;">
             <p style="font-size: 13px; color: #aaa;">Відкрий гуманітарну коробку. Всередині може бути джекпот або старі шкарпетки.</p>
         </div>
-        <button class="gacha-btn" onclick="openGacha(${ECONOMY.GACHA_PRICE})"><img class="btn-icon" src="/images/gacha-box-regular.png" alt="">Відкрити коробку (${ECONOMY.GACHA_PRICE} 🪙)</button>
-        <button class="gacha-btn gacha-btn-premium" onclick="openGachaPremium()"><img class="btn-icon" src="/images/gacha-box-elite.png" alt="">Елітна коробка (${ECONOMY.GACHA_PREMIUM_STARS} ⭐)</button>
+        <button class="gacha-btn" onclick="openGacha(${ECONOMY.GACHA_PRICE})"><img class="btn-icon" src="/images/gacha-box-regular.webp" alt="">Відкрити коробку (${ECONOMY.GACHA_PRICE} 🪙)</button>
+        <button class="gacha-btn gacha-btn-premium" onclick="openGachaPremium()"><img class="btn-icon" src="/images/gacha-box-elite.webp" alt="">Елітна коробка (${ECONOMY.GACHA_PREMIUM_STARS} ⭐)</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Колесо Зради та Перемоги (1 раз/день, безкоштовно):</h3>
         <div class="wheel-wrap">
             <div class="wheel-pointer"></div>
@@ -1269,7 +1269,7 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="friends" class="panel">
-        <img src="/images/social-referral.png" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
+        <img src="/images/social-referral.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <h3 style="margin-top:0;">Здай друга</h3>
         <p style="font-size:12px; color:#aaa;">Отримай ${ECONOMY.REFERRAL_REWARD} 🪙 за кожного друга, який перейде за твоїм посиланням і заляже на дно.</p>
         <p style="font-size:12px;">Здано друзів: <b id="ref-count">0</b></p>
@@ -1292,7 +1292,7 @@ function buildHtml(botUsername) {
         </div>
 
         <h3 class="stars-section-title">👑 VIP-Схрон</h3>
-        <button class="premium-btn" onclick="buyRealVip()"><img class="btn-icon" src="/images/vip-badge.png" alt="">VIP-Схрон (${ECONOMY.VIP_PRICE_STARS} ⭐)</button>
+        <button class="premium-btn" onclick="buyRealVip()"><img class="btn-icon" src="/images/vip-badge.webp" alt="">VIP-Схрон (${ECONOMY.VIP_PRICE_STARS} ⭐)</button>
         <p style="font-size:12px; color:#aaa; text-align:center; margin-top:6px;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
 
         <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
@@ -1311,7 +1311,7 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="top" class="panel">
-        <img src="/images/leaderboard-trophy.png" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
+        <img src="/images/leaderboard-trophy.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <button onclick="loadTop()">🔄 Оновити рейтинг</button>
         <ol id="leaderboard-list" style="padding-left: 20px; font-family: monospace; font-size: 14px; line-height: 1.8;"></ol>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Досягнення:</h3>
@@ -1330,7 +1330,7 @@ function buildHtml(botUsername) {
         <p style="color:#fff; font-size:18px;">Тікай! Клікай швидко, щоб перелізти паркан!</p>
         <div id="raid-timer">10.0</div>
         <div id="raid-progress"><div id="raid-fill"></div></div>
-        <button class="run-btn" id="run-btn"><img src="/images/raid-run.png" alt="">ВТЕКТИ</button>
+        <button class="run-btn" id="run-btn"><img src="/images/raid-run.webp" alt="">ВТЕКТИ</button>
     </div>
 
     <div id="knock-screen" class="hidden">
@@ -1547,7 +1547,7 @@ function buildHtml(botUsername) {
                 if (data.lastPremiumReward) {
                     showGachaModal(data.lastPremiumReward.title, data.lastPremiumReward.img, data.lastPremiumReward.desc);
                 } else if (data.offlineEarnings > 0) {
-                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.png', 'Ти тихо відсидівся і заробив +' + data.offlineEarnings + ' ТК!');
+                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.webp', 'Ти тихо відсидівся і заробив +' + data.offlineEarnings + ' ТК!');
                 }
             } catch (e) {
                 console.error('Не вдалося завантажити стан гравця', e);
@@ -2025,15 +2025,15 @@ function buildHtml(botUsername) {
             let rand = Math.random();
             if (rand < 0.1) {
                 state.balance += 10000;
-                showGachaModal('ДЖЕКПОТ!', '/images/gacha-jackpot.png', 'Ти знайшов заначку діда! +10 000 ТК');
+                showGachaModal('ДЖЕКПОТ!', '/images/gacha-jackpot.webp', 'Ти знайшов заначку діда! +10 000 ТК');
             } else if (rand < 0.4) {
                 state.passive += 5;
-                showGachaModal('Непогано!', '/images/gacha-tushonka.png', 'Імпортна тушонка! +5 до пасивного доходу.');
+                showGachaModal('Непогано!', '/images/gacha-tushonka.webp', 'Імпортна тушонка! +5 до пасивного доходу.');
             } else if (rand < 0.7) {
                 state.energy = state.maxEnergy;
-                showGachaModal('Нормально.', '/images/gacha-powerbank.png', 'Павербанк. Енергія відновлена повністю!');
+                showGachaModal('Нормально.', '/images/gacha-powerbank.webp', 'Павербанк. Енергія відновлена повністю!');
             } else {
-                showGachaModal('Ой...', '/images/gacha-scam-socks.png', 'Коробка виявилась порожньою (тільки діряві шкарпетки).');
+                showGachaModal('Ой...', '/images/gacha-scam-socks.webp', 'Коробка виявилась порожньою (тільки діряві шкарпетки).');
             }
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
