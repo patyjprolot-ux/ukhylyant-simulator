@@ -214,6 +214,10 @@ const ECONOMY = {
     SKILL_REGEN_BONUS: 0.40,         // Друге дихання
     SKILL_CLICK_BONUS: 0.30,         // Мозоль
     SKILL_PENALTY_CUT: 0.50,         // Незламний
+
+    // --- Офлайн-звіт ---
+    OFFLINE_REPORT_MIN_MS: 15 * 60 * 1000, // показуємо, лише якщо не було 15+ хвилин
+    OFFLINE_LOG_SIZE: 12,
 };
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
@@ -1041,6 +1045,8 @@ function createFreshUser(id, name) {
         freeSnitchOn: [],           // id гравців, на яких є безкоштовний стук (за хибне звинувачення)
         lastSnitchTargets: {},      // { targetId: timestamp } — кулдаун на ту саму ціль
         pendingRobbery: null,       // { byName, amount, at } — показати жертві при найближчому save
+        lastSeenAt: 0,              // для офлайн-звіту при вході
+        offlineLog: [],             // [{ t, kind, text }] — що сталось, поки гравця не було
         trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
         // --- Медкомісія та інспектори ---
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
@@ -1154,6 +1160,8 @@ function migrateUser(user) {
     if (typeof user.checkpointStats !== 'object' || user.checkpointStats === null) user.checkpointStats = { passed: 0, failed: 0 };
     if (typeof user.reputation !== 'object' || user.reputation === null) user.reputation = { nina: 0, tolik: 0, mykola: 0, oksana: 0 };
     if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
+    if (typeof user.lastSeenAt !== 'number') user.lastSeenAt = 0;
+    if (!Array.isArray(user.offlineLog)) user.offlineLog = [];
     if (typeof user.inspectorCooldownUntil !== 'number') user.inspectorCooldownUntil = 0;
     if (user.medcomSession === undefined) user.medcomSession = null;
     if (user.inspector === undefined) user.inspector = null;
@@ -1343,11 +1351,34 @@ function addResource(user, resId, amount, { bonus = true } = {}) {
     return { added, lost: amount - added };
 }
 
+// Базова ціна кожного апгрейда — в одному місці, щоб формула ціни не розповзалась
+// між поодинокою купівлею і купівлею пачкою.
+const UPGRADE_BASE = {
+    hat: ECONOMY.HAT_PRICE, jam: ECONOMY.JAM_PRICE,
+    thermos: ECONOMY.THERMOS_PRICE, generator: ECONOMY.GENERATOR_PRICE,
+};
+
+// Скільки рівнів апгрейда гравець потягне за N спроб і скільки це коштує.
+// maxLevels = Infinity означає "все, що по кишені". Ціна росте геометрично,
+// тому просто множити ціну одного рівня не можна.
+function upgradeBatchPlan(user, key, maxLevels) {
+    let cost = 0;
+    let levels = 0;
+    const owned = user.upgrades[key] || 0;
+    while (levels < maxLevels) {
+        const next = Math.round(UPGRADE_BASE[key] * Math.pow(ECONOMY.UPGRADE_GROWTH, owned + levels));
+        if (cost + next > user.balance) break;
+        cost += next;
+        levels++;
+        if (levels > 10000) break; // страховка від нескінченного циклу на величезному балансі
+    }
+    return { levels, cost };
+}
+
 // Ціна наступного рівня багаторівневого апгрейда магазину.
 function upgradeCost(user, key) {
-    const base = { hat: ECONOMY.HAT_PRICE, jam: ECONOMY.JAM_PRICE, thermos: ECONOMY.THERMOS_PRICE, generator: ECONOMY.GENERATOR_PRICE }[key];
     const lvl = (user.upgrades && user.upgrades[key]) || 0;
-    return Math.round(base * Math.pow(ECONOMY.UPGRADE_GROWTH, lvl));
+    return Math.round(UPGRADE_BASE[key] * Math.pow(ECONOMY.UPGRADE_GROWTH, lvl));
 }
 
 function hasActiveShield(user) {
@@ -1505,9 +1536,11 @@ function expireNotices(user) {
     for (const n of expired) {
         const type = NOTICE_BY_ID[n.typeId];
         if (!type) continue;
-        applyNoticePenalty(user, type, 1);
+        const penalty = applyNoticePenalty(user, type, 1);
         changeHeat(user, type.heatOnExpire, 'Протухла повістка: ' + type.name);
         user.noticeStats.expired += 1;
+        logOffline(user, 'bad', `${type.emoji} Протухла: ${type.name}` +
+            (penalty.coins ? ` (−${penalty.coins.toLocaleString('uk-UA')} ТК)` : ''));
     }
     return expired;
 }
@@ -1670,6 +1703,7 @@ function tickNotices() {
                 n.pushSent = true;
                 const type = NOTICE_BY_ID[n.typeId];
                 const mins = Math.max(1, Math.round((n.expiresAt - now) / 60000));
+                logOffline(user, 'bad', `${type.emoji} Прийшла: ${type.name}`);
                 sendPush(user.id, `${type.emoji} ${type.name} протухає через ${mins} хв. Далі — штраф і +${type.heatOnExpire} до розшуку.`);
             }
         } catch (e) {
@@ -1989,6 +2023,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
     const today = new Date().toDateString();
     resetDailyIfNeeded(user);
     const offlineEarnings = applyOfflineProgress(user);
+    // Звіт «поки тебе не було» збираємо ПІСЛЯ нарахування пасиву й після
+    // syncHeatAndNotices у getUser — тобто коли всі офлайн-події вже застосовані.
+    const offlineReport = takeOfflineReport(user);
+    if (offlineReport) offlineReport.earnings = offlineEarnings;
     const clan = getClanInfo(user);
     const response = {
         id: user.id,
@@ -2005,6 +2043,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         dailyStreak: user.dailyStreak,
         lastPremiumReward: user.lastPremiumReward,
         offlineEarnings,
+        offlineReport,
         totalClicks: user.totalClicks,
         boxesOpened: user.boxesOpened,
         raidsSurvived: user.raidsSurvived,
@@ -2601,18 +2640,24 @@ app.post('/api/upgrade/buy', requireTelegramAuth, (req, res) => {
     if (!['hat', 'jam', 'thermos', 'generator'].includes(key)) {
         return res.status(400).json({ error: 'Невідомий апгрейд' });
     }
-    const cost = upgradeCost(user, key);
-    if (user.balance < cost) return res.json({ success: false, message: 'Недостатньо ТК' });
-    user.balance -= cost;
-    user.upgrades[key] += 1;
-    if (key === 'hat') user.clickVal += ECONOMY.HAT_CLICK_BONUS;
-    if (key === 'jam') user.passive += ECONOMY.JAM_PASSIVE_BONUS;
-    if (key === 'thermos') user.clickVal += ECONOMY.THERMOS_CLICK_BONUS;
-    if (key === 'generator') user.passive += ECONOMY.GENERATOR_PASSIVE_BONUS;
+    // Пачками: на 40+ рівні апгрейда тиснути по одному — тортури. Скільки саме
+    // рівнів по кишені, рахує сервер, бо ціна росте геометрично і клієнту тут
+    // довіряти не можна.
+    const want = req.body.amount === 'max' ? Infinity : Math.max(1, Math.floor(Number(req.body.amount) || 1));
+    const plan = upgradeBatchPlan(user, key, want);
+    if (!plan.levels) return res.json({ success: false, message: 'Недостатньо ТК' });
+
+    user.balance -= plan.cost;
+    user.upgrades[key] += plan.levels;
+    if (key === 'hat') user.clickVal += ECONOMY.HAT_CLICK_BONUS * plan.levels;
+    if (key === 'jam') user.passive += ECONOMY.JAM_PASSIVE_BONUS * plan.levels;
+    if (key === 'thermos') user.clickVal += ECONOMY.THERMOS_CLICK_BONUS * plan.levels;
+    if (key === 'generator') user.passive += ECONOMY.GENERATOR_PASSIVE_BONUS * plan.levels;
     const unlocked = checkAchievements(user);
     res.json({
         success: true, balance: user.balance, clickVal: user.clickVal, passive: user.passive,
         upgrades: user.upgrades, nextCost: upgradeCost(user, key), unlockedAchievements: unlocked,
+        levelsBought: plan.levels, spent: plan.cost,
     });
 });
 
@@ -2712,6 +2757,26 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
     });
 });
+
+// ---- Офлайн-звіт ----
+// Події, які стались, поки гра була закрита. Раніше гравець просто бачив іншу
+// цифру балансу і не розумів, що взагалі відбулось.
+function logOffline(user, kind, text) {
+    if (!Array.isArray(user.offlineLog)) user.offlineLog = [];
+    user.offlineLog.push({ t: Date.now(), kind, text });
+    if (user.offlineLog.length > ECONOMY.OFFLINE_LOG_SIZE) user.offlineLog.shift();
+}
+
+// Збирає звіт і одразу його ЧИСТИТЬ: показуємо один раз при вході.
+function takeOfflineReport(user) {
+    const away = Date.now() - (user.lastSeenAt || 0);
+    const log = user.offlineLog || [];
+    user.offlineLog = [];
+    const wasAway = user.lastSeenAt && away >= ECONOMY.OFFLINE_REPORT_MIN_MS;
+    user.lastSeenAt = Date.now();
+    if (!wasAway || !log.length) return null;
+    return { awayMs: away, events: log };
+}
 
 // ---- Дерево навичок ----
 function skillsOwnedCount(user) {
@@ -3355,6 +3420,7 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
     target.snitchedBy.unshift({ byId: user.id, byName: user.name, at: now, investigated: false, revealed, suspects: null });
     if (target.snitchedBy.length > ECONOMY.SNITCH_HISTORY_SIZE) target.snitchedBy.length = ECONOMY.SNITCH_HISTORY_SIZE;
 
+    logOffline(target, 'bad', revealed ? `🐍 Тебе здав ${user.name}` : '🐍 Тебе хтось здав');
     sendPush(target.id, revealed
         ? `🐀 Щур-розвідник підслухав розмову: тебе здав ${user.name}. Ти йому цього не забудеш.`
         : '🐍 Хтось про тебе розповів. Ти йому цього не забудеш.');
@@ -3415,6 +3481,7 @@ app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
             user.balance += steal;
         }
         suspect.pendingRobbery = { byName: user.name, amount: steal, at: Date.now() };
+        logOffline(suspect, 'bad', `🕵️ ${user.name} тебе вирахував (−${steal.toLocaleString('uk-UA')} ТК)`);
         suspect.snitchStats.robbed += steal;
         user.snitchStats.caught += 1;
         user.snitchStats.stolen += steal;
@@ -3802,6 +3869,17 @@ function buildHtml(botUsername) {
         .skill-name { font-size: 13px; font-weight: 700; }
         .skill-desc { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
         .skill-node button { width: auto; margin: 0 0 0 auto; padding: 6px 12px; font-size: 12px; flex-shrink: 0; align-self: center; }
+
+        /* Перемикач ×1/×10/MAX для апгрейдів */
+        .buy-switch { display: flex; gap: 6px; margin-bottom: 10px; }
+        .buy-switch button { flex: 1; margin: 0; padding: 7px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid #3a3a4d; color: #cfe3f2; }
+        .buy-switch button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
+
+        /* Офлайн-звіт */
+        #offline-report { position: fixed; inset: 0; z-index: 1850; background: rgba(4,4,10,0.95); display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
+        .offline-line { display: flex; align-items: center; gap: 9px; font-size: 13px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
+        .offline-line b { margin-left: auto; color: var(--gold); white-space: nowrap; }
+        .offline-line.bad b { color: #ff8a8a; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -4362,6 +4440,16 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Офлайн-звіт: що сталось, поки гра була закрита. -->
+    <div id="offline-report" class="hidden">
+        <div class="case-card">
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🌙 Поки тебе не було</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px;" id="offline-away"></p>
+            <div id="offline-lines"></div>
+            <button onclick="closeOfflineReport()" style="margin-top:10px;">Зрозуміло</button>
+        </div>
+    </div>
+
     <!-- Дерево навичок: кожна довідка з легалізації = 1 очко. -->
     <div id="skills-screen" class="hidden">
         <div class="case-card">
@@ -4668,7 +4756,8 @@ function buildHtml(botUsername) {
             // інтервалі. Це лише оновлення тексту — важких рендерів у циклі як не було,
             // так і немає.
             updateInspectorTimer();
-            ui.bal.innerText = Math.floor(state.balance);
+            ui.bal.innerText = fmtNum(state.balance);
+            ui.bal.title = fmtFull(state.balance);
             ui.pas.innerText = state.passive;
             ui.str.innerText = 0;
             ui.lvl.innerText = state.level;
@@ -4912,6 +5001,29 @@ function buildHtml(botUsername) {
             if (mod10 >= 2 && mod10 <= 4) return n + ' ' + few;
             return n + ' ' + many;
         }
+
+        // ===== Офлайн-звіт =====
+        // Раніше гравець після повернення просто бачив іншу цифру балансу й не
+        // розумів, що відбулось: хто його здав, яка повістка протухла.
+        function showOfflineReport(rep) {
+            if (!rep) return;
+            const h = Math.floor(rep.awayMs / 3600000);
+            const m = Math.floor((rep.awayMs % 3600000) / 60000);
+            document.getElementById('offline-away').innerText =
+                'Тебе не було ' + (h ? h + ' год ' : '') + m + ' хв';
+
+            const lines = [];
+            if (rep.earnings > 0) {
+                lines.push('<div class="offline-line">💰 Пасивний дохід<b>+' + fmtNum(rep.earnings) + ' ТК</b></div>');
+            }
+            for (const e of rep.events || []) {
+                lines.push('<div class="offline-line' + (e.kind === 'bad' ? ' bad' : '') + '">' + esc(e.text) + '</div>');
+            }
+            document.getElementById('offline-lines').innerHTML = lines.join('') ||
+                '<div class="offline-line">Тихо. Ніхто тебе не турбував.</div>';
+            document.getElementById('offline-report').classList.remove('hidden');
+        }
+        window.closeOfflineReport = () => document.getElementById('offline-report').classList.add('hidden');
 
         // ===== Дерево навичок =====
         // Клієнтські ефекти навичок. Економічні рішення (дроп, ціни, урон) рахує
@@ -5663,8 +5775,12 @@ function buildHtml(botUsername) {
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
                     playCrateAnimation(data.lastPremiumReward, data.lastPremiumReward.crateId || 'elite');
+                } else if (data.offlineReport) {
+                    // Був довгий перерив і щось справді сталось — показуємо повний звіт
+                    // замість самої лише цифри доходу.
+                    showOfflineReport(data.offlineReport);
                 } else if (data.offlineEarnings > 0) {
-                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.webp', 'Ти тихо відсидівся і заробив +' + Math.round(data.offlineEarnings) + ' ТК!');
+                    showGachaModal('Поки тебе не було...', '/images/gacha-jackpot.webp', 'Ти тихо відсидівся і заробив +' + fmtNum(data.offlineEarnings) + ' ТК!');
                 }
             } catch (e) {
                 console.error('Не вдалося завантажити стан гравця', e);
@@ -6269,7 +6385,27 @@ function buildHtml(botUsername) {
         }
 
         // ===== Статистика та колекція =====
-        function fmtNum(n) { return Math.round(n || 0).toLocaleString('uk-UA'); }
+        // Баланс у 8+ цифр на телефоні просто не читається, тому великі числа
+        // скорочуємо. До 100 тисяч показуємо повністю — там кожна тисяча ще важлива.
+        function fmtNum(n) {
+            const v = Math.round(n || 0);
+            const abs = Math.abs(v);
+            if (abs < 100000) return v.toLocaleString('uk-UA');
+            const units = [
+                { at: 1e12, s: 'Т' }, { at: 1e9, s: 'Б' }, { at: 1e6, s: 'М' }, { at: 1e3, s: 'К' },
+            ];
+            for (const u of units) {
+                if (abs >= u.at) {
+                    const scaled = v / u.at;
+                    // Одна десята для 3-значних, дві для менших — щоб ширина була рівна.
+                    const digits = Math.abs(scaled) >= 100 ? 0 : (Math.abs(scaled) >= 10 ? 1 : 2);
+                    return scaled.toFixed(digits).replace('.', ',') + u.s;
+                }
+            }
+            return v.toLocaleString('uk-UA');
+        }
+        // Повне число — там, де скорочення заплутало б (точні ціни, підсумки).
+        function fmtFull(n) { return Math.round(n || 0).toLocaleString('uk-UA'); }
 
         function renderStats() {
             const box = document.getElementById('stats-box');
@@ -6551,10 +6687,24 @@ function buildHtml(botUsername) {
             { key: 'generator', name: 'Генератор', img: '/images/shop-generator.webp', bonus: '+' + ECONOMY.GENERATOR_PASSIVE_BONUS + ' до пасиву' },
         ];
 
+        // Перемикач ×1/×10/MAX. Скільки саме рівнів по кишені й скільки це коштує —
+        // рахує сервер; тут показуємо лише ціну наступного рівня як орієнтир.
+        window.setBuyAmount = (amount) => {
+            state.buyAmount = amount;
+            renderUpgrades();
+        };
+
         function renderUpgrades() {
             const list = document.getElementById('upgrades-list');
             if (!list) return;
-            list.innerHTML = UPGRADE_META.map(u => {
+            const amount = state.buyAmount || 1;
+            const switcher = '<div class="buy-switch">' +
+                [1, 10, 'max'].map(a =>
+                    '<button class="' + (amount === a ? 'active' : '') + '" onclick="setBuyAmount(' +
+                    (a === 'max' ? "'max'" : a) + ')">' + (a === 'max' ? 'MAX' : '×' + a) + '</button>'
+                ).join('') + '</div>';
+
+            list.innerHTML = switcher + UPGRADE_META.map(u => {
                 const lvl = (state.upgrades || {})[u.key] || 0;
                 const cost = (state.upgradeCosts || {})[u.key] || 0;
                 const afford = state.balance >= cost;
@@ -6563,7 +6713,8 @@ function buildHtml(botUsername) {
                     '<div class="upg-info"><div class="upg-name">' + u.name + ' <span style="color:var(--gold)">Ур. ' + lvl + '</span></div>' +
                     '<div class="upg-meta">' + u.bonus + ' за рівень</div></div>' +
                     '<button onclick="buyUpgrade(\\'' + u.key + '\\')"' + (afford ? '' : ' disabled') + '>' +
-                    cost.toLocaleString('uk-UA') + ' 🪙</button>' +
+                    fmtNum(cost) + ' 🪙' + (amount === 1 ? '' : '<br><span style="font-size:10px;opacity:.8">' +
+                        (amount === 'max' ? 'скільки влізе' : '×' + amount) + '</span>') + '</button>' +
                 '</div>';
             }).join('');
         }
@@ -6571,7 +6722,7 @@ function buildHtml(botUsername) {
         window.buyUpgrade = async (key) => {
             const res = await apiFetch('/api/upgrade/buy', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id, key })
+                body: JSON.stringify({ id: user.id, key, amount: state.buyAmount || 1 })
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
@@ -6579,6 +6730,9 @@ function buildHtml(botUsername) {
             state.upgrades = data.upgrades;
             state.upgradeCosts[key] = data.nextCost;
             tg.HapticFeedback.notificationOccurred('success');
+            if (data.levelsBought > 1) {
+                tg.showAlert('⬆️ +' + data.levelsBought + ' рівнів за ' + fmtNum(data.spent) + ' ТК');
+            }
             if (data.unlockedAchievements && data.unlockedAchievements.length) {
                 data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
                 renderAchievements();
