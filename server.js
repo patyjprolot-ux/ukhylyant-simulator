@@ -145,6 +145,25 @@ const ECONOMY = {
     NOTICE_PUSH_BEFORE_MIN: 30,
     NOTICE_SEASON_POINTS: 2,
     NOTICE_TICK_MS: 5 * 60 * 1000,
+
+    // --- PvP "Здати сусіда" ---
+    // Головна соціальна механіка: єдине, що друзі можуть зробити ОДИН ОДНОМУ.
+    // Усі обмеження нижче — навмисні запобіжники проти булінгу й спаму, бо це гра
+    // для компанії друзів, а не арена.
+    SNITCH_COST_TK: 3000,
+    SNITCH_COST_RES: 'sim',              // ліва сімка, щоб дзвінок був анонімний
+    SNITCH_DAILY_LIMIT: 3,
+    SNITCH_MIN_LEVEL_GAP: 2,             // не можна бити тих, хто на 2+ рівні нижче
+    SNITCH_SAME_TARGET_COOLDOWN_H: 6,
+    SNITCH_HEAT: 15,
+    SNITCH_RAT_REVEAL_CHANCE: 0.35,      // Щур-розвідник одразу палить стукача
+    SNITCH_SUSPECTS: 3,
+    SNITCH_STEAL_PCT: 0.30,
+    // Стеля крадіжки за рівнем схрону. Без неї 30% балансу гравця, який збирав на
+    // бункер, — це знищення вечора гри, тобто образа, а не драма.
+    SNITCH_STEAL_CAP_PER_LEVEL: 8000,
+    SNITCH_CAUGHT_SEASON_POINTS: 5,
+    SNITCH_HISTORY_SIZE: 10,
 };
 
 // Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
@@ -781,6 +800,15 @@ function createFreshUser(id, name) {
         energyLockUntil: 0,         // "вручення в руки" на пів години забирає можливість клікати
         deceivedCount: 0,           // скільки разів обманув систему липовою довідкою
         seasonPoints: 0,            // сезонні очки (повноцінні ліги — Фаза 5)
+        // --- PvP "Здати сусіда" ---
+        pid: null,                  // публічний id для PvP; Telegram id назовні не світимо
+        snitchesToday: 0,
+        snitchStats: { sent: 0, received: 0, caught: 0, falselyAccused: 0, stolen: 0, robbed: 0 },
+        snitchedBy: [],             // [{ byId, byName, at, investigated, revealed, suspects }]
+        freeSnitchOn: [],           // id гравців, на яких є безкоштовний стук (за хибне звинувачення)
+        lastSnitchTargets: {},      // { targetId: timestamp } — кулдаун на ту саму ціль
+        pendingRobbery: null,       // { byName, amount, at } — показати жертві при найближчому save
+        trophies: [],               // 🕵️ та майбутні трофеї з босів
         questsDate: null,
         dailyClicks: 0,
         dailyTrades: 0,
@@ -845,10 +873,47 @@ function migrateUser(user) {
     // Старому збереженню ставимо мітку "зараз", інакше згасання відразу відкрутило б
     // heat на місяці назад (він у них і так 0, але при відновленні з бекапу — ні).
     if (!user.lastHeatDecay) user.lastHeatDecay = Date.now();
+    if (!Array.isArray(user.snitchedBy)) user.snitchedBy = [];
+    if (!Array.isArray(user.freeSnitchOn)) user.freeSnitchOn = [];
+    if (!Array.isArray(user.trophies)) user.trophies = [];
+    if (typeof user.lastSnitchTargets !== 'object' || user.lastSnitchTargets === null) user.lastSnitchTargets = {};
+    if (typeof user.snitchStats !== 'object' || user.snitchStats === null) {
+        user.snitchStats = { sent: 0, received: 0, caught: 0, falselyAccused: 0, stolen: 0, robbed: 0 };
+    }
+    for (const k of ['sent', 'received', 'caught', 'falselyAccused', 'stolen', 'robbed']) {
+        if (typeof user.snitchStats[k] !== 'number') user.snitchStats[k] = 0;
+    }
+    registerPid(user);
     installBalanceTracking(user);
     migrateLegacyPortfolio(user);
     return user;
 }
+
+// ===== Публічний id для PvP =====
+// Назовні (лідерборд, підозрювані, порівняння профілів) світимо саме pid, а не
+// Telegram id: PvP вимагає адресувати гравців, але видавати чужі Telegram-айді
+// у публічному ендпоінті лідерборду не варто.
+const pidIndex = new Map();
+function makePid() {
+    let pid;
+    do { pid = crypto.randomBytes(5).toString('hex'); } while (pidIndex.has(pid));
+    return pid;
+}
+function registerPid(user) {
+    if (!user.pid) user.pid = makePid();
+    pidIndex.set(user.pid, user.id);
+}
+function userByPid(pid) {
+    const id = pidIndex.get(String(pid || ''));
+    return id ? usersDB.get(id) : null;
+}
+
+// Проганяємо міграцію одразу для всіх завантажених гравців, а не ліниво при першому
+// їхньому запиті: PvP-механікам треба адресувати гравців, які ще не заходили в цьому
+// процесі (інакше їхнього pid просто немає в індексі), а тіку повісток — бачити всіх
+// одразу після рестарту. Навмисно тут, а не одразу після loadData(): pidIndex — const,
+// до цього рядка він ще в тимчасовій мертвій зоні.
+usersDB.forEach((u) => migrateUser(u));
 
 // Раніше біржа торгувала окремими абстрактними товарами (гречка/сіль/тушонка), які
 // лежали в user.portfolio. Тепер біржа торгує справжніми ресурсами з кладовки, і ті
@@ -955,6 +1020,7 @@ function resetDailyIfNeeded(user) {
         user.dailyCrafts = 0;
         user.dailyResources = 0;
         user.claimedQuests = [];
+        user.snitchesToday = 0;
     }
 }
 
@@ -1167,6 +1233,72 @@ function noticeSnapshot(user) {
         noticeStats: user.noticeStats,
         energyLockUntil: user.energyLockUntil || 0,
     };
+}
+
+// ==========================================
+// PvP: "ЗДАТИ СУСІДА"
+// ==========================================
+// Одна перевірка на два місця: сам стук і кнопка в порівнянні профілів (щоб UI
+// показував ПРИЧИНУ, чому здати не можна, а не мовчазну сіру кнопку).
+function snitchEligibility(user, target) {
+    const free = (user.freeSnitchOn || []).includes(target.id);
+    const deny = (reason) => ({ ok: false, free, reason });
+
+    if (target.id === user.id) return deny('На себе стукати — це вже діагноз');
+    if (target.permanentShield) return deny('У нього Білий Квиток — дзвінок нікого не зацікавив');
+    if (hasActiveShield(target)) return deny('У нього довідка. Тобі просто не повірять');
+    if ((target.notices || []).length >= ECONOMY.NOTICE_MAX_ACTIVE) {
+        return deny('У нього і так повна скринька повісток');
+    }
+    // Безкоштовний стук (право на помсту за хибне звинувачення) обходить ліміти,
+    // але не обходить захист жертви вище — інакше помста била б наосліп.
+    if (free) return { ok: true, free: true, costTk: 0 };
+
+    if (target.level <= user.level - ECONOMY.SNITCH_MIN_LEVEL_GAP) {
+        return deny('Він і так у гіршому схроні. Малих не чіпаємо');
+    }
+    if ((user.snitchesToday || 0) >= ECONOMY.SNITCH_DAILY_LIMIT) {
+        return deny(`Ліміт совісті — ${ECONOMY.SNITCH_DAILY_LIMIT} дзвінки на добу`);
+    }
+    const lastAt = (user.lastSnitchTargets || {})[target.id] || 0;
+    const cooldownMs = ECONOMY.SNITCH_SAME_TARGET_COOLDOWN_H * 3600 * 1000;
+    if (Date.now() - lastAt < cooldownMs) {
+        const leftH = Math.ceil((cooldownMs - (Date.now() - lastAt)) / 3600000);
+        return deny(`На цього ти вже стукав. Дай продихнути ще ${leftH} год`);
+    }
+    if (user.balance < ECONOMY.SNITCH_COST_TK) return deny('Не вистачає ТК на анонімний дзвінок');
+    if ((user.resources[ECONOMY.SNITCH_COST_RES] || 0) < 1) {
+        return deny('Потрібна ліва сімка — зі свого номера такі дзвінки не роблять');
+    }
+    return { ok: true, free: false, costTk: ECONOMY.SNITCH_COST_TK };
+}
+
+function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// Три підозрюваних: справжній стукач + шум. Шум беремо спершу зі співклановців і
+// тих, з ким жертва вже перетиналась — щоб здогад був про ЖИВИХ людей із чату,
+// а не про випадкові ніки, і помилка боляче била саме по своїх.
+function buildSuspects(victim, realId) {
+    const pool = new Set();
+    const clan = victim.clanId && clansDB.get(victim.clanId);
+    if (clan) (clan.members || []).forEach((id) => pool.add(id));
+    Object.keys(victim.lastSnitchTargets || {}).forEach((id) => pool.add(id));
+    (victim.snitchedBy || []).forEach((e) => pool.add(e.byId));
+    for (const u of usersDB.values()) {
+        if (pool.size >= 30) break;
+        pool.add(u.id);
+    }
+    pool.delete(victim.id);
+    pool.delete(realId);
+    const noise = shuffled([...pool].filter((id) => usersDB.has(id))).slice(0, ECONOMY.SNITCH_SUSPECTS - 1);
+    return shuffled([realId, ...noise]);
 }
 
 // Спільна обгортка для всіх пушів від бота: гравець міг заблокувати бота, і це
@@ -1575,9 +1707,20 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         prestigeAvailable: prestigePointsAvailable(user),
         seasonPoints: user.seasonPoints || 0,
         deceivedCount: user.deceivedCount || 0,
+        pid: user.pid,
+        snitchStats: user.snitchStats,
+        snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
+        freeSnitchCount: (user.freeSnitchOn || []).length,
+        investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
+        trophies: user.trophies || [],
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
     };
+    // Крадіжку показуємо один раз — так само, як преміальну нагороду з ящика.
+    if (user.pendingRobbery) {
+        response.robbery = user.pendingRobbery;
+        if (req.query.consume === '1') user.pendingRobbery = null;
+    }
     // ?consume=1 — забрати одноразову преміальну нагороду, щоб вона не показувалась повторно
     if (req.query.consume === '1') user.lastPremiumReward = null;
     res.json(response);
@@ -1632,11 +1775,18 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     user.lastSeenAt = Date.now();
 
     const unlocked = checkAchievements(user);
+    // Тебе обікрали, поки ти грав: баланс уже зменшив сервер (і ревізія зросла, тому
+    // наш баланс вище відхилено). Віддаємо подію РІВНО ОДИН раз, щоб клієнт показав
+    // "−N ТК 🐍", а не тихо відкотив цифру й лишив гравця в подиві.
+    const robbery = user.pendingRobbery;
+    if (robbery) user.pendingRobbery = null;
     // heat і повістки їдуть у кожній відповіді автозбереження (раз на 5с) — так клієнт
     // дізнається про повістку, що прийшла, поки він грав, без окремого полінгу.
     res.json({
         ok: true, balance: user.balance, balanceRev: user.balanceRev,
         balanceRejected: !balanceAccepted, unlockedAchievements: unlocked,
+        robbery, snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
+        investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         ...heatSnapshot(user), ...noticeSnapshot(user),
     });
 });
@@ -1739,7 +1889,9 @@ app.get('/api/leaderboard', (req, res) => {
     const top = Array.from(usersDB.values())
         .sort((a, b) => b.balance - a.balance)
         .slice(0, 10)
-        .map((u) => ({ name: u.name, balance: u.balance, isVip: u.isVip }));
+        // pid — опаковий публічний ідентифікатор, саме він потрібен, щоб тапнути
+        // по гравцю й порівняти профілі. Telegram id тут не світимо.
+        .map((u) => ({ pid: u.pid, name: u.name, balance: u.balance, isVip: u.isVip, level: u.level, snitch: publicSnitchStats(u) }));
     res.json(top);
 });
 
@@ -2098,7 +2250,11 @@ app.post('/api/revenge', requireTelegramAuth, (req, res) => {
 // ---- Розшук і повістки ----
 app.get('/api/notices', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json({ ...heatSnapshot(user, true), ...noticeSnapshot(user), balance: user.balance, shieldUntil: user.shieldUntil });
+    res.json({
+        ...heatSnapshot(user, true), ...noticeSnapshot(user),
+        balance: user.balance, shieldUntil: user.shieldUntil,
+        investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
+    });
 });
 
 // Повістка — це не штраф, а вибір. П'ять способів відреагувати, кожен зі своєю
@@ -2179,6 +2335,175 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
         seasonPoints: user.seasonPoints, ...storageSnapshot(user),
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
+// ---- PvP: "Здати сусіда" ----
+function publicSnitchStats(user) {
+    const s = user.snitchStats || {};
+    return { sent: s.sent || 0, received: s.received || 0, caught: s.caught || 0 };
+}
+
+function profileCard(user) {
+    return {
+        pid: user.pid, name: user.name, level: user.level, isVip: !!user.isVip,
+        balance: Math.floor(user.balance), heat: Math.round((user.heat || 0) * 10) / 10,
+        heatTierName: heatTierOf(user.heat).name,
+        prestigePoints: user.prestigePoints || 0,
+        totalClicks: user.totalClicks || 0,
+        raidsSurvived: user.raidsSurvived || 0,
+        expeditionsDone: user.expeditionsDone || 0,
+        collected: (user.ownedCosmetics || []).length + (user.ownedRoomItems || []).length + (user.ownedPets || []).length,
+        achievements: (user.achievements || []).length,
+        trophies: (user.trophies || []).length,
+        permanentShield: !!user.permanentShield,
+        snitch: publicSnitchStats(user),
+    };
+}
+
+// Порівняння профілів: дві колонки й чесна причина, чому здати не можна.
+app.get('/api/profile', requireTelegramAuth, (req, res) => {
+    const me = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const other = userByPid(req.query.pid);
+    if (!other) return res.status(404).json({ error: 'Такого гравця немає' });
+    migrateUser(other);
+    syncHeatAndNotices(other);
+    const elig = snitchEligibility(me, other);
+    res.json({
+        me: profileCard(me), other: profileCard(other),
+        snitch: {
+            can: elig.ok, free: !!elig.free, reason: elig.reason || null,
+            costTk: ECONOMY.SNITCH_COST_TK, costRes: ECONOMY.SNITCH_COST_RES,
+            left: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (me.snitchesToday || 0)),
+        },
+    });
+});
+
+app.post('/api/snitch', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    const target = userByPid(req.body.targetPid);
+    if (!target) return res.json({ success: false, message: 'Такого гравця немає' });
+    migrateUser(target);
+    syncHeatAndNotices(target);
+
+    const elig = snitchEligibility(user, target);
+    if (!elig.ok) return res.json({ success: false, message: elig.reason });
+
+    const now = Date.now();
+    if (elig.free) {
+        user.freeSnitchOn = user.freeSnitchOn.filter((id) => id !== target.id);
+    } else {
+        user.balance -= ECONOMY.SNITCH_COST_TK;
+        const res_ = ECONOMY.SNITCH_COST_RES;
+        user.resources[res_] -= 1;
+        if (user.resources[res_] <= 0) delete user.resources[res_];
+        user.snitchesToday = (user.snitchesToday || 0) + 1;
+        user.lastSnitchTargets[target.id] = now;
+    }
+    user.snitchStats.sent += 1;
+
+    // Жертві — та сама повістка "вручення в руки", що й від системи: 3 години на
+    // реакцію. Різниця в тому, що за цією стоїть жива людина, яку можна вирахувати.
+    const type = NOTICE_BY_ID['ruky'];
+    target.notices.push({
+        uid: 'n' + now.toString(36) + Math.floor(Math.random() * 1000).toString(36),
+        typeId: type.id, issuedAt: now, expiresAt: now + type.ttlH * 3600 * 1000,
+        pushSent: false, fromSnitch: true,
+    });
+    target.noticeStats.received += 1;
+    changeHeat(target, ECONOMY.SNITCH_HEAT, 'Тебе здав сусід');
+    target.snitchStats.received += 1;
+
+    // Щур-розвідник іноді одразу палить стукача — тоді розслідування не потрібне.
+    const revealed = target.petId === 'rat' && Math.random() < ECONOMY.SNITCH_RAT_REVEAL_CHANCE;
+    target.snitchedBy.unshift({ byId: user.id, byName: user.name, at: now, investigated: false, revealed, suspects: null });
+    if (target.snitchedBy.length > ECONOMY.SNITCH_HISTORY_SIZE) target.snitchedBy.length = ECONOMY.SNITCH_HISTORY_SIZE;
+
+    sendPush(target.id, revealed
+        ? `🐀 Щур-розвідник підслухав розмову: тебе здав ${user.name}. Ти йому цього не забудеш.`
+        : '🐍 Хтось про тебе розповів. Ти йому цього не забудеш.');
+
+    res.json({
+        success: true, free: !!elig.free,
+        message: elig.free
+            ? 'Безкоштовний дзвінок використано. Ви квити.'
+            : 'Дзвінок пішов. Він навіть не знає, хто це був.',
+        snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
+        balance: user.balance, snitchStats: publicSnitchStats(user), ...storageSnapshot(user),
+    });
+});
+
+// Розслідування: жертві показують трьох, вона має один здогад.
+app.get('/api/investigation', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const entry = (user.snitchedBy || []).find((e) => !e.investigated);
+    if (!entry) return res.json({ pending: false });
+    if (entry.revealed) {
+        return res.json({ pending: true, revealed: true, at: entry.at, snitchName: entry.byName });
+    }
+    // Список фіксуємо при першому відкритті, щоб його не можна було "перекрутити",
+    // перезайшовши в гру, доки не випаде зручна трійка.
+    if (!Array.isArray(entry.suspects) || !entry.suspects.length) {
+        entry.suspects = buildSuspects(user, entry.byId);
+    }
+    const suspects = entry.suspects
+        .map((id) => usersDB.get(id))
+        .filter(Boolean)
+        .map((u) => ({ pid: u.pid, name: u.name, level: u.level, snitch: publicSnitchStats(u) }));
+    res.json({ pending: true, revealed: false, at: entry.at, suspects });
+});
+
+app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const entry = (user.snitchedBy || []).find((e) => !e.investigated);
+    if (!entry) return res.json({ success: false, message: 'Немає активного розслідування' });
+    if (entry.revealed) {
+        entry.investigated = true;
+        return res.json({ success: false, message: 'Щур і так усе розповів — розслідувати нічого' });
+    }
+    const suspect = userByPid(req.body.suspectPid);
+    if (!suspect || !Array.isArray(entry.suspects) || !entry.suspects.includes(suspect.id)) {
+        return res.json({ success: false, message: 'Цього немає у списку підозрюваних' });
+    }
+    migrateUser(suspect);
+    entry.investigated = true;
+
+    if (suspect.id === entry.byId) {
+        // Стеля за рівнем схрону: відчутно, але не катастрофа. Баланс жертви — акцесор,
+        // тож balanceRev інкрементується сам і її клієнтське автозбереження вже не
+        // "поверне" вкрадене; pendingRobbery показує їй, куди поділись гроші.
+        const cap = ECONOMY.SNITCH_STEAL_CAP_PER_LEVEL * ((suspect.level || 1) + 1);
+        const steal = Math.max(0, Math.min(Math.floor(Math.max(0, suspect.balance) * ECONOMY.SNITCH_STEAL_PCT), cap));
+        if (steal > 0) {
+            suspect.balance -= steal;
+            user.balance += steal;
+        }
+        suspect.pendingRobbery = { byName: user.name, amount: steal, at: Date.now() };
+        suspect.snitchStats.robbed += steal;
+        user.snitchStats.caught += 1;
+        user.snitchStats.stolen += steal;
+        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SNITCH_CAUGHT_SEASON_POINTS;
+        if (!user.trophies.includes('detective')) user.trophies.push('detective');
+
+        sendPush(suspect.id, `🕵️ ${user.name} тебе вирахував. Моральна компенсація: −${steal.toLocaleString('uk-UA')} ТК.`);
+        const unlocked = checkAchievements(user);
+        return res.json({
+            success: true, correct: true, snitchName: suspect.name, stolen: steal,
+            balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
+            snitchStats: publicSnitchStats(user), unlockedAchievements: unlocked,
+        });
+    }
+
+    // Хибне звинувачення навмисно НЕ безкарне: невинний отримує право на один
+    // безкоштовний дзвінок саме на тебе. Саме звідси беруться ланцюгові війни.
+    if (!suspect.freeSnitchOn.includes(user.id)) suspect.freeSnitchOn.push(user.id);
+    suspect.snitchStats.falselyAccused += 1;
+    sendPush(suspect.id, `😐 ${user.name} підозрював у стукацтві саме тебе. Ти образився — тепер у тебе є один безкоштовний дзвінок на нього.`);
+    res.json({
+        success: true, correct: false, accusedName: suspect.name,
+        message: 'Не вгадав. Справжній стукач лишився невідомим, а невинний образився.',
+        snitchStats: publicSnitchStats(user),
     });
 });
 
@@ -2442,6 +2767,29 @@ function buildHtml(botUsername) {
         .notice-threat { font-size: 11px; color: #ffb4b4; background: rgba(255,59,59,0.08); border-radius: 6px; padding: 6px 8px; margin: 8px 0; line-height: 1.45; }
         .notice-card button { font-size: 13px; padding: 9px; margin-bottom: 6px; text-align: left; }
         .notice-cost { float: right; color: #9fb4c7; font-size: 11px; font-weight: 400; }
+
+        /* ===== PvP: стук і розслідування ===== */
+        #profile-overlay, #investigation-screen { position: fixed; inset: 0; z-index: 1750; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .vs-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; margin-bottom: 12px; }
+        .vs-name { font-weight: 700; font-size: 14px; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #2a2a3d; }
+        .vs-name.them { color: var(--accent); }
+        .vs-row { display: contents; }
+        .vs-cell { font-size: 13px; padding: 5px 4px; text-align: center; }
+        .vs-cell.win { color: #39ff14; font-weight: 700; }
+        .vs-label { font-size: 10px; color: #9fb4c7; text-align: center; white-space: nowrap; padding: 0 4px; }
+        .snitch-btn { background: linear-gradient(45deg, #7b1020, #c3073f) !important; border-color: #ff6b6b !important; }
+        .snitch-note { font-size: 11px; color: #9fb4c7; text-align: center; margin-top: -4px; margin-bottom: 10px; line-height: 1.45; }
+        .snitch-line { font-size: 12px; color: #cfe3f2; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; text-align: center; }
+
+        .invest-banner { background: linear-gradient(135deg, rgba(195,7,63,0.22), rgba(255,59,59,0.10)); border: 1px solid rgba(255,59,59,0.55); border-radius: 10px; padding: 11px 12px; margin-bottom: 14px; cursor: pointer; }
+        .invest-banner b { color: #ff8a8a; }
+        .suspect-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 10px; cursor: pointer; }
+        .suspect-card:active { border-color: var(--accent); }
+        .suspect-face { font-size: 26px; }
+        .suspect-name { font-weight: 700; font-size: 14px; }
+        .suspect-meta { font-size: 11px; color: #9fb4c7; }
+        .leader-row { cursor: pointer; }
+        .leader-row:active { color: var(--accent2); }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -2944,7 +3292,8 @@ function buildHtml(botUsername) {
             <div class="help-step"><b>4. Прокачуйся в Магазині</b><br>Апгрейди купуються нескінченно, кожен рівень дорожчий. Далі — переїзд у кращий схрон.</div>
             <div class="help-step"><b>5. Стеж за розшуком</b><br>Смуга під енергією — <b>розшук</b>. Що активніший ти — то більше тобою цікавляться: разом росте і дохід (до ×2), і шанс облави (до ×4.5). Сам вирішуй, на якому рівні жити. Тап по смузі — вся твоя справа.</div>
             <div class="help-step"><b>6. Повістки (📬 у шапці)</b><br>Приходять із таймером, навіть коли гра закрита. Можна відкупитись, показати липову довідку, зіграти в медкомісію, сховатись — або проігнорувати й отримати штраф.</div>
-            <div class="help-step"><b>7. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
+            <div class="help-step"><b>7. Друзі — теж механіка</b><br>Тап по гравцю в 🏆 ТОП відкриває порівняння профілів і кнопку <b>«здати»</b>. Здав — йому прилетить повістка. Здали тебе — маєш одне розслідування з трьох підозрюваних. Вгадаєш — забереш частину його балансу, помилишся — невинний образиться і отримає безкоштовний дзвінок на тебе.</div>
+            <div class="help-step"><b>8. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
             <button onclick="closeHelp()">Зрозуміло</button>
         </div>
     </div>
@@ -2993,6 +3342,29 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Порівняння профілів: твоя статистика проти його + кнопка "здати". -->
+    <div id="profile-overlay" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeProfile()">✕</button>
+            <h2 style="margin: 0 0 12px; font-size: 19px; color: var(--gold); text-align: center;">Хто кого</h2>
+            <div class="vs-grid" id="profile-grid"></div>
+            <div class="snitch-line" id="profile-snitch-stats"></div>
+            <button class="snitch-btn" id="profile-snitch-btn" onclick="confirmSnitch()">🐍 Здати</button>
+            <div class="snitch-note" id="profile-snitch-note"></div>
+            <button onclick="closeProfile()">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Розслідування: троє підозрюваних, один здогад. -->
+    <div id="investigation-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeInvestigation()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🕵️ Розслідування</h2>
+            <div id="investigation-body"></div>
+            <button onclick="closeInvestigation()">Закрити</button>
+        </div>
+    </div>
+
     <!-- Повістки: не штраф, а вибір із таймером. -->
     <div id="notices-screen" class="hidden">
         <div class="case-card">
@@ -3001,6 +3373,9 @@ function buildHtml(botUsername) {
             <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px;">
                 Таймер тікає, навіть коли гра закрита. Протухла повістка = штраф і різкий стрибок розшуку.
             </p>
+            <div class="invest-banner hidden" id="invest-banner" onclick="openInvestigation()">
+                🐍 <b>Тебе хтось здав.</b> Ти маєш право на одне розслідування — тапни, щоб подивитись на підозрюваних.
+            </div>
             <div id="notices-list"></div>
             <button onclick="closeNotices()" style="margin-top:6px;">Закрити</button>
         </div>
@@ -3115,6 +3490,8 @@ function buildHtml(botUsername) {
             balanceRev: 0,
             heat: 0, heatTier: HEAT_TIERS[0], heatLog: [],
             notices: [], noticeStats: null, energyLockUntil: 0, seasonPoints: 0,
+            pid: null, snitchStats: null, snitchesLeft: ECONOMY.SNITCH_DAILY_LIMIT,
+            investigationPending: false, trophies: [],
         };
 
         const ui = {
@@ -3148,6 +3525,7 @@ function buildHtml(botUsername) {
             if (Array.isArray(data.notices)) state.notices = data.notices;
             if (data.noticeStats) state.noticeStats = data.noticeStats;
             if (typeof data.energyLockUntil === 'number') state.energyLockUntil = data.energyLockUntil;
+            if (typeof data.investigationPending === 'boolean') state.investigationPending = data.investigationPending;
         }
 
         function fmtCountdown(ms) {
@@ -3212,7 +3590,9 @@ function buildHtml(botUsername) {
             ui.heatValue.innerText = 'Розшук: ' + Math.round(state.heat || 0);
             ui.heatWrap.classList.toggle('hot', (state.heat || 0) >= 76);
 
-            const noticeCount = (state.notices || []).length;
+            // Непочате розслідування теж світиться в бейджі — інакше гравець просто
+            // не дізнається, що має право вирахувати того, хто його здав.
+            const noticeCount = (state.notices || []).length + (state.investigationPending ? 1 : 0);
             ui.noticesBadge.classList.toggle('hidden', noticeCount === 0);
             if (noticeCount > 0) {
                 ui.noticesBadge.innerText = noticeCount;
@@ -3296,6 +3676,7 @@ function buildHtml(botUsername) {
                 if (typeof data.shieldUntil === 'number') state.shieldUntil = data.shieldUntil;
             } catch (e) { /* покажемо те, що вже маємо */ }
             renderNotices();
+            document.getElementById('invest-banner').classList.toggle('hidden', !state.investigationPending);
             document.getElementById('notices-screen').classList.remove('hidden');
         };
         window.closeNotices = () => document.getElementById('notices-screen').classList.add('hidden');
@@ -3368,6 +3749,180 @@ function buildHtml(botUsername) {
             renderNotices();
             renderStorage();
             updateUI();
+        };
+
+        // ===== PvP: "Здати сусіда" =====
+        // Порівняння профілів. Тап по гравцю в лідерборді — єдина точка входу
+        // в стук: спершу бачиш, з ким маєш справу, і лише потім тиснеш кнопку.
+        let profileTarget = null;
+        let investigationSuspects = [];
+
+        window.openProfile = async (pid) => {
+            try {
+                const res = await apiFetch('/api/profile?id=' + user.id + '&pid=' + encodeURIComponent(pid));
+                if (!res.ok) return tg.showAlert('Не вдалося відкрити профіль');
+                const data = await res.json();
+                profileTarget = { pid, name: data.other.name, snitch: data.snitch };
+                renderProfile(data);
+                document.getElementById('profile-overlay').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити профіль'); }
+        };
+        window.closeProfile = () => {
+            document.getElementById('profile-overlay').classList.add('hidden');
+            profileTarget = null;
+        };
+
+        function renderProfile(data) {
+            const me = data.me, them = data.other;
+            const rows = [
+                ['Схрон', me.level, them.level, 'high'],
+                ['Баланс', fmtNum(me.balance), fmtNum(them.balance), null],
+                ['Розшук', Math.round(me.heat), Math.round(them.heat), null],
+                ['Довідок', me.prestigePoints, them.prestigePoints, 'high'],
+                ['Кліків', fmtNum(me.totalClicks), fmtNum(them.totalClicks), 'high'],
+                ['Облав пережито', me.raidsSurvived, them.raidsSurvived, 'high'],
+                ['Вилазок', me.expeditionsDone, them.expeditionsDone, 'high'],
+                ['Зібрано речей', me.collected, them.collected, 'high'],
+                ['Досягнень', me.achievements, them.achievements, 'high'],
+            ];
+            const cmp = (a, b, mode) => {
+                if (mode !== 'high') return ['', ''];
+                const na = Number(String(a).replace(/[^\\d.-]/g, ''));
+                const nb = Number(String(b).replace(/[^\\d.-]/g, ''));
+                if (!isFinite(na) || !isFinite(nb) || na === nb) return ['', ''];
+                return na > nb ? [' win', ''] : ['', ' win'];
+            };
+            let html = '<div class="vs-name">Ти</div><div class="vs-label"></div>' +
+                '<div class="vs-name them">' + esc(them.name) + (them.isVip ? ' 👑' : '') + '</div>';
+            for (const [label, a, b, mode] of rows) {
+                const [ca, cb] = cmp(a, b, mode);
+                html += '<div class="vs-cell' + ca + '">' + a + '</div>' +
+                    '<div class="vs-label">' + label + '</div>' +
+                    '<div class="vs-cell' + cb + '">' + b + '</div>';
+            }
+            document.getElementById('profile-grid').innerHTML = html;
+
+            const s = them.snitch || {};
+            document.getElementById('profile-snitch-stats').innerHTML =
+                '🐍 Здав: <b>' + (s.sent || 0) + '</b> · 🎯 Здали його: <b>' + (s.received || 0) + '</b> · 🕵️ Розкрив: <b>' + (s.caught || 0) + '</b>';
+
+            const btn = document.getElementById('profile-snitch-btn');
+            const note = document.getElementById('profile-snitch-note');
+            const sn = data.snitch;
+            btn.disabled = !sn.can;
+            btn.innerText = sn.free ? '🐍 Здати (безкоштовно — ти йому винен)' : '🐍 Здати';
+            note.innerText = sn.can
+                ? (sn.free
+                    ? 'Це твій безкоштовний дзвінок за хибне звинувачення.'
+                    : 'Коштує ' + fmtNum(sn.costTk) + ' ТК + 📱 ліва сімка. Лишилось дзвінків сьогодні: ' + sn.left + '.')
+                : sn.reason;
+        }
+
+        window.confirmSnitch = () => {
+            if (!profileTarget) return;
+            const t = profileTarget;
+            // Незворотна дія проти живої людини — питаємо підтвердження явно.
+            tg.showConfirm(
+                'Здати гравця ' + t.name + '? Йому прилетить повістка на 3 години і +' +
+                ECONOMY.SNITCH_HEAT + ' до розшуку. Він матиме право вирахувати тебе.',
+                (ok) => { if (ok) doSnitch(t.pid); }
+            );
+        };
+
+        async function doSnitch(pid) {
+            const res = await apiFetch('/api/snitch', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, targetPid: pid }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (data.resources) state.resources = data.resources;
+            if (data.snitchStats) state.snitchStats = data.snitchStats;
+            if (typeof data.snitchesLeft === 'number') state.snitchesLeft = data.snitchesLeft;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('🐍 ' + data.message);
+            closeProfile();
+            renderStorage();
+            updateUI();
+        }
+
+        // ===== Розслідування =====
+        function showRobbery(r) {
+            tg.HapticFeedback.notificationOccurred('error');
+            tg.showAlert('🐍 ' + r.byName + ' вирахував, що це ти на нього стукав.\\n' +
+                'Моральна компенсація: −' + fmtNum(r.amount) + ' ТК');
+        }
+
+        window.openInvestigation = async () => {
+            try {
+                const res = await apiFetch('/api/investigation?id=' + user.id);
+                renderInvestigation(await res.json());
+                document.getElementById('investigation-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити розслідування'); }
+        };
+        window.closeInvestigation = () => document.getElementById('investigation-screen').classList.add('hidden');
+
+        function renderInvestigation(data) {
+            const box = document.getElementById('investigation-body');
+            investigationSuspects = data.suspects || [];
+            if (!data.pending) {
+                state.investigationPending = false;
+                box.innerHTML = '<p style="font-size:13px; color:#9fb4c7; text-align:center; padding: 18px 0;">' +
+                    'Зараз розслідувати нічого. Живи спокійно.</p>';
+                return;
+            }
+            if (data.revealed) {
+                // Щур-розвідник уже все підслухав — здогадуватись не треба.
+                box.innerHTML = '<p style="font-size:13px; line-height:1.55; color:#cfe3f2;">' +
+                    '🐀 Щур-розвідник підслухав розмову і назвав ім\\'я одразу:</p>' +
+                    '<div class="suspect-card" style="cursor:default;"><span class="suspect-face">🐍</span>' +
+                    '<div><div class="suspect-name">' + esc(data.snitchName) + '</div>' +
+                    '<div class="suspect-meta">Тепер ти знаєш. Що з цим робити — вирішуй сам.</div></div></div>';
+                return;
+            }
+            box.innerHTML = '<p style="font-size:12px; color:#9fb4c7; line-height:1.5; margin: 4px 0 12px;">' +
+                'Один здогад. Вгадаєш — забереш частину його балансу як моральну компенсацію. ' +
+                'Помилишся — невинний образиться і отримає право на безкоштовний дзвінок уже на тебе.</p>' +
+                data.suspects.map((s, i) =>
+                    // Індекс, а не ім'я в onclick: чужий нік — довільний текст, і
+                    // апостроф у ньому зламав би інлайн-обробник.
+                    '<div class="suspect-card" onclick="guessSnitch(' + i + ')">' +
+                    '<span class="suspect-face">🕴️</span><div>' +
+                    '<div class="suspect-name">' + esc(s.name) + '</div>' +
+                    '<div class="suspect-meta">Схрон ' + s.level + ' · здавав інших: ' + ((s.snitch || {}).sent || 0) + '</div>' +
+                    '</div></div>'
+                ).join('');
+        }
+
+        window.guessSnitch = (index) => {
+            const s = investigationSuspects[index];
+            if (!s) return;
+            const pid = s.pid;
+            const go = async () => {
+                const res = await apiFetch('/api/investigation/guess', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, suspectPid: pid }),
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+                state.investigationPending = false;
+                if (data.snitchStats) state.snitchStats = data.snitchStats;
+                if (data.trophies) state.trophies = data.trophies;
+                if (data.correct) {
+                    state.balance = data.balance;
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert('🕵️ Вирахував! Це був ' + data.snitchName +
+                        '.\\nМоральна компенсація: +' + fmtNum(data.stolen) + ' ТК');
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    tg.showAlert('❌ ' + data.message);
+                }
+                closeInvestigation();
+                updateUI();
+                saveState();
+            };
+            tg.showConfirm('Звинуватити ' + s.name + '? Здогад лише один.', (ok) => { if (ok) go(); });
         };
 
         // ===== Резервна копія в Telegram CloudStorage =====
@@ -3470,7 +4025,14 @@ function buildHtml(botUsername) {
                 state.prestigeMultiplier = data.prestigeMultiplier || 1;
                 state.prestigeAvailable = data.prestigeAvailable || 0;
                 state.seasonPoints = data.seasonPoints || 0;
+                state.pid = data.pid || null;
+                state.snitchStats = data.snitchStats || null;
+                state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
+                state.investigationPending = !!data.investigationPending;
+                state.trophies = data.trophies || [];
                 absorbHeat(data);
+                // Поки тебе не було, хтось вирахував твій стук і забрав компенсацію.
+                if (data.robbery) showRobbery(data.robbery);
 
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
@@ -3520,6 +4082,14 @@ function buildHtml(botUsername) {
                 absorbHeat(data);
                 if ((state.notices || []).length > hadNotices) {
                     tg.HapticFeedback.notificationOccurred('warning');
+                }
+                if (typeof data.snitchesLeft === 'number') state.snitchesLeft = data.snitchesLeft;
+                if (typeof data.investigationPending === 'boolean') state.investigationPending = data.investigationPending;
+                // Крадіжку сервер віддає рівно один раз — інакше гравець побачив би
+                // лише тихий відкат балансу і вирішив, що це баг.
+                if (data.robbery) {
+                    state.balance = data.balance;
+                    showRobbery(data.robbery);
                 }
                 // Сервер відхилив наш баланс — значить він змінював його сам (ящик/крафт/апгрейд),
                 // поки ми не встигли синхронізуватись. Беремо його значення як авторитетне.
@@ -4081,6 +4651,9 @@ function buildHtml(botUsername) {
                 ['🗄 Рівень кладовки', fmtNum(state.storageLevel) + ' (' + fmtNum(state.storageCapacity) + ' місць)'],
                 ['🔥 Розшук', Math.round(state.heat || 0) + ' — ' + ((state.heatTier || HEAT_TIERS[0]).name)],
                 ['📬 Знято повісток', fmtNum((state.noticeStats || {}).resolved || 0) + ' (протухло: ' + fmtNum((state.noticeStats || {}).expired || 0) + ')'],
+                ['🐍 Здав сусідів', fmtNum((state.snitchStats || {}).sent || 0)],
+                ['🎯 Здали тебе', fmtNum((state.snitchStats || {}).received || 0)],
+                ['🕵️ Розкрив стукачів', fmtNum((state.snitchStats || {}).caught || 0)],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -4833,8 +5406,13 @@ function buildHtml(botUsername) {
             list.innerHTML = 'Завантаження...';
             let res = await fetch('/api/leaderboard');
             let data = await res.json();
+            // Тап по рядку відкриває порівняння профілів — змагання потребує видимості
+            // суперника, а не просто чужої цифри в списку.
             list.innerHTML = data.map((u) =>
-                '<li>' + (u.isVip ? '👑 ' : '') + u.name + ' - <b style="color:var(--gold)">' + Math.floor(u.balance) + '</b></li>'
+                '<li class="leader-row"' + (u.pid ? ' onclick="openProfile(\\'' + u.pid + '\\')"' : '') + '>' +
+                (u.isVip ? '👑 ' : '') + esc(u.name) + ' - <b style="color:var(--gold)">' + fmtNum(Math.floor(u.balance)) + '</b>' +
+                '<span style="font-size:10px; color:#9fb4c7;"> · 🐍' + ((u.snitch || {}).sent || 0) +
+                ' 🎯' + ((u.snitch || {}).received || 0) + '</span></li>'
             ).join('') || '<li>Поки що нікого немає</li>';
         }
 
