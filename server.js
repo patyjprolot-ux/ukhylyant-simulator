@@ -196,6 +196,24 @@ const ECONOMY = {
     CHECKPOINT_HEAT_DOCS: 20,
     CHECKPOINT_HEAT_BABA: 10,
     CHECKPOINT_RESOURCE_LOSS: 0.30,
+
+    // --- Дерево навичок (за довідки легалізації) ---
+    SKILL_RESET_COST_TK: 500000,     // перше скидання безкоштовне
+    SKILL_HEAT_GAIN_CUT: 0.15,       // Тихіше води
+    SKILL_ESCAPE_BONUS: 0.20,        // Знаю прохідні двори
+    SKILL_SNITCH_FAIL_CHANCE: 0.30,  // Дві сімки
+    SKILL_BRIBE_CUT: 0.30,           // Свій у ЖЕКу
+    SKILL_RAID_WARNING_SEC: 10,      // Чуйка
+    SKILL_DECAY_MULT: 2,             // Привид району
+    SKILL_SELL_BONUS: 0.12,          // Знайомий перекуп
+    SKILL_CRATE_DISCOUNT: 0.15,      // Оптова закупка
+    SKILL_CLAN_MULT: 1.5,            // Кум у сільраді
+    SKILL_RESOURCE_BONUS: 0.25,      // Свої люди
+    SKILL_CRAFT_FREE_CHANCE: 0.20,   // Схема
+    SKILL_MAX_ENERGY_BONUS: 25,      // Загартований
+    SKILL_REGEN_BONUS: 0.40,         // Друге дихання
+    SKILL_CLICK_BONUS: 0.30,         // Мозоль
+    SKILL_PENALTY_CUT: 0.50,         // Незламний
 };
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
@@ -318,6 +336,52 @@ const CHECKPOINT_CHOICES = [
     },
 ];
 const CHECKPOINT_BY_ID = Object.fromEntries(CHECKPOINT_CHOICES.map((c) => [c.id, c]));
+
+// Дерево навичок ухилянта. Кожна довідка з легалізації = 1 очко. Довідки
+// ПРОДОВЖУЮТЬ давати свій +10% доходу — навички це бонус зверху, не заміна.
+// Всередині гілки навички беруться послідовно: щоб дійти до шостої, треба взяти
+// п'ять попередніх. Тобто повна гілка = 6 довідок (~18 млн сумарного заробітку).
+const SKILL_BRANCHES = [
+    {
+        id: 'cunning', emoji: '🦊', name: 'Хитрість', desc: 'Виживання: менше уваги, дешевші хабарі',
+        skills: [
+            { id: 'quiet', name: 'Тихіше води', desc: '−15% до приросту розшуку' },
+            { id: 'yards', name: 'Знаю прохідні двори', desc: 'Втекти з облави на 20% легше' },
+            { id: 'twosims', name: 'Дві сімки', desc: '30% шанс, що стук на тебе провалиться' },
+            { id: 'zhek', name: 'Свій у ЖЕКу', desc: 'Хабарі дешевші на 30%' },
+            { id: 'sense', name: 'Чуйка', desc: 'Попередження за 10 секунд до облави' },
+            { id: 'ghost', name: 'Привид району', desc: 'Розшук спадає вдвічі швидше' },
+        ],
+    },
+    {
+        id: 'ties', emoji: '🤝', name: 'Звʼязки', desc: 'Економіка: більше ресурсів і дешевші покупки',
+        skills: [
+            { id: 'dealer', name: 'Знайомий перекуп', desc: '+12% до ціни продажу на біржі' },
+            { id: 'bulk', name: 'Оптова закупка', desc: 'Ящики за ТК дешевші на 15%' },
+            { id: 'burrow', name: 'Друга нора', desc: 'Дві вилазки одночасно' },
+            { id: 'kum', name: 'Кум у сільраді', desc: 'Клановий бонус ×1.5' },
+            { id: 'ourpeople', name: 'Свої люди', desc: '+25% ресурсів з усіх джерел' },
+            { id: 'scheme', name: 'Схема', desc: '20% шанс не витратити ресурси на крафт' },
+        ],
+    },
+    {
+        id: 'endurance', emoji: '💪', name: 'Витривалість', desc: 'Темп: більше енергії й сильніший клік',
+        skills: [
+            { id: 'hardened', name: 'Загартований', desc: '+25 до максимальної енергії' },
+            { id: 'secondwind', name: 'Друге дихання', desc: 'Відновлення енергії +40%' },
+            { id: 'lighthand', name: 'Легка рука', desc: 'Клік коштує 1 енергії замість 2' },
+            { id: 'callus', name: 'Мозоль', desc: '+30% до сили кліку' },
+            // Ця навичка — навмисний ключ до Генерала Півника: без неї 250k терпіння
+            // за 45 секунд фізично не зняти.
+            { id: 'marathon', name: 'Марафонець', desc: 'Кліки в боях із босами не витрачають енергію' },
+            { id: 'unbroken', name: 'Незламний', desc: 'Штрафи від облав менші вдвічі' },
+        ],
+    },
+];
+const SKILL_BY_ID = {};
+for (const br of SKILL_BRANCHES) {
+    br.skills.forEach((s, i) => { SKILL_BY_ID[s.id] = { ...s, branchId: br.id, index: i }; });
+}
 
 // Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
 // вчетверо частіші облави. Порядок важливий — шукаємо перший тір, у чий `max` влазить heat.
@@ -516,9 +580,13 @@ function dailyDealCrateId(date = new Date()) {
     const dayNumber = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86400000);
     return coinCrates[dayNumber % coinCrates.length].id;
 }
-function cratePriceFor(crate) {
-    if (crate.currency !== 'coins' || crate.id !== dailyDealCrateId()) return crate.price;
-    return Math.round(crate.price * (1 - DAILY_DEAL_OFF));
+// user необов'язковий: у списку ящиків для гостя знижки від навичок ще невідомі.
+function cratePriceFor(crate, user = null) {
+    if (crate.currency !== 'coins') return crate.price;
+    let price = crate.price;
+    if (crate.id === dailyDealCrateId()) price *= (1 - DAILY_DEAL_OFF);
+    if (user && hasSkill(user, 'bulk')) price *= (1 - ECONOMY.SKILL_CRATE_DISCOUNT);
+    return Math.round(price);
 }
 
 // Крафт — головний спосіб перетворити ресурси на постійні бонуси. Навмисно дорожчий
@@ -988,7 +1056,9 @@ function createFreshUser(id, name) {
         inspectorStats: { defeated: {}, lost: 0 },
         inspectorLastSeen: {},      // { inspectorId: timestamp } — кулдаун Півника
         inspectorCooldownUntil: 0,
-        skills: {},                 // дерево навичок престижу — Фаза 6
+        skills: {},                 // { skillId: true } — дерево навичок за довідки престижу
+        skillResetsUsed: 0,         // перше скидання безкоштовне
+        skillEnergyBonus: 0,        // скільки макс. енергії зараз дає навичка (щоб зняти рівно стільки)
         questsDate: null,
         dailyClicks: 0,
         dailyTrades: 0,
@@ -1070,6 +1140,14 @@ function migrateUser(user) {
     if (typeof user.inspectorStats.lost !== 'number') user.inspectorStats.lost = 0;
     if (typeof user.inspectorLastSeen !== 'object' || user.inspectorLastSeen === null) user.inspectorLastSeen = {};
     if (typeof user.skills !== 'object' || user.skills === null) user.skills = {};
+    if (typeof user.skillResetsUsed !== 'number') user.skillResetsUsed = 0;
+    if (typeof user.skillEnergyBonus !== 'number') user.skillEnergyBonus = 0;
+    // Вилазки: раніше один об'єкт, тепер масив (навичка «Друга нора» дає другий
+    // слот). Старі збереження підхоплюємо як масив з одного елемента.
+    if (!Array.isArray(user.expeditions)) {
+        user.expeditions = user.expedition ? [user.expedition] : [];
+        delete user.expedition;
+    }
     if (typeof user.deferUntil !== 'number') user.deferUntil = 0;
     if (user.defermentId === undefined) user.defermentId = null;
     if (typeof user.defermentsTaken !== 'number') user.defermentsTaken = 0;
@@ -1159,9 +1237,13 @@ function getClanInfo(user) {
     if (!user.clanId || !clansDB.has(user.clanId)) return { clanId: null, clanName: null, memberCount: 0, bonus: 1 };
     const clan = clansDB.get(user.clanId);
     const lvl = clanLevel(clan);
+    // «Кум у сільраді» множить саму НАДБАВКУ, а не підсумковий множник — інакше
+    // ×1.5 на одиницю дало б +50% пасиву на рівному місці.
+    const extra = (ECONOMY.CLAN_PASSIVE_BONUS + lvl * ECONOMY.CLAN_BONUS_PER_LEVEL)
+        * (hasSkill(user, 'kum') ? ECONOMY.SKILL_CLAN_MULT : 1);
     return {
         clanId: clan.id, clanName: clan.name, memberCount: clan.members.length,
-        bonus: 1 + ECONOMY.CLAN_PASSIVE_BONUS + lvl * ECONOMY.CLAN_BONUS_PER_LEVEL,
+        bonus: 1 + extra,
         clanLevel: lvl,
         treasury: clan.treasury || 0,
         nextLevelCost: clanNextLevelCost(clan),
@@ -1245,7 +1327,12 @@ function storageUpgradeCost(user) {
 
 // Додає ресурс із урахуванням ліміту складу. Повертає скільки реально влізло —
 // надлишок згорає (і клієнт про це чесно повідомляє, щоб апгрейд кладовки мав сенс).
-function addResource(user, resId, amount) {
+// bonus=false — для покупок на біржі: там ресурс не «здобутий», а оплачений, і
+// нарахування зверху перетворило б цикл купив-продав на нескінченні гроші.
+function addResource(user, resId, amount, { bonus = true } = {}) {
+    // «Свої люди» — +25% здобичі, тому бонус тут, у єдиній точці нарахування,
+    // а не в кожному ящику/вилазці окремо.
+    if (bonus && hasSkill(user, 'ourpeople')) amount = Math.round(amount * (1 + ECONOMY.SKILL_RESOURCE_BONUS));
     const free = Math.max(0, storageCapacity(user) - storageUsed(user));
     const added = Math.min(free, amount);
     if (added > 0) {
@@ -1287,6 +1374,7 @@ function changeHeat(user, delta, reason) {
     // доходу. Не "виправляй" це — на трейд-офі тримається вся Система 1.
     if (delta > 0 && (user.deferUntil || 0) > Date.now()) return 0;
     if (delta > 0 && user.petId === 'neighbor') delta *= ECONOMY.HEAT_NEIGHBOR_MULT;
+    if (delta > 0 && hasSkill(user, 'quiet')) delta *= (1 - ECONOMY.SKILL_HEAT_GAIN_CUT);
     const before = user.heat || 0;
     const after = Math.max(0, Math.min(ECONOMY.HEAT_MAX, before + delta));
     user.heat = after;
@@ -1304,12 +1392,15 @@ function changeHeat(user, delta, reason) {
 function decayHeat(user) {
     const now = Date.now();
     const last = user.lastHeatDecay || now;
-    const steps = Math.floor((now - last) / (ECONOMY.HEAT_DECAY_MINUTES * 60000));
+    // «Привид району» не прискорює час, а подвоює те, що встигло списатись за
+    // кожен крок — інакше довелось би окремо пересувати lastHeatDecay.
+    const perStep = hasSkill(user, 'ghost') ? ECONOMY.SKILL_DECAY_MULT : 1;
+    const steps = Math.floor((now - last) / (ECONOMY.HEAT_DECAY_MINUTES * 60000)) * perStep;
     if (steps <= 0) return 0;
 
     // Час "з'їдаємо" повністю, навіть якщо впираємось у денний кап — інакше залишок
     // накопичився б і назавтра миттєво обнулив увесь heat.
-    user.lastHeatDecay = last + steps * ECONOMY.HEAT_DECAY_MINUTES * 60000;
+    user.lastHeatDecay = last + (steps / perStep) * ECONOMY.HEAT_DECAY_MINUTES * 60000;
 
     const today = new Date().toDateString();
     if (user.heatDecayDate !== today) { user.heatDecayDate = today; user.heatDecayToday = 0; }
@@ -1323,7 +1414,9 @@ function decayHeat(user) {
 
 function noticeBribeCost(user, type) {
     const tierIndex = NOTICE_TYPES.indexOf(type) + 1;
-    return Math.round(ECONOMY.NOTICE_BRIBE_BASE * tierIndex * (1 + (user.heat || 0) / 50));
+    let cost = ECONOMY.NOTICE_BRIBE_BASE * tierIndex * (1 + (user.heat || 0) / 50);
+    if (hasSkill(user, 'zhek')) cost *= (1 - ECONOMY.SKILL_BRIBE_CUT);
+    return Math.round(cost);
 }
 
 // Білий Квиток — постійний імунітет, повістки такому гравцю просто не приходять.
@@ -1384,6 +1477,8 @@ function loseRandomResources(user, count) {
 // Усі покарання навмисно комічні й ігрові: ТК, ресурси, півгодини без кліків.
 function applyNoticePenalty(user, type, mult = 1) {
     const result = { coins: 0, resources: 0, energyLocked: false };
+    // «Незламний» ріже саме грошову частину штрафу вдвічі.
+    if (hasSkill(user, 'unbroken')) mult *= (1 - ECONOMY.SKILL_PENALTY_CUT);
     const pct = (type.balancePct || 0) * mult;
     if (pct > 0) {
         const fine = Math.floor(Math.max(0, user.balance) * pct);
@@ -1949,7 +2044,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         shieldUntil: user.shieldUntil,
         permanentShield: user.permanentShield,
         resourcesCollected: user.resourcesCollected,
-        expedition: user.expedition,
+        ...expeditionSnapshot(user),
         expeditionsDone: user.expeditionsDone,
         totalEarned: user.totalEarned,
         prestigePoints: user.prestigePoints,
@@ -1968,6 +2063,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
         ...defermentSnapshot(user),
+        ...skillsSnapshot(user),
         ...inspectorSnapshot(user),
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
@@ -2305,10 +2401,14 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
     user.passive = 0;
     user.level = 1;
     user.maxEnergy = LOCATIONS[0].maxEnergy;
+    // Навички купуються за довідки і престиж їх не скидає — тому бонус до енергії
+    // треба накласти заново поверх щойно обнуленої бази.
+    user.skillEnergyBonus = 0;
+    applySkillLimits(user);
     user.energy = user.maxEnergy;
     user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
     user.portfolio = {};
-    user.expedition = null;
+    user.expeditions = [];
     // Ти тепер офіційно легальний — справу закрито, повістки анульовано.
     // Заразом зникає і множник доходу від розшуку: починаєш з чистого аркуша.
     user.heat = 0;
@@ -2330,11 +2430,31 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
 });
 
 // ---- Вилазки (офлайн-таймер за ресурсами) ----
+// «Друга нора» відкриває другий слот — тому вилазки живуть масивом.
+function expeditionSlots(user) {
+    return hasSkill(user, 'burrow') ? 2 : 1;
+}
+
+function expeditionSnapshot(user) {
+    return {
+        expeditions: user.expeditions || [],
+        expeditionSlots: expeditionSlots(user),
+        // Сумісність зі старим клієнтом і кодом, який читав одну вилазку.
+        expedition: (user.expeditions || [])[0] || null,
+    };
+}
+
 app.post('/api/expedition/start', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     const exp = EXPEDITION_BY_ID[req.body.expeditionId];
     if (!exp) return res.status(400).json({ error: 'Невідома вилазка' });
-    if (user.expedition) return res.json({ success: false, message: 'Ти вже на вилазці' });
+    const slots = expeditionSlots(user);
+    if (user.expeditions.length >= slots) {
+        return res.json({ success: false, message: slots > 1 ? 'Обидві нори зайняті' : 'Ти вже на вилазці' });
+    }
+    if (user.expeditions.some((e) => e.id === exp.id)) {
+        return res.json({ success: false, message: 'Ця вилазка вже триває' });
+    }
     if (user.level < exp.minLevel) return res.json({ success: false, message: `Потрібен ${exp.minLevel} рівень схрону` });
 
     // Голуб-курʼєр скорочує час вилазки. Фіксуємо активного компаньйона в самій вилазці,
@@ -2342,24 +2462,29 @@ app.post('/api/expedition/start', requireTelegramAuth, (req, res) => {
     const pet = PET_EXPEDITION[user.petId] || {};
     const minutes = exp.minutes * (pet.timeMult || 1);
     const now = Date.now();
-    user.expedition = {
+    user.expeditions.push({
         id: exp.id, startedAt: now, endsAt: now + minutes * 60 * 1000,
         petId: user.petId || null,
-    };
-    res.json({ success: true, expedition: user.expedition });
+    });
+    res.json({ success: true, ...expeditionSnapshot(user) });
 });
 
 app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     resetDailyIfNeeded(user);
-    if (!user.expedition) return res.json({ success: false, message: 'Вилазки немає' });
-    if (Date.now() < user.expedition.endsAt) return res.json({ success: false, message: 'Вилазка ще триває' });
+    // Забираємо конкретну вилазку (клієнт шле її id), або першу готову.
+    const idx = req.body.expeditionId
+        ? user.expeditions.findIndex((e) => e.id === req.body.expeditionId)
+        : user.expeditions.findIndex((e) => Date.now() >= e.endsAt);
+    if (idx === -1) return res.json({ success: false, message: 'Вилазки немає' });
+    const active = user.expeditions[idx];
+    if (Date.now() < active.endsAt) return res.json({ success: false, message: 'Вилазка ще триває' });
 
-    const exp = EXPEDITION_BY_ID[user.expedition.id];
+    const exp = EXPEDITION_BY_ID[active.id];
     // Компаньйон береться той, що був НА МОМЕНТ СТАРТУ вилазки (записаний у ній),
     // інакше можна було б зняти щура перед стартом і вдягнути пса перед клеймом.
-    const pet = PET_EXPEDITION[user.expedition.petId] || {};
-    user.expedition = null;
+    const pet = PET_EXPEDITION[active.petId] || {};
+    user.expeditions.splice(idx, 1);
     user.expeditionsDone = (user.expeditionsDone || 0) + 1;
 
     // Щит від облав (Білий Квиток / липова довідка) прибирає ризик спалитись —
@@ -2369,7 +2494,7 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
         return res.json({
             success: true, caught: true,
             message: 'Тебе помітили — довелось тікати без здобичі.',
-            ...storageSnapshot(user), balance: user.balance,
+            ...storageSnapshot(user), ...expeditionSnapshot(user), balance: user.balance,
         });
     }
 
@@ -2388,8 +2513,8 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     const unlocked = checkAchievements(user);
     res.json({
         success: true, caught: false, gained, shielded,
-        unlockedAchievements: unlocked, ...storageSnapshot(user), balance: user.balance,
-        ...heatSnapshot(user),
+        unlockedAchievements: unlocked, ...storageSnapshot(user), ...expeditionSnapshot(user),
+        balance: user.balance, ...heatSnapshot(user),
     });
 });
 
@@ -2401,7 +2526,7 @@ app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
     if (!crate) return res.status(400).json({ error: 'Невідомий ящик' });
     if (crate.currency !== 'coins') return res.json({ success: false, message: 'Цей ящик купується за Stars' });
     // Ціну рахує сервер (з урахуванням щоденної акції) — клієнту тут не довіряємо.
-    const price = cratePriceFor(crate);
+    const price = cratePriceFor(crate, user);
     if (user.balance < price) return res.json({ success: false, message: 'Недостатньо ТК на ящик' });
 
     user.balance -= price;
@@ -2432,9 +2557,13 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
         return res.json({ success: false, message: 'Білий Квиток у тебе вже є' });
     }
 
-    for (const [resId, need] of Object.entries(recipe.cost)) {
-        user.resources[resId] -= need;
-        if (user.resources[resId] <= 0) delete user.resources[resId];
+    // «Схема»: іноді потрібні речі знаходяться самі, і ресурси лишаються цілі.
+    const freeCraft = hasSkill(user, 'scheme') && Math.random() < ECONOMY.SKILL_CRAFT_FREE_CHANCE;
+    if (!freeCraft) {
+        for (const [resId, need] of Object.entries(recipe.cost)) {
+            user.resources[resId] -= need;
+            if (user.resources[resId] <= 0) delete user.resources[resId];
+        }
     }
     user.craftedCount = (user.craftedCount || 0) + 1;
     user.dailyCrafts = (user.dailyCrafts || 0) + 1;
@@ -2583,6 +2712,96 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
     });
 });
+
+// ---- Дерево навичок ----
+function skillsOwnedCount(user) {
+    return Object.values(user.skills || {}).filter(Boolean).length;
+}
+
+// Очки навичок — це довідки престижу. Довідки при цьому НЕ витрачаються:
+// свій +10% доходу вони дають далі, навичка — бонус зверху.
+function skillPointsAvailable(user) {
+    return Math.max(0, (user.prestigePoints || 0) - skillsOwnedCount(user));
+}
+
+function skillsSnapshot(user) {
+    return {
+        skills: user.skills || {},
+        skillPoints: skillPointsAvailable(user),
+        skillsTotal: Object.keys(SKILL_BY_ID).length,
+        skillsOwned: skillsOwnedCount(user),
+        skillResetsUsed: user.skillResetsUsed || 0,
+        skillResetCost: (user.skillResetsUsed || 0) === 0 ? 0 : ECONOMY.SKILL_RESET_COST_TK,
+        branches: SKILL_BRANCHES.map((br) => ({
+            id: br.id, emoji: br.emoji, name: br.name, desc: br.desc,
+            skills: br.skills.map((s, i) => ({
+                id: s.id, name: s.name, desc: s.desc,
+                owned: !!(user.skills || {})[s.id],
+                // Наступну в гілці можна брати лише після попередньої.
+                available: i === 0 || !!(user.skills || {})[br.skills[i - 1].id],
+            })),
+        })),
+    };
+}
+
+app.get('/api/skills', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json(skillsSnapshot(user));
+});
+
+app.post('/api/skills/buy', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const meta = SKILL_BY_ID[req.body.skillId];
+    if (!meta) return res.json({ success: false, message: 'Невідома навичка' });
+    if (user.skills[meta.id]) return res.json({ success: false, message: 'Ця навичка вже є' });
+    if (skillPointsAvailable(user) < 1) {
+        return res.json({ success: false, message: 'Немає вільних очок — потрібна ще одна довідка з легалізації' });
+    }
+    const branch = SKILL_BRANCHES.find((b) => b.id === meta.branchId);
+    if (meta.index > 0 && !user.skills[branch.skills[meta.index - 1].id]) {
+        return res.json({ success: false, message: `Спершу візьми «${branch.skills[meta.index - 1].name}»` });
+    }
+
+    user.skills[meta.id] = true;
+    // Навички, що змінюють ліміти, треба застосувати одразу, а не лише при вході.
+    applySkillLimits(user);
+    res.json({
+        success: true, message: `${meta.name}: ${meta.desc}`,
+        maxEnergy: user.maxEnergy, ...skillsSnapshot(user),
+    });
+});
+
+app.post('/api/skills/reset', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (!skillsOwnedCount(user)) return res.json({ success: false, message: 'Скидати нічого' });
+    const cost = (user.skillResetsUsed || 0) === 0 ? 0 : ECONOMY.SKILL_RESET_COST_TK;
+    if (cost && user.balance < cost) {
+        return res.json({ success: false, message: `Скидання коштує ${cost.toLocaleString('uk-UA')} ТК` });
+    }
+    if (cost) user.balance -= cost;
+    user.skills = {};
+    user.skillResetsUsed = (user.skillResetsUsed || 0) + 1;
+    applySkillLimits(user);
+    res.json({
+        success: true, message: 'Дерево скинуто. Очки повернулись — розподіляй наново.',
+        balance: user.balance, maxEnergy: user.maxEnergy, ...skillsSnapshot(user),
+    });
+});
+
+// Бонус до макс. енергії від навички накладаємо ДЕЛЬТОЮ, а не перерахунком від
+// локації: постійні бонуси з крафту («Бенкет на районі», «Розширений бак») теж
+// зашиті прямо в user.maxEnergy, і перерахунок мовчки стер би їх назавжди.
+// skillEnergyBonus пам'ятає, скільки саме зараз дали навички, щоб зняти рівно стільки.
+function applySkillLimits(user) {
+    const want = hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0;
+    const had = user.skillEnergyBonus || 0;
+    if (want !== had) {
+        user.maxEnergy = Math.max(1, (user.maxEnergy || 100) + (want - had));
+        user.skillEnergyBonus = want;
+        if (user.energy > user.maxEnergy) user.energy = user.maxEnergy;
+    }
+    return user.maxEnergy;
+}
 
 // ---- Відстрочки ----
 function defermentActive(user) {
@@ -2849,13 +3068,18 @@ app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
     if (!clicks) return res.json({ success: true, ...inspectorSnapshot(user), energy: user.energy });
 
     // Енергія — той самий обмежувач, що й у звичайному кліку, лише дорожчий.
-    const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
-    const outOfEnergy = clicks > affordable;
-    clicks = Math.min(clicks, affordable);
-    if (!clicks) {
-        return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...inspectorSnapshot(user) });
+    // «Марафонець» знімає його повністю — і саме тому робить Півника прохідним.
+    const freeClicks = hasSkill(user, 'marathon');
+    let outOfEnergy = false;
+    if (!freeClicks) {
+        const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+        outOfEnergy = clicks > affordable;
+        clicks = Math.min(clicks, affordable);
+        if (!clicks) {
+            return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...inspectorSnapshot(user) });
+        }
+        user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
     }
-    user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
 
     const cps = clicks / (dt / 1000);
     const weak = inspectorWeaknessActive(user, insp, cps);
@@ -3103,6 +3327,17 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
     }
     user.snitchStats.sent += 1;
 
+    // «Дві сімки»: у жертви свій номер, і дзвінок просто не проходить. Ресурси
+    // стукач витратив, але про провал НЕ дізнається — інакше він би просто
+    // передзвонив, і навичка нічого б не давала.
+    if (hasSkill(target, 'twosims') && Math.random() < ECONOMY.SKILL_SNITCH_FAIL_CHANCE) {
+        return res.json({
+            success: true, free: !!elig.free, message: 'Дзвінок пішов. Він навіть не знає, хто це був.',
+            snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
+            balance: user.balance, snitchStats: publicSnitchStats(user), ...storageSnapshot(user),
+        });
+    }
+
     // Жертві — та сама повістка "вручення в руки", що й від системи: 3 години на
     // реакцію. Різниця в тому, що за цією стоїть жива людина, яку можна вирахувати.
     const type = NOTICE_BY_ID['ruky'];
@@ -3246,7 +3481,10 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
         return res.status(400).json({ error: 'Невірні дані угоди' });
     }
     const price = marketState.prices[assetId];
-    const total = price * quantity;
+    // «Знайомий перекуп» піднімає лише ціну ПРОДАЖУ: якби він діяв і на купівлю,
+    // це була б просто знижка на все, а не звʼязок із конкретним баригою.
+    const sellPrice = hasSkill(user, 'dealer') ? Math.round(price * (1 + ECONOMY.SKILL_SELL_BONUS)) : price;
+    const total = (action === 'sell' ? sellPrice : price) * quantity;
 
     if (action === 'buy') {
         if (user.balance < total) return res.json({ success: false, message: 'Недостатньо ТК' });
@@ -3257,7 +3495,7 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
             return res.json({ success: false, message: `У кладовці лише ${free} вільних місць` });
         }
         user.balance -= total;
-        addResource(user, assetId, quantity);
+        addResource(user, assetId, quantity, { bonus: false });
     } else {
         const held = user.resources[assetId] || 0;
         if (held < quantity) return res.json({ success: false, message: 'Стільки немає в кладовці' });
@@ -3271,7 +3509,7 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
     user.dailyTrades += 1;
     const unlocked = checkAchievements(user);
     res.json({
-        success: true, balance: user.balance, price,
+        success: true, balance: user.balance, price: action === 'sell' ? sellPrice : price,
         unlockedAchievements: unlocked, ...storageSnapshot(user), ...heatSnapshot(user),
     });
 });
@@ -3548,6 +3786,22 @@ function buildHtml(botUsername) {
         .cp-head { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
         .cp-chance { margin-left: auto; font-size: 16px; color: var(--gold); }
         .cp-fail { font-size: 11px; color: #ff8a8a; margin-top: 6px; }
+
+        /* ===== Дерево навичок ===== */
+        #skills-screen { position: fixed; inset: 0; z-index: 1790; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .skill-points { text-align: center; font-size: 15px; font-weight: 700; background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.4); border-radius: 10px; padding: 10px; margin-bottom: 14px; }
+        .skill-points b { color: var(--gold); font-size: 20px; }
+        .skill-branch { margin-bottom: 18px; }
+        .skill-branch-head { font-size: 15px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
+        .skill-branch-desc { font-size: 11px; color: #9fb4c7; margin-bottom: 9px; }
+        .skill-node { display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.03); border: 1px solid #2f2f42; border-radius: 9px; padding: 9px 10px; margin-bottom: 6px; }
+        .skill-node.owned { border-color: rgba(57,255,20,0.5); background: rgba(57,255,20,0.07); }
+        .skill-node.locked { opacity: 0.42; }
+        .skill-dot { width: 22px; height: 22px; border-radius: 50%; background: #2a2a3d; color: #9fb4c7; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .skill-node.owned .skill-dot { background: #39ff14; color: #08210a; }
+        .skill-name { font-size: 13px; font-weight: 700; }
+        .skill-desc { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
+        .skill-node button { width: auto; margin: 0 0 0 auto; padding: 6px 12px; font-size: 12px; flex-shrink: 0; align-self: center; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -3986,6 +4240,7 @@ function buildHtml(botUsername) {
     <div id="revenge" class="panel">
         <h3 class="stars-section-title">📜 Легалізація (престиж)</h3>
         <div id="prestige-box"></div>
+        <button class="secondary" onclick="openSkills()" style="margin-top:10px;">🌳 Дерево навичок ухилянта</button>
         <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
         <h3 class="stars-section-title">😈 Помста інспектору</h3>
         <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
@@ -4104,6 +4359,21 @@ function buildHtml(botUsername) {
             </p>
             <div id="inspector-roster"></div>
             <button onclick="closeHeatCase()" style="margin-top:12px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Дерево навичок: кожна довідка з легалізації = 1 очко. -->
+    <div id="skills-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeSkills()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🌳 Навички ухилянта</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px; line-height:1.5;">
+                Кожна довідка з легалізації дає 1 очко. Довідки при цьому продовжують давати
+                свій +10% доходу — навички це бонус зверху. У гілці навички беруться послідовно.
+            </p>
+            <div class="skill-points" id="skill-points"></div>
+            <div id="skills-tree"></div>
+            <button class="secondary" id="skills-reset" onclick="resetSkills()"></button>
         </div>
     </div>
 
@@ -4321,6 +4591,7 @@ function buildHtml(botUsername) {
             investigationPending: false, trophies: [],
             medcomStats: null, inspectorStats: null, checkpointStats: null,
             deferUntil: 0, defermentId: null, deferments: [],
+            expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
         };
 
         const ui = {
@@ -4641,6 +4912,91 @@ function buildHtml(botUsername) {
             if (mod10 >= 2 && mod10 <= 4) return n + ' ' + few;
             return n + ' ' + many;
         }
+
+        // ===== Дерево навичок =====
+        // Клієнтські ефекти навичок. Економічні рішення (дроп, ціни, урон) рахує
+        // сервер — тут лише те, що впливає на відчуття від кліку в реальному часі.
+        function hasSkill(id) { return !!(state.skills || {})[id]; }
+        function clickEnergyCost() { return hasSkill('lighthand') ? 1 : ECONOMY.ENERGY_PER_CLICK; }
+        function skillClickMult() { return hasSkill('callus') ? 1 + ECONOMY.SKILL_CLICK_BONUS : 1; }
+        function skillRegenMult() { return hasSkill('secondwind') ? 1 + ECONOMY.SKILL_REGEN_BONUS : 1; }
+
+        window.openSkills = async () => {
+            try {
+                const data = await apiFetch('/api/skills?id=' + user.id).then(r => r.json());
+                renderSkills(data);
+                document.getElementById('skills-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити дерево навичок'); }
+        };
+        window.closeSkills = () => document.getElementById('skills-screen').classList.add('hidden');
+
+        function renderSkills(data) {
+            state.skills = data.skills || {};
+            state.skillPoints = data.skillPoints || 0;
+
+            document.getElementById('skill-points').innerHTML = data.skillPoints > 0
+                ? 'Вільних очок: <b>' + data.skillPoints + '</b>'
+                : '<span style="font-size:13px; color:#9fb4c7;">Вільних очок немає. Взято ' +
+                  data.skillsOwned + ' із ' + data.skillsTotal + ' — нові очки дає легалізація.</span>';
+
+            document.getElementById('skills-tree').innerHTML = data.branches.map(br =>
+                '<div class="skill-branch">' +
+                '<div class="skill-branch-head">' + br.emoji + ' ' + esc(br.name) + '</div>' +
+                '<div class="skill-branch-desc">' + esc(br.desc) + '</div>' +
+                br.skills.map((s, i) => {
+                    const canBuy = !s.owned && s.available && data.skillPoints > 0;
+                    return '<div class="skill-node' + (s.owned ? ' owned' : (s.available ? '' : ' locked')) + '">' +
+                        '<div class="skill-dot">' + (s.owned ? '✓' : (i + 1)) + '</div>' +
+                        '<div><div class="skill-name">' + esc(s.name) + '</div>' +
+                        '<div class="skill-desc">' + esc(s.desc) + '</div></div>' +
+                        (s.owned ? '' : '<button onclick="buySkill(\\'' + s.id + '\\')"' +
+                            (canBuy ? '' : ' disabled') + '>Взяти</button>') +
+                    '</div>';
+                }).join('') + '</div>'
+            ).join('');
+
+            const reset = document.getElementById('skills-reset');
+            reset.disabled = !data.skillsOwned;
+            reset.innerText = data.skillResetCost
+                ? 'Скинути дерево — ' + fmtNum(data.skillResetCost) + ' ТК'
+                : 'Скинути дерево (перше скидання безкоштовне)';
+        }
+
+        window.buySkill = async (skillId) => {
+            const res = await apiFetch('/api/skills/buy', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, skillId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            // Навичка могла підняти стелю енергії — беремо авторитетне значення,
+            // інакше автозбереження поверне старе.
+            if (typeof data.maxEnergy === 'number') state.maxEnergy = data.maxEnergy;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('✅ ' + data.message);
+            renderSkills(data);
+            renderExpeditions();
+            updateUI();
+            saveState();
+        };
+
+        window.resetSkills = () => {
+            tg.showConfirm('Скинути всі навички? Очки повернуться, і їх можна буде розподілити наново.', async (ok) => {
+                if (!ok) return;
+                const res = await apiFetch('/api/skills/reset', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id }),
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message);
+                if (typeof data.balance === 'number') state.balance = data.balance;
+                if (typeof data.maxEnergy === 'number') state.maxEnergy = data.maxEnergy;
+                tg.showAlert('♻️ ' + data.message);
+                renderSkills(data);
+                updateUI();
+                saveState();
+            });
+        };
 
         // ===== Відстрочки =====
         window.openDeferments = async () => {
@@ -5277,7 +5633,7 @@ function buildHtml(botUsername) {
                 state.craftedCount = data.craftedCount || 0;
                 state.shieldUntil = data.shieldUntil || 0;
                 state.permanentShield = !!data.permanentShield;
-                state.expedition = data.expedition || null;
+                absorbExpeditions(data);
                 state.expeditionsDone = data.expeditionsDone || 0;
                 state.dailyDeal = data.dailyDeal || null;
                 state.totalEarned = data.totalEarned || 0;
@@ -5287,6 +5643,8 @@ function buildHtml(botUsername) {
                 state.prestigeAvailable = data.prestigeAvailable || 0;
                 state.seasonPoints = data.seasonPoints || 0;
                 state.pid = data.pid || null;
+                state.skills = data.skills || {};
+                state.skillPoints = data.skillPoints || 0;
                 state.snitchStats = data.snitchStats || null;
                 state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
                 state.investigationPending = !!data.investigationPending;
@@ -5393,10 +5751,11 @@ function buildHtml(botUsername) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
-            let earned = state.clickVal * heatIncomeMult() * petMult('click') * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1);
+            let earned = state.clickVal * heatIncomeMult() * petMult('click') * (state.isVip ? 3 : 1)
+                * (state.prestigeMultiplier || 1) * skillClickMult();
             state.balance += earned;
             state.totalClicks += 1;
-            if (!state.isVip) state.energy = Math.max(0, state.energy - ECONOMY.ENERGY_PER_CLICK);
+            if (!state.isVip) state.energy = Math.max(0, state.energy - clickEnergyCost());
 
             let x = e.touches ? e.touches[0].clientX : e.clientX;
             let y = e.touches ? e.touches[0].clientY : e.clientY;
@@ -5422,7 +5781,8 @@ function buildHtml(botUsername) {
             // Єдиний порядок множників доходу: base * heat * vip * prestige * clan.
             if (state.passive > 0) state.balance += (state.passive * heatIncomeMult() * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1) * state.clanBonus) / 10;
             if (state.energy < state.maxEnergy && !energyLocked()) {
-                state.energy = Math.min(state.maxEnergy, state.energy + ECONOMY.ENERGY_REGEN_PER_TICK * petMult('energy'));
+                state.energy = Math.min(state.maxEnergy,
+                    state.energy + ECONOMY.ENERGY_REGEN_PER_TICK * petMult('energy') * skillRegenMult());
             }
             updateUI();
         }, 100);
@@ -5432,7 +5792,7 @@ function buildHtml(botUsername) {
         // Зворотний відлік вилазки. Навмисно окремий інтервал раз на секунду і лише коли
         // вкладка вилазок реально видима — у гарячому 100мс-циклі важкі рендери тримати не можна.
         setInterval(() => {
-            if (!state.expedition) return;
+            if (!(state.expeditions || []).length) return;
             const panel = document.getElementById('storage-exp');
             if (panel && panel.classList.contains('active')) renderExpeditions();
         }, 1000);
@@ -5932,6 +6292,9 @@ function buildHtml(botUsername) {
                     ' (провалів: ' + fmtNum((state.medcomStats || {}).failed || 0) + ')'],
                 ['🎖️ Інспекторів спекався', fmtNum(Object.values((state.inspectorStats || {}).defeated || {}).reduce((a, b) => a + b, 0)) +
                     ' (втік: ' + fmtNum((state.inspectorStats || {}).lost || 0) + ')'],
+                ['🌳 Навичок вивчено', Object.values(state.skills || {}).filter(Boolean).length + ' / 18'],
+                ['🚧 Блокпостів пройдено', fmtNum((state.checkpointStats || {}).passed || 0) +
+                    ' (спалився: ' + fmtNum((state.checkpointStats || {}).failed || 0) + ')'],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -6025,30 +6388,46 @@ function buildHtml(botUsername) {
             return sec + ' с';
         }
 
+        function absorbExpeditions(data) {
+            if (Array.isArray(data.expeditions)) state.expeditions = data.expeditions;
+            if (typeof data.expeditionSlots === 'number') state.expeditionSlots = data.expeditionSlots;
+        }
+
         function renderExpeditions() {
             const list = document.getElementById('expeditions-list');
             if (!list) return;
-            const active = state.expedition;
+            const active = state.expeditions || [];
+            const slots = state.expeditionSlots || 1;
 
-            if (active) {
-                const exp = EXPEDITIONS.find(e => e.id === active.id);
-                const left = active.endsAt - Date.now();
+            // Активні вилазки зверху, вільні слоти — списком нижче. З «Другою норою»
+            // можна тримати дві одночасно, тому це вже не або-або.
+            let html = active.map(a => {
+                const exp = EXPEDITIONS.find(e => e.id === a.id);
+                if (!exp) return '';
+                const left = a.endsAt - Date.now();
                 const total = exp.minutes * 60 * 1000;
                 const pct = Math.min(100, 100 * (1 - left / total));
                 const done = left <= 0;
-                list.innerHTML =
-                    '<div class="recipe-card ready">' +
-                        '<div class="recipe-title">' + exp.emoji + ' ' + exp.name + '</div>' +
-                        '<div class="recipe-desc">' + (done ? 'Вилазка завершена — забирай здобич!' : 'Залишилось: ' + fmtLeft(left)) + '</div>' +
-                        '<div class="storage-bar" style="margin-bottom:9px;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
-                        '<button onclick="claimExpedition()"' + (done ? '' : ' disabled') + '>' +
-                        (done ? '🎒 Забрати здобич' : 'Ще в дорозі...') + '</button>' +
-                    '</div>';
+                return '<div class="recipe-card ready">' +
+                    '<div class="recipe-title">' + exp.emoji + ' ' + esc(exp.name) + '</div>' +
+                    '<div class="recipe-desc">' + (done ? 'Вилазка завершена — забирай здобич!' : 'Залишилось: ' + fmtLeft(left)) + '</div>' +
+                    '<div class="storage-bar" style="margin-bottom:9px;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
+                    '<button onclick="claimExpedition(\\'' + a.id + '\\')"' + (done ? '' : ' disabled') + '>' +
+                    (done ? '🎒 Забрати здобич' : 'Ще в дорозі...') + '</button>' +
+                '</div>';
+            }).join('');
+
+            if (active.length >= slots) {
+                list.innerHTML = html;
                 return;
             }
+            if (slots > 1) {
+                html += '<div style="font-size:12px; color:#9fb4c7; text-align:center; margin: 10px 0 8px;">' +
+                    'Вільних нір: ' + (slots - active.length) + ' з ' + slots + '</div>';
+            }
 
-            list.innerHTML = EXPEDITIONS.map(e => {
-                const locked = state.level < e.minLevel;
+            list.innerHTML = html + EXPEDITIONS.map(e => {
+                const locked = state.level < e.minLevel || active.some(a => a.id === e.id);
                 const lootStr = e.loot.map(l => RESOURCE_BY_ID[l.res].emoji + ' ' + l.min + '–' + l.max).join('  ');
                 const riskPct = Math.round(e.risk * 100);
                 const riskLabel = hasShield()
@@ -6059,7 +6438,8 @@ function buildHtml(botUsername) {
                     '<div class="recipe-desc">' + e.desc + '<br>⏱ ' + (e.minutes >= 60 ? (e.minutes / 60) + ' год' : e.minutes + ' хв') + ' · ' + riskLabel + '</div>' +
                     '<div class="recipe-cost"><span class="recipe-ing ok">' + lootStr + '</span></div>' +
                     '<button onclick="startExpedition(\\'' + e.id + '\\')"' + (locked ? ' disabled' : '') + '>' +
-                    (locked ? '🔒 Потрібен ' + e.minLevel + ' рівень схрону' : '🌙 Вирушити') + '</button>' +
+                    (active.some(a => a.id === e.id) ? '⏳ Вже триває'
+                        : locked ? '🔒 Потрібен ' + e.minLevel + ' рівень схрону' : '🌙 Вирушити') + '</button>' +
                 '</div>';
             }).join('');
         }
@@ -6071,19 +6451,19 @@ function buildHtml(botUsername) {
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
-            state.expedition = data.expedition;
+            absorbExpeditions(data);
             tg.HapticFeedback.notificationOccurred('success');
             renderExpeditions();
         };
 
-        window.claimExpedition = async () => {
+        window.claimExpedition = async (expeditionId) => {
             const res = await apiFetch('/api/expedition/claim', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id })
+                body: JSON.stringify({ id: user.id, expeditionId })
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
-            state.expedition = null;
+            absorbExpeditions(data);
             state.resources = data.resources;
             state.storageUsed = data.used;
             if (data.caught) {
@@ -6712,7 +7092,10 @@ function buildHtml(botUsername) {
             tg.HapticFeedback.notificationOccurred('warning');
 
             let timeLeft = ECONOMY.RAID_DURATION_S;
-            let clicksNeeded = ECONOMY.RAID_CLICKS_NEEDED;
+            // «Знаю прохідні двори»: перелізти паркан треба на 20% менше разів.
+            let clicksNeeded = hasSkill('yards')
+                ? Math.ceil(ECONOMY.RAID_CLICKS_NEEDED * (1 - ECONOMY.SKILL_ESCAPE_BONUS))
+                : ECONOMY.RAID_CLICKS_NEEDED;
             let clicksDone = 0;
             fillEl.style.width = '0%';
 
