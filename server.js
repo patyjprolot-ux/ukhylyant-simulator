@@ -113,7 +113,77 @@ const ECONOMY = {
     PET_GOOSE_CLICK_MULT: 1.15,
     PET_CAT_ENERGY_MULT: 1.3,
     PET_NEIGHBOR_RAID_MULT: 0.9,
+
+    // --- Розшук (heat): другий ресурс, протилежний за знаком до ТК ---
+    // Чим активніший і багатший гравець, тим більше ним цікавляться: разом росте і
+    // дохід, і шанс облави. Гравець сам обирає, на якому рівні ризику жити — саме
+    // це створює стиль гри, якого не давала одна лише енергія.
+    HEAT_MAX: 100,
+    HEAT_PER_100_CLICKS: 0.5,
+    HEAT_EXPEDITION_PER_LEVEL: 2,
+    HEAT_EXPEDITION_CAP: 8,
+    HEAT_MARKET_SALE_MIN: 50000,
+    HEAT_MARKET_SALE: 3,
+    HEAT_CONTRABAND_CRATE: 4,
+    HEAT_NEW_LOCATION: 5,
+    HEAT_MEDCOM_FAIL: 15,
+    HEAT_NEIGHBOR_MULT: 0.85,     // компаньйон "Сусідка-пліткарка" гасить приріст
+    HEAT_DECAY_MINUTES: 12,       // -1 heat за кожні 12 хв реального часу
+    HEAT_DECAY_DAILY_CAP: 60,     // але не більше -60 за добу, щоб "просто не грати" не було стратегією
+    HEAT_BRIBE_DISCOUNT: 20,
+    HEAT_SPRAVKA_DISCOUNT: 35,
+    HEAT_LOG_SIZE: 20,
+
+    // --- Повістки: випадковий штраф замінено на рішення з таймером ---
+    NOTICE_MAX_ACTIVE: 3,
+    NOTICE_INTERVAL_MIN_H: 4,
+    NOTICE_INTERVAL_MAX_H: 8,
+    NOTICE_BRIBE_BASE: 1200,
+    NOTICE_HIDE_SUCCESS: 0.55,
+    NOTICE_HIDE_FAIL_MULT: 1.5,
+    NOTICE_MEDCOM_SUCCESS: 0.55,  // заглушка до Фази 2 (там буде міні-гра зі збиранням діагнозу)
+    NOTICE_PUSH_BEFORE_MIN: 30,
+    NOTICE_SEASON_POINTS: 2,
+    NOTICE_TICK_MS: 5 * 60 * 1000,
 };
+
+// Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
+// вчетверо частіші облави. Порядок важливий — шукаємо перший тір, у чий `max` влазить heat.
+const HEAT_TIERS = [
+    { max: 10, emoji: '😴', name: 'Ніхто тебе не знає', raidMult: 0.4, incomeMult: 1.00, flavor: 'Ти навіть у списках не значишся' },
+    { max: 30, emoji: '📋', name: 'У списках', raidMult: 1.0, incomeMult: 1.08, flavor: 'Хтось десь щось про тебе записав' },
+    { max: 55, emoji: '🚪', name: 'Дільничний питає', raidMult: 1.6, incomeMult: 1.20, flavor: 'Сусіди кажуть, тебе шукали' },
+    { max: 75, emoji: '📢', name: 'Оголошено в розшук', raidMult: 2.4, incomeMult: 1.40, flavor: 'Твоє фото висить у ТЦК' },
+    { max: 90, emoji: '📁', name: 'Персональна справа', raidMult: 3.2, incomeMult: 1.65, flavor: 'Тобі присвятили окрему папку' },
+    { max: 100, emoji: '👑', name: 'Легенда району', raidMult: 4.5, incomeMult: 2.00, flavor: 'Про тебе знімають сюжет' },
+];
+
+// Типи повісток — від найм'якшої до найжорсткішої. Порядок задає і "тір" для ціни
+// хабаря, і зважений вибір: чим вищий heat, тим більший шанс на жорсткі типи
+// (wLow — вага при heat 0, wHigh — при heat 100, між ними лінійна інтерполяція).
+const NOTICE_TYPES = [
+    {
+        id: 'sms', emoji: '📱', name: 'СМС-повістка', ttlH: 6, heatOnExpire: 10, balancePct: 0.05,
+        flavor: 'Есемеска з незнайомого номера. Може, спам? Може, й ні.', wLow: 40, wHigh: 8,
+    },
+    {
+        id: 'rezerv', emoji: '📲', name: 'Push із Резерв+', ttlH: 8, heatOnExpire: 12, balancePct: 0.08, heatExtra: 10,
+        flavor: 'Додаток сам оновився і сам себе відкрив. Зручно.', wLow: 25, wHigh: 14,
+    },
+    {
+        id: 'poshta', emoji: '✉️', name: 'Лист рекомендованим', ttlH: 12, heatOnExpire: 15, balancePct: 0.10,
+        flavor: 'Листоноша дзвонив тричі. Ти тричі не чув.', wLow: 25, wHigh: 18,
+    },
+    {
+        id: 'ruky', emoji: '🤝', name: 'Вручення в руки', ttlH: 3, heatOnExpire: 25, balancePct: 0.18, energyLockMin: 30,
+        flavor: 'Перехопили біля під\'їзду. Довелось потиснути руку.', wLow: 8, wHigh: 32,
+    },
+    {
+        id: 'blokpost', emoji: '🚧', name: 'Повістка на блокпосту', ttlH: 1, heatOnExpire: 35, balancePct: 0.25, resourceLoss: 3,
+        flavor: 'Зупинили, переписали, вручили. Дуже ввічливо.', wLow: 2, wHigh: 28,
+    },
+];
+const NOTICE_BY_ID = Object.fromEntries(NOTICE_TYPES.map((n) => [n.id, n]));
 
 // ==========================================
 // 2.1 РЕСУРСИ ТА КЛАДОВКА
@@ -698,6 +768,19 @@ function createFreshUser(id, name) {
         // клієнта (раз на 5с) могло б надіслати застарілий баланс і затерти щойно куплений ящик
         // (гравець отримав би дроп безкоштовно) або, навпаки, стерти нарахований дроп.
         balanceRev: 0,
+        // --- Розшук (heat) і повістки ---
+        heat: 0,                    // 0..100, другий ресурс-напруга (див. HEAT_TIERS)
+        heatLog: [],                // останні події, що змінили heat — показуються в "Твоїй справі"
+        lastHeatDecay: Date.now(),  // від цієї мітки рахується ліниве згасання
+        heatDecayDate: null,
+        heatDecayToday: 0,
+        clickHeatCarry: 0,          // залишок кліків, що ще не дотягнули до сотні
+        notices: [],                // активні повістки (максимум NOTICE_MAX_ACTIVE)
+        noticeStats: { received: 0, resolved: 0, failed: 0, expired: 0, byMethod: {} },
+        nextNoticeAt: 0,
+        energyLockUntil: 0,         // "вручення в руки" на пів години забирає можливість клікати
+        deceivedCount: 0,           // скільки разів обманув систему липовою довідкою
+        seasonPoints: 0,            // сезонні очки (повноцінні ліги — Фаза 5)
         questsDate: null,
         dailyClicks: 0,
         dailyTrades: 0,
@@ -750,6 +833,18 @@ function migrateUser(user) {
     for (const k of ['hat', 'jam', 'thermos', 'generator']) {
         if (typeof user.upgrades[k] !== 'number') user.upgrades[k] = 0;
     }
+    if (typeof user.heat !== 'number' || !isFinite(user.heat)) user.heat = 0;
+    if (!Array.isArray(user.heatLog)) user.heatLog = [];
+    if (!Array.isArray(user.notices)) user.notices = [];
+    if (typeof user.noticeStats !== 'object' || user.noticeStats === null) {
+        user.noticeStats = { received: 0, resolved: 0, failed: 0, expired: 0, byMethod: {} };
+    }
+    if (typeof user.noticeStats.byMethod !== 'object' || user.noticeStats.byMethod === null) {
+        user.noticeStats.byMethod = {};
+    }
+    // Старому збереженню ставимо мітку "зараз", інакше згасання відразу відкрутило б
+    // heat на місяці назад (він у них і так 0, але при відновленні з бекапу — ні).
+    if (!user.lastHeatDecay) user.lastHeatDecay = Date.now();
     installBalanceTracking(user);
     migrateLegacyPortfolio(user);
     return user;
@@ -782,6 +877,7 @@ function getUser(id, name) {
     }
     const user = migrateUser(usersDB.get(id));
     if (name) user.name = name;
+    syncHeatAndNotices(user);
     return user;
 }
 
@@ -839,7 +935,8 @@ function applyOfflineProgress(user) {
     if (elapsedSec >= ECONOMY.OFFLINE_MIN_SECONDS && user.passive > 0) {
         const clan = getClanInfo(user);
         const vipMult = user.isVip ? 3 : 1;
-        offlineEarnings = Math.floor(user.passive * clan.bonus * vipMult * elapsedSec);
+        // Єдиний порядок множників доходу в грі: base * heat * vip * prestige * clan.
+        offlineEarnings = Math.floor(user.passive * heatIncomeMult(user) * vipMult * clan.bonus * elapsedSec);
         user.balance += offlineEarnings;
     }
     user.lastSeenAt = now;
@@ -908,6 +1005,217 @@ function hasActiveShield(user) {
     return !!user.permanentShield || (user.shieldUntil || 0) > Date.now();
 }
 
+// ==========================================
+// РОЗШУК (HEAT) ТА ПОВІСТКИ
+// ==========================================
+function heatTierOf(heat) {
+    const h = Math.max(0, Math.min(ECONOMY.HEAT_MAX, heat || 0));
+    return HEAT_TIERS.find((t) => h <= t.max) || HEAT_TIERS[HEAT_TIERS.length - 1];
+}
+
+function heatIncomeMult(user) { return heatTierOf(user.heat).incomeMult; }
+function heatRaidMult(user) { return heatTierOf(user.heat).raidMult; }
+
+// Єдина точка зміни heat — щоб кожна подія потрапила в лог "Твоєї справи" і щоб
+// компаньйон-пліткарка гасив приріст в одному місці, а не в кожному виклику.
+function changeHeat(user, delta, reason) {
+    if (!delta) return 0;
+    if (delta > 0 && user.petId === 'neighbor') delta *= ECONOMY.HEAT_NEIGHBOR_MULT;
+    const before = user.heat || 0;
+    const after = Math.max(0, Math.min(ECONOMY.HEAT_MAX, before + delta));
+    user.heat = after;
+    const applied = Math.round((after - before) * 10) / 10;
+    if (applied !== 0 && reason) {
+        user.heatLog.unshift({ t: Date.now(), delta: applied, reason });
+        if (user.heatLog.length > ECONOMY.HEAT_LOG_SIZE) user.heatLog.length = ECONOMY.HEAT_LOG_SIZE;
+    }
+    return applied;
+}
+
+// Згасання рахується ліниво від lastHeatDecay, а не таймером на кожного гравця:
+// про тебе забувають і поки гра закрита. Денний кап не дає "залягти на тиждень"
+// і повернутись із чистою репутацією — забування має бути повільнішим за життя.
+function decayHeat(user) {
+    const now = Date.now();
+    const last = user.lastHeatDecay || now;
+    const steps = Math.floor((now - last) / (ECONOMY.HEAT_DECAY_MINUTES * 60000));
+    if (steps <= 0) return 0;
+
+    // Час "з'їдаємо" повністю, навіть якщо впираємось у денний кап — інакше залишок
+    // накопичився б і назавтра миттєво обнулив увесь heat.
+    user.lastHeatDecay = last + steps * ECONOMY.HEAT_DECAY_MINUTES * 60000;
+
+    const today = new Date().toDateString();
+    if (user.heatDecayDate !== today) { user.heatDecayDate = today; user.heatDecayToday = 0; }
+    const allowed = Math.max(0, ECONOMY.HEAT_DECAY_DAILY_CAP - (user.heatDecayToday || 0));
+    const applied = Math.min(steps, allowed, user.heat || 0);
+    if (applied <= 0) return 0;
+    user.heat = Math.max(0, (user.heat || 0) - applied);
+    user.heatDecayToday = (user.heatDecayToday || 0) + applied;
+    return applied;
+}
+
+function noticeBribeCost(user, type) {
+    const tierIndex = NOTICE_TYPES.indexOf(type) + 1;
+    return Math.round(ECONOMY.NOTICE_BRIBE_BASE * tierIndex * (1 + (user.heat || 0) / 50));
+}
+
+// Білий Квиток — постійний імунітет, повістки такому гравцю просто не приходять.
+function noticesBlocked(user) {
+    return !!user.permanentShield;
+}
+
+function scheduleNextNotice(user) {
+    const { NOTICE_INTERVAL_MIN_H: min, NOTICE_INTERVAL_MAX_H: max } = ECONOMY;
+    let hours = min + Math.random() * (max - min);
+    const heat = user.heat || 0;
+    if (heat > 85) hours *= 0.4;
+    else if (heat > 55) hours *= 0.6;
+    user.nextNoticeAt = Date.now() + hours * 3600 * 1000;
+}
+
+function issueNotice(user) {
+    const ratio = (user.heat || 0) / ECONOMY.HEAT_MAX;
+    const weights = NOTICE_TYPES.map((t) => ({ weight: Math.max(0.1, t.wLow + (t.wHigh - t.wLow) * ratio) }));
+    const type = NOTICE_TYPES[pickWeighted(weights)];
+    const now = Date.now();
+    const notice = {
+        uid: 'n' + now.toString(36) + Math.floor(Math.random() * 1000).toString(36),
+        typeId: type.id, issuedAt: now, expiresAt: now + type.ttlH * 3600 * 1000, pushSent: false,
+    };
+    user.notices.push(notice);
+    user.noticeStats.received += 1;
+    return notice;
+}
+
+// Забирає з кладовки `count` випадкових одиниць ресурсів (штраф блокпоста).
+function loseRandomResources(user, count) {
+    let lost = 0;
+    for (let i = 0; i < count; i++) {
+        const owned = Object.keys(user.resources || {}).filter((k) => user.resources[k] > 0);
+        if (!owned.length) break;
+        const pick = owned[Math.floor(Math.random() * owned.length)];
+        user.resources[pick] -= 1;
+        if (user.resources[pick] <= 0) delete user.resources[pick];
+        lost += 1;
+    }
+    return lost;
+}
+
+// Усі покарання навмисно комічні й ігрові: ТК, ресурси, півгодини без кліків.
+function applyNoticePenalty(user, type, mult = 1) {
+    const result = { coins: 0, resources: 0, energyLocked: false };
+    const pct = (type.balancePct || 0) * mult;
+    if (pct > 0) {
+        const fine = Math.floor(Math.max(0, user.balance) * pct);
+        if (fine > 0) { user.balance -= fine; result.coins = fine; }
+    }
+    if (type.energyLockMin) {
+        user.energyLockUntil = Date.now() + type.energyLockMin * 60000;
+        user.energy = 0;
+        result.energyLocked = true;
+    }
+    if (type.resourceLoss) result.resources = loseRandomResources(user, Math.round(type.resourceLoss * mult));
+    if (type.heatExtra) changeHeat(user, type.heatExtra * mult, 'Штраф: ' + type.name);
+    return result;
+}
+
+function expireNotices(user) {
+    const now = Date.now();
+    const expired = [];
+    user.notices = (user.notices || []).filter((n) => {
+        if (n.expiresAt > now) return true;
+        expired.push(n);
+        return false;
+    });
+    for (const n of expired) {
+        const type = NOTICE_BY_ID[n.typeId];
+        if (!type) continue;
+        applyNoticePenalty(user, type, 1);
+        changeHeat(user, type.heatOnExpire, 'Протухла повістка: ' + type.name);
+        user.noticeStats.expired += 1;
+    }
+    return expired;
+}
+
+// Викликається з getUser, тому будь-який запит бачить актуальний heat і вже
+// протухлі повістки — без окремого таймера на кожного гравця.
+function syncHeatAndNotices(user) {
+    decayHeat(user);
+    return expireNotices(user);
+}
+
+function heatSnapshot(user, withLog = false) {
+    const tier = heatTierOf(user.heat);
+    const snap = {
+        heat: Math.round((user.heat || 0) * 10) / 10,
+        heatTier: {
+            emoji: tier.emoji, name: tier.name, flavor: tier.flavor,
+            raidMult: tier.raidMult, incomeMult: tier.incomeMult,
+        },
+    };
+    if (withLog) snap.heatLog = user.heatLog || [];
+    return snap;
+}
+
+function noticeSnapshot(user) {
+    return {
+        notices: (user.notices || []).map((n) => ({
+            uid: n.uid, typeId: n.typeId, expiresAt: n.expiresAt,
+            bribeCost: noticeBribeCost(user, NOTICE_BY_ID[n.typeId]),
+        })),
+        noticeStats: user.noticeStats,
+        energyLockUntil: user.energyLockUntil || 0,
+    };
+}
+
+// Спільна обгортка для всіх пушів від бота: гравець міг заблокувати бота, і це
+// не має валити тік по решті гравців.
+function sendPush(userId, text) {
+    try {
+        bot.telegram.sendMessage(String(userId), text, Markup.inlineKeyboard([
+            Markup.button.webApp('Відкрити гру', WEB_APP_URL),
+        ])).catch(() => {});
+    } catch (e) { /* некоректний id (гість у dev-режимі) — ігноруємо */ }
+}
+
+// Раз на 5 хвилин: згасання, протухання, видача нових повісток і пуш про те, що
+// повістка ось-ось протухне. Кілька сотень профілів обходяться миттєво; від тисячі
+// варто буде розбити на пачки зі зміщенням.
+function tickNotices() {
+    const now = Date.now();
+    const pushWindow = ECONOMY.NOTICE_PUSH_BEFORE_MIN * 60000;
+    for (const user of usersDB.values()) {
+        try {
+            if (!Array.isArray(user.notices)) continue; // ще не мігрований — оживе при першому getUser
+            decayHeat(user);
+            expireNotices(user);
+
+            if (!noticesBlocked(user)) {
+                if (!user.nextNoticeAt) {
+                    scheduleNextNotice(user);
+                } else if (now >= user.nextNoticeAt) {
+                    // При повному ліміті нову не видаємо (замість того, щоб примусово
+                    // протухати найстарішу): офлайн-гравець не має ловити подвійний штраф.
+                    if (user.notices.length < ECONOMY.NOTICE_MAX_ACTIVE) issueNotice(user);
+                    scheduleNextNotice(user);
+                }
+            }
+
+            for (const n of user.notices) {
+                if (n.pushSent || n.expiresAt - now > pushWindow) continue;
+                n.pushSent = true;
+                const type = NOTICE_BY_ID[n.typeId];
+                const mins = Math.max(1, Math.round((n.expiresAt - now) / 60000));
+                sendPush(user.id, `${type.emoji} ${type.name} протухає через ${mins} хв. Далі — штраф і +${type.heatOnExpire} до розшуку.`);
+            }
+        } catch (e) {
+            console.error('⚠️  Помилка в тіку повісток:', e.message);
+        }
+    }
+}
+setInterval(tickNotices, ECONOMY.NOTICE_TICK_MS);
+
 // ===== Престиж ("Легалізація") =====
 // Скільки очок гравець отримав би, якби легалізувався просто зараз. Корінь означає,
 // що кожне наступне очко коштує дедалі більше заробленого — класична idle-крива.
@@ -943,7 +1251,8 @@ function rollCrate(user, crate) {
         return { kind: 'nothing', title: 'Пусто...', emoji: '🧦', img: '/images/gacha-scam-socks.webp', desc: 'Тільки діряві шкарпетки. Буває.' };
     }
     if (entry.type === 'coins') {
-        const amount = Math.round(entry.min + Math.random() * (entry.max - entry.min));
+        const base = entry.min + Math.random() * (entry.max - entry.min);
+        const amount = Math.round(base * heatIncomeMult(user));
         user.balance += amount;
         return { kind: 'coins', title: 'Готівка!', emoji: '🪙', img: '/images/gacha-jackpot.webp', amount, desc: `+${amount.toLocaleString('uk-UA')} ТК` };
     }
@@ -1264,6 +1573,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         prestigeCount: user.prestigeCount,
         prestigeMultiplier: prestigeMultiplier(user),
         prestigeAvailable: prestigePointsAvailable(user),
+        seasonPoints: user.seasonPoints || 0,
+        deceivedCount: user.deceivedCount || 0,
+        ...heatSnapshot(user, true),
+        ...noticeSnapshot(user),
     };
     // ?consume=1 — забрати одноразову преміальну нагороду, щоб вона не показувалась повторно
     if (req.query.consume === '1') user.lastPremiumReward = null;
@@ -1280,9 +1593,26 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     resetDailyIfNeeded(user);
     // Клік/бокси/облави клієнт шле як лічильники "за все життя" — приріст із моменту
     // попереднього збереження додаємо до денного прогресу квестів.
-    if (typeof totalClicks === 'number') user.dailyClicks += Math.max(0, totalClicks - user.totalClicks);
+    const clickDelta = typeof totalClicks === 'number' ? Math.max(0, totalClicks - user.totalClicks) : 0;
+    if (typeof totalClicks === 'number') user.dailyClicks += clickDelta;
     if (typeof boxesOpened === 'number') user.dailyBoxes += Math.max(0, boxesOpened - user.boxesOpened);
     if (typeof raidsSurvived === 'number') user.dailyRaids += Math.max(0, raidsSurvived - user.raidsSurvived);
+
+    // Розшук росте від самої активності. Рахуємо сотнями кліків, залишок носимо в
+    // clickHeatCarry — інакше при збереженні раз на 5 секунд приріст губився б в округленні.
+    if (clickDelta > 0) {
+        user.clickHeatCarry = (user.clickHeatCarry || 0) + clickDelta;
+        const hundreds = Math.floor(user.clickHeatCarry / 100);
+        if (hundreds > 0) {
+            user.clickHeatCarry -= hundreds * 100;
+            changeHeat(user, hundreds * ECONOMY.HEAT_PER_100_CLICKS, `Активність (${hundreds * 100} кліків)`);
+        }
+    }
+    // Переїзд у новий схрон помічають сусіди. Ловимо тут, бо покупку локації робить
+    // клієнт (window.buy) і окремого серверного роуту для неї немає.
+    if (typeof level === 'number' && level > user.level) {
+        changeHeat(user, ECONOMY.HEAT_NEW_LOCATION * (level - user.level), 'Переїзд у новий схрон');
+    }
 
     // Баланс приймаємо лише якщо клієнт бачив актуальну серверну ревізію. Інакше його
     // значення застаріле (сервер щойно нарахував дроп із ящика / списав за крафт) —
@@ -1302,9 +1632,12 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     user.lastSeenAt = Date.now();
 
     const unlocked = checkAchievements(user);
+    // heat і повістки їдуть у кожній відповіді автозбереження (раз на 5с) — так клієнт
+    // дізнається про повістку, що прийшла, поки він грав, без окремого полінгу.
     res.json({
         ok: true, balance: user.balance, balanceRev: user.balanceRev,
         balanceRejected: !balanceAccepted, unlockedAchievements: unlocked,
+        ...heatSnapshot(user), ...noticeSnapshot(user),
     });
 });
 
@@ -1567,6 +1900,14 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
     user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
     user.portfolio = {};
     user.expedition = null;
+    // Ти тепер офіційно легальний — справу закрито, повістки анульовано.
+    // Заразом зникає і множник доходу від розшуку: починаєш з чистого аркуша.
+    user.heat = 0;
+    user.heatLog = [];
+    user.lastHeatDecay = Date.now();
+    user.notices = [];
+    user.nextNoticeAt = 0;
+    user.energyLockUntil = 0;
 
     const unlocked = checkAchievements(user);
     res.json({
@@ -1575,7 +1916,7 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
         prestigeCount: user.prestigeCount, balance: user.balance,
         clickVal: user.clickVal, passive: user.passive, level: user.level,
         energy: user.energy, maxEnergy: user.maxEnergy, upgrades: user.upgrades,
-        unlockedAchievements: unlocked,
+        unlockedAchievements: unlocked, ...heatSnapshot(user, true), ...noticeSnapshot(user),
     });
 });
 
@@ -1623,6 +1964,10 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
         });
     }
 
+    // Вдала вилазка — це і здобич, і сліди: тебе бачили. Чим серйозніша вилазка,
+    // тим більше уваги вона привертає.
+    changeHeat(user, Math.min(ECONOMY.HEAT_EXPEDITION_CAP, ECONOMY.HEAT_EXPEDITION_PER_LEVEL * exp.minLevel), 'Вилазка: ' + exp.name);
+
     const gained = [];
     for (const entry of exp.loot) {
         const meta = RESOURCE_BY_ID[entry.res];
@@ -1635,6 +1980,7 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     res.json({
         success: true, caught: false, gained, shielded,
         unlockedAchievements: unlocked, ...storageSnapshot(user), balance: user.balance,
+        ...heatSnapshot(user),
     });
 });
 
@@ -1651,11 +1997,13 @@ app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
 
     user.balance -= price;
     const reward = rollCrate(user, crate);
+    // Контрабанда — єдиний ящик, за яким тягнеться слід: такі контейнери помічають.
+    if (crate.id === 'contraband') changeHeat(user, ECONOMY.HEAT_CONTRABAND_CRATE, 'Контрабандний контейнер');
     const unlocked = checkAchievements(user);
     res.json({
         success: true, reward, balance: user.balance,
         ownedCosmetics: user.ownedCosmetics, energy: user.energy,
-        unlockedAchievements: unlocked, ...storageSnapshot(user),
+        unlockedAchievements: unlocked, ...storageSnapshot(user), ...heatSnapshot(user),
     });
 });
 
@@ -1747,6 +2095,93 @@ app.post('/api/revenge', requireTelegramAuth, (req, res) => {
     res.json({ success: true, line, reward, balance: user.balance });
 });
 
+// ---- Розшук і повістки ----
+app.get('/api/notices', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json({ ...heatSnapshot(user, true), ...noticeSnapshot(user), balance: user.balance, shieldUntil: user.shieldUntil });
+});
+
+// Повістка — це не штраф, а вибір. П'ять способів відреагувати, кожен зі своєю
+// ціною: гроші, скрафтована довідка, ризикована міні-гра, вся енергія або нічого.
+app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const { noticeId, method } = req.body;
+    const idx = (user.notices || []).findIndex((n) => n.uid === noticeId);
+    if (idx === -1) return res.json({ success: false, message: 'Цієї повістки вже немає' });
+    const notice = user.notices[idx];
+    const type = NOTICE_BY_ID[notice.typeId];
+    if (!type) {
+        user.notices.splice(idx, 1);
+        return res.json({ success: false, message: 'Невідомий тип повістки' });
+    }
+
+    if (method === 'ignore') {
+        return res.json({ success: true, ignored: true, message: 'Ну й нехай тікає таймер.', ...heatSnapshot(user), ...noticeSnapshot(user) });
+    }
+
+    let resolved = false;
+    let message = '';
+    let penalty = null;
+
+    if (method === 'bribe') {
+        const cost = noticeBribeCost(user, type);
+        if (user.balance < cost) return res.json({ success: false, message: 'Не вистачає ТК, щоб "вирішити питання"' });
+        user.balance -= cost;
+        changeHeat(user, -ECONOMY.HEAT_BRIBE_DISCOUNT, 'Вирішив питання');
+        resolved = true;
+        message = `Питання вирішено за ${cost.toLocaleString('uk-UA')} ТК. Про тебе трохи забули.`;
+    } else if (method === 'spravka') {
+        // Скрафтована "Липова довідка" живе в грі як тимчасовий щит (shieldUntil) —
+        // окремого інвентаря довідок немає. Тому пред'явити довідку = витратити щит,
+        // і це справжня ціна: далі облави знову проходять.
+        if ((user.shieldUntil || 0) <= Date.now()) {
+            return res.json({ success: false, message: 'Немає активної липової довідки — скрафти її в Кладовці' });
+        }
+        user.shieldUntil = 0;
+        changeHeat(user, -ECONOMY.HEAT_SPRAVKA_DISCOUNT, 'Показав липову довідку');
+        user.deceivedCount = (user.deceivedCount || 0) + 1;
+        resolved = true;
+        message = 'Довідку прийняли, навіть не читаючи. Розшук помітно впав.';
+    } else if (method === 'medcom') {
+        // Заглушка до Фази 2 — там буде міні-гра зі збиранням діагнозу з карток.
+        resolved = Math.random() < ECONOMY.NOTICE_MEDCOM_SUCCESS;
+        if (resolved) {
+            message = 'Комісія повірила. "Непридатний. Наступний!"';
+        } else {
+            penalty = applyNoticePenalty(user, type, 1);
+            changeHeat(user, ECONOMY.HEAT_MEDCOM_FAIL, 'Провалив медкомісію');
+            message = '"Придатний. Наступний!" Не спрацювало.';
+        }
+    } else if (method === 'hide') {
+        if ((user.energy || 0) <= 0) return res.json({ success: false, message: 'Немає енергії, щоб десь пересидіти' });
+        user.energy = 0;
+        resolved = Math.random() < ECONOMY.NOTICE_HIDE_SUCCESS;
+        message = resolved
+            ? 'Пересидів під ковдрою, поки не пішли. Пронесло.'
+            : 'Знайшли. Штраф півтора рази — за спробу.';
+        if (!resolved) penalty = applyNoticePenalty(user, type, ECONOMY.NOTICE_HIDE_FAIL_MULT);
+    } else {
+        return res.status(400).json({ error: 'Невідомий спосіб' });
+    }
+
+    user.notices.splice(idx, 1);
+    user.noticeStats.byMethod[method] = (user.noticeStats.byMethod[method] || 0) + 1;
+    if (resolved) {
+        user.noticeStats.resolved += 1;
+        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.NOTICE_SEASON_POINTS;
+    } else {
+        user.noticeStats.failed += 1;
+    }
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, resolved, message, penalty, unlockedAchievements: unlocked,
+        balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
+        seasonPoints: user.seasonPoints, ...storageSnapshot(user),
+        ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
 // ---- Щоденні квести ----
 app.get('/api/quests', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
@@ -1804,13 +2239,15 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
         user.resources[assetId] = held - quantity;
         if (user.resources[assetId] <= 0) delete user.resources[assetId];
         user.balance += total;
+        // Велика разова угода не лишається непоміченою — дрібні продажі безпечні.
+        if (total > ECONOMY.HEAT_MARKET_SALE_MIN) changeHeat(user, ECONOMY.HEAT_MARKET_SALE, 'Великий продаж на біржі');
     }
     user.tradesCount += 1;
     user.dailyTrades += 1;
     const unlocked = checkAchievements(user);
     res.json({
         success: true, balance: user.balance, price,
-        unlockedAchievements: unlocked, ...storageSnapshot(user),
+        unlockedAchievements: unlocked, ...storageSnapshot(user), ...heatSnapshot(user),
     });
 });
 
@@ -1959,6 +2396,52 @@ function buildHtml(botUsername) {
 
         .energy-bar { width: 100%; height: 12px; background: #1c1c2b; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2a2a3d; }
         .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #00e5ff, #39ff14); box-shadow: 0 0 10px rgba(0,229,255,0.8); transition: width 0.2s; }
+
+        /* ===== Розшук (heat) ===== */
+        .heat-wrap { margin-top: 8px; cursor: pointer; }
+        .heat-label { display: flex; justify-content: space-between; font-size: 10px; color: #b9c9d8; margin-bottom: 3px; letter-spacing: 0.3px; }
+        .heat-bar { width: 100%; height: 7px; background: #1c1c2b; border-radius: 4px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .heat-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffe066 55%, #ff3b3b); transition: width 0.4s; }
+        /* Пульсація лише з 76+ ("Персональна справа") — це вже той рівень, коли гравець
+           має відчувати, що на нього дивляться. Нижче анімація тільки б відволікала. */
+        .heat-wrap.hot .heat-bar { animation: heatPulse 1.6s ease-in-out infinite; }
+        @keyframes heatPulse {
+            0%, 100% { box-shadow: 0 0 0 rgba(255,59,59,0); }
+            50% { box-shadow: 0 0 12px rgba(255,59,59,0.85); }
+        }
+        .energy-lock { font-size: 11px; color: #ff8a8a; margin-top: 5px; text-align: center; }
+
+        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+        .notices-badge { position: absolute; top: 3px; left: 110px; min-width: 15px; height: 15px; line-height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
+        .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
+        @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
+
+        #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .case-card { background: var(--panel-bg); border: 1px solid rgba(0,229,255,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(0,229,255,0.15); }
+        .case-tier { font-family: 'Orbitron', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
+        .case-flavor { font-size: 12px; color: #9fb4c7; text-align: center; font-style: italic; margin-bottom: 12px; }
+        .case-mults { display: flex; gap: 8px; margin-bottom: 12px; }
+        .case-mult { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px; text-align: center; }
+        .case-mult b { display: block; font-size: 17px; font-family: 'Orbitron', sans-serif; }
+        .case-mult span { font-size: 10px; color: #9fb4c7; }
+        .case-log { font-size: 12px; border-top: 1px solid #2a2a3d; padding-top: 8px; }
+        .case-log-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .case-log-row span:first-child { color: #cfe3f2; }
+        .case-log-up { color: #ff6b6b; font-weight: 700; white-space: nowrap; }
+        .case-log-down { color: #39ff14; font-weight: 700; white-space: nowrap; }
+
+        /* ===== Повістки ===== */
+        .notice-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .notice-card.urgent { border-left-color: #ff3b3b; box-shadow: 0 0 14px rgba(255,59,59,0.18); }
+        .notice-head { display: flex; align-items: center; gap: 8px; }
+        .notice-emoji { font-size: 26px; line-height: 1; }
+        .notice-name { font-weight: 700; font-size: 14px; }
+        .notice-flavor { font-size: 11px; color: #9fb4c7; font-style: italic; }
+        .notice-timer { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 15px; color: var(--gold); white-space: nowrap; }
+        .notice-card.urgent .notice-timer { color: #ff6b6b; }
+        .notice-threat { font-size: 11px; color: #ffb4b4; background: rgba(255,59,59,0.08); border-radius: 6px; padding: 6px 8px; margin: 8px 0; line-height: 1.45; }
+        .notice-card button { font-size: 13px; padding: 9px; margin-bottom: 6px; text-align: left; }
+        .notice-cost { float: right; color: #9fb4c7; font-size: 11px; font-weight: 400; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -2256,6 +2739,8 @@ function buildHtml(botUsername) {
     <header>
         <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
         <button class="help-btn" onclick="openHelp()" title="Як грати">?</button>
+        <button class="notices-btn" onclick="openNotices()" title="Повістки">📬</button>
+        <div class="notices-badge hidden" id="notices-badge">0</div>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div style="font-size: 14px; margin-bottom: 5px;">
@@ -2267,6 +2752,14 @@ function buildHtml(botUsername) {
             <span>⭐ <span id="stars-count">0</span></span>
         </div>
         <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
+        <div class="heat-wrap" id="heat-wrap" onclick="openHeatCase()">
+            <div class="heat-label">
+                <span id="heat-tier-label">😴 Ніхто тебе не знає</span>
+                <span id="heat-value">Розшук: 0</span>
+            </div>
+            <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
+        </div>
+        <div class="energy-lock hidden" id="energy-lock"></div>
         <div class="clan-line hidden" id="clan-line"></div>
     </header>
 
@@ -2449,7 +2942,9 @@ function buildHtml(botUsername) {
             <div class="help-step"><b>2. Поки чекаєш енергію — є чим зайнятись</b><br>Відкривай <b>ящики</b> (📦) заради ресурсів або відправляйся на <b>вилазку</b> (🗄 Кладовка → Вилазки) — вона йде реальний час, навіть коли гра закрита.</div>
             <div class="help-step"><b>3. Ресурси йдуть у крафт</b><br>У <b>Кладовці</b> можна здати ресурси за ТК або скрафтити те, що за гроші не купиш: щити від облав, +клік і +пасив назавжди.</div>
             <div class="help-step"><b>4. Прокачуйся в Магазині</b><br>Апгрейди купуються нескінченно, кожен рівень дорожчий. Далі — переїзд у кращий схрон.</div>
-            <div class="help-step"><b>5. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
+            <div class="help-step"><b>5. Стеж за розшуком</b><br>Смуга під енергією — <b>розшук</b>. Що активніший ти — то більше тобою цікавляться: разом росте і дохід (до ×2), і шанс облави (до ×4.5). Сам вирішуй, на якому рівні жити. Тап по смузі — вся твоя справа.</div>
+            <div class="help-step"><b>6. Повістки (📬 у шапці)</b><br>Приходять із таймером, навіть коли гра закрита. Можна відкупитись, показати липову довідку, зіграти в медкомісію, сховатись — або проігнорувати й отримати штраф.</div>
+            <div class="help-step"><b>7. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
             <button onclick="closeHelp()">Зрозуміло</button>
         </div>
     </div>
@@ -2473,6 +2968,41 @@ function buildHtml(botUsername) {
         <button id="crate-close" class="hidden" onclick="closeCrateOverlay()">Забрати</button>
         <div id="crate-again-wrap" class="hidden">
             <button id="crate-again" onclick="repeatCrate()">Відкрити ще раз</button>
+        </div>
+    </div>
+
+    <!-- "Твоя справа": звідки взявся поточний розшук і що він тобі дає. -->
+    <div id="heat-case-overlay" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeHeatCase()">✕</button>
+            <h2 style="margin: 0 0 10px; font-size: 19px; color: var(--gold); text-align: center;">📁 Твоя справа</h2>
+            <div class="case-tier" id="case-tier">😴 Ніхто тебе не знає</div>
+            <div class="case-flavor" id="case-flavor"></div>
+            <div class="case-mults">
+                <div class="case-mult"><b id="case-heat">0</b><span>розшук зі 100</span></div>
+                <div class="case-mult"><b id="case-income">×1.00</b><span>до всього доходу</span></div>
+                <div class="case-mult"><b id="case-raid">×1.0</b><span>шанс облави</span></div>
+            </div>
+            <p style="font-size:12px; color:#9fb4c7; line-height:1.5; margin: 0 0 10px;">
+                Що ти активніший і багатший — то більше тобою цікавляться. Розшук піднімає дохід,
+                але разом із ним і шанс облави. Сам вирішуй, на якому рівні жити.
+                Про тебе поступово забувають: −1 за кожні 12 хвилин, навіть коли гра закрита.
+            </p>
+            <div class="case-log" id="case-log"></div>
+            <button onclick="closeHeatCase()" style="margin-top:12px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Повістки: не штраф, а вибір із таймером. -->
+    <div id="notices-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeNotices()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">📬 Повістки</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px;">
+                Таймер тікає, навіть коли гра закрита. Протухла повістка = штраф і різкий стрибок розшуку.
+            </p>
+            <div id="notices-list"></div>
+            <button onclick="closeNotices()" style="margin-top:6px;">Закрити</button>
         </div>
     </div>
 
@@ -2560,6 +3090,9 @@ function buildHtml(botUsername) {
         const CRATES = ${JSON.stringify(CRATES)};
         const RECIPES = ${JSON.stringify(RECIPES)};
         const EXPEDITIONS = ${JSON.stringify(EXPEDITIONS)};
+        const HEAT_TIERS = ${JSON.stringify(HEAT_TIERS)};
+        const NOTICE_TYPES = ${JSON.stringify(NOTICE_TYPES)};
+        const NOTICE_BY_ID = Object.fromEntries(NOTICE_TYPES.map(n => [n.id, n]));
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
 
@@ -2580,6 +3113,8 @@ function buildHtml(botUsername) {
             upgrades: { hat: 0, jam: 0, thermos: 0, generator: 0 }, upgradeCosts: {},
             craftedCount: 0, shieldUntil: 0, permanentShield: false,
             balanceRev: 0,
+            heat: 0, heatTier: HEAT_TIERS[0], heatLog: [],
+            notices: [], noticeStats: null, energyLockUntil: 0, seasonPoints: 0,
         };
 
         const ui = {
@@ -2590,7 +3125,39 @@ function buildHtml(botUsername) {
             str: document.getElementById('stars-count'), vip: document.getElementById('vip-badge'),
             refCount: document.getElementById('ref-count'), clanLine: document.getElementById('clan-line'),
             streakNote: document.getElementById('streak-note'),
+            heatWrap: document.getElementById('heat-wrap'), heatFill: document.getElementById('heat-fill'),
+            heatTierLabel: document.getElementById('heat-tier-label'), heatValue: document.getElementById('heat-value'),
+            noticesBadge: document.getElementById('notices-badge'), energyLock: document.getElementById('energy-lock'),
         };
+
+        // ===== Розшук (heat) =====
+        // Множник доходу від розшуку діє на ВСІ джерела ТК. Єдиний порядок множників
+        // у грі: base * heat * vip * prestige * clan.
+        function heatIncomeMult() { return (state.heatTier && state.heatTier.incomeMult) || 1; }
+        function heatRaidMult() { return (state.heatTier && state.heatTier.raidMult) || 1; }
+
+        function energyLocked() { return (state.energyLockUntil || 0) > Date.now(); }
+
+        // Кожна серверна відповідь може принести свіжий heat/повістки — підхоплюємо їх
+        // в одному місці, щоб не дублювати присвоєння в кожному обробнику.
+        function absorbHeat(data) {
+            if (!data) return;
+            if (typeof data.heat === 'number') state.heat = data.heat;
+            if (data.heatTier) state.heatTier = data.heatTier;
+            if (Array.isArray(data.heatLog)) state.heatLog = data.heatLog;
+            if (Array.isArray(data.notices)) state.notices = data.notices;
+            if (data.noticeStats) state.noticeStats = data.noticeStats;
+            if (typeof data.energyLockUntil === 'number') state.energyLockUntil = data.energyLockUntil;
+        }
+
+        function fmtCountdown(ms) {
+            const total = Math.max(0, Math.floor(ms / 1000));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
+        }
 
         // Щит від облав: тимчасовий (крафт "Липова довідка") або постійний (Білий Квиток).
         function hasShield() {
@@ -2636,6 +3203,33 @@ function buildHtml(botUsername) {
                 ui.clanLine.classList.add('hidden');
             }
             ui.streakNote.innerText = state.dailyStreak > 0 ? ('Серія: День ' + state.dailyStreak + '/7') : '';
+
+            // Смуга розшуку і бейдж повісток — навмисно лише зміна тексту/ширини й
+            // перемикання класів. Жодних innerHTML: це гарячий цикл на 10 разів/сек.
+            const tier = state.heatTier || HEAT_TIERS[0];
+            ui.heatFill.style.width = Math.min(100, state.heat || 0) + '%';
+            ui.heatTierLabel.innerText = tier.emoji + ' ' + tier.name;
+            ui.heatValue.innerText = 'Розшук: ' + Math.round(state.heat || 0);
+            ui.heatWrap.classList.toggle('hot', (state.heat || 0) >= 76);
+
+            const noticeCount = (state.notices || []).length;
+            ui.noticesBadge.classList.toggle('hidden', noticeCount === 0);
+            if (noticeCount > 0) {
+                ui.noticesBadge.innerText = noticeCount;
+                // Блимаємо, коли в котроїсь повістки лишилось менше 20% часу — щоб
+                // гравець помітив її, навіть якщо сидить у зовсім іншій вкладці.
+                const now = Date.now();
+                const urgent = state.notices.some(n => {
+                    const type = NOTICE_BY_ID[n.typeId];
+                    if (!type) return false;
+                    return (n.expiresAt - now) < type.ttlH * 3600 * 1000 * 0.2;
+                });
+                ui.noticesBadge.classList.toggle('urgent', urgent);
+            }
+
+            const locked = energyLocked();
+            ui.energyLock.classList.toggle('hidden', !locked);
+            if (locked) ui.energyLock.innerText = '🔒 Тебе тримають у ТЦК: ' + fmtCountdown(state.energyLockUntil - Date.now());
         }
 
         // Гардероб/компаньйони/декор рендеряться лише коли їх дані реально змінюються
@@ -2653,6 +3247,128 @@ function buildHtml(botUsername) {
             renderExpeditions();
             renderPrestige();
         }
+
+        // ===== Екран "Твоя справа" =====
+        // Рендериться лише при відкритті — у гарячий цикл ці innerHTML не потрапляють.
+        window.openHeatCase = async () => {
+            try {
+                const res = await apiFetch('/api/notices?id=' + user.id);
+                absorbHeat(await res.json());
+            } catch (e) { /* покажемо те, що вже маємо в стані */ }
+            renderHeatCase();
+            document.getElementById('heat-case-overlay').classList.remove('hidden');
+        };
+        window.closeHeatCase = () => document.getElementById('heat-case-overlay').classList.add('hidden');
+
+        function renderHeatCase() {
+            const tier = state.heatTier || HEAT_TIERS[0];
+            document.getElementById('case-tier').innerText = tier.emoji + ' ' + tier.name;
+            document.getElementById('case-flavor').innerText = '«' + (tier.flavor || '') + '»';
+            document.getElementById('case-heat').innerText = Math.round(state.heat || 0);
+            document.getElementById('case-income').innerText = '×' + tier.incomeMult.toFixed(2);
+            document.getElementById('case-raid').innerText = '×' + tier.raidMult.toFixed(1);
+
+            const log = state.heatLog || [];
+            document.getElementById('case-log').innerHTML = log.length
+                ? log.map(e => {
+                    const cls = e.delta > 0 ? 'case-log-up' : 'case-log-down';
+                    const sign = e.delta > 0 ? '+' : '';
+                    return '<div class="case-log-row"><span>' + esc(e.reason) + '</span>' +
+                        '<span class="' + cls + '">' + sign + e.delta + '</span></div>';
+                }).join('')
+                : '<div style="color:#9fb4c7; font-size:12px;">Поки що тиша. Ти нікого не цікавиш — і це добре.</div>';
+        }
+
+        // Тексти з сервера потрапляють в innerHTML — екрануємо, щоб чиясь назва
+        // предмета чи ніка не могла зламати розмітку.
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        // ===== Екран повісток =====
+        window.openNotices = async () => {
+            try {
+                const res = await apiFetch('/api/notices?id=' + user.id);
+                const data = await res.json();
+                absorbHeat(data);
+                if (typeof data.shieldUntil === 'number') state.shieldUntil = data.shieldUntil;
+            } catch (e) { /* покажемо те, що вже маємо */ }
+            renderNotices();
+            document.getElementById('notices-screen').classList.remove('hidden');
+        };
+        window.closeNotices = () => document.getElementById('notices-screen').classList.add('hidden');
+
+        function noticeThreatText(type) {
+            const parts = ['штраф ' + Math.round(type.balancePct * 100) + '% балансу'];
+            if (type.energyLockMin) parts.push(type.energyLockMin + ' хв без кліків');
+            if (type.resourceLoss) parts.push('мінус ' + type.resourceLoss + ' ресурси');
+            return 'Якщо протухне: ' + parts.join(', ') + ' і +' + type.heatOnExpire + ' до розшуку.';
+        }
+
+        function renderNotices() {
+            const list = document.getElementById('notices-list');
+            if (!list) return;
+            const notices = state.notices || [];
+            if (!notices.length) {
+                list.innerHTML = '<div style="color:#9fb4c7; font-size:13px; text-align:center; padding: 18px 0;">' +
+                    'Поки що жодної повістки. Насолоджуйся.</div>';
+                return;
+            }
+            const now = Date.now();
+            const hasSpravka = (state.shieldUntil || 0) > now;
+            list.innerHTML = notices.map(n => {
+                const type = NOTICE_BY_ID[n.typeId];
+                if (!type) return '';
+                const left = n.expiresAt - now;
+                const urgent = left < type.ttlH * 3600 * 1000 * 0.2;
+                // Шанси й ціни показані відкрито — той самий принцип, що й у ящиках.
+                const btn = (method, label, note, disabled) =>
+                    '<button onclick="resolveNotice(\\'' + n.uid + '\\', \\'' + method + '\\')"' + (disabled ? ' disabled' : '') + '>' +
+                    label + '<span class="notice-cost">' + note + '</span></button>';
+                return '<div class="notice-card' + (urgent ? ' urgent' : '') + '" data-uid="' + n.uid + '">' +
+                    '<div class="notice-head">' +
+                        '<span class="notice-emoji">' + type.emoji + '</span>' +
+                        '<div><div class="notice-name">' + esc(type.name) + '</div>' +
+                        '<div class="notice-flavor">' + esc(type.flavor) + '</div></div>' +
+                        '<span class="notice-timer" data-expires="' + n.expiresAt + '">' + fmtCountdown(left) + '</span>' +
+                    '</div>' +
+                    '<div class="notice-threat">' + noticeThreatText(type) + '</div>' +
+                    btn('bribe', '💵 Вирішити питання', n.bribeCost.toLocaleString('uk-UA') + ' ТК · −' + ECONOMY.HEAT_BRIBE_DISCOUNT + ' розшуку') +
+                    btn('spravka', '📄 Липова довідка', hasSpravka ? ('витратить щит · −' + ECONOMY.HEAT_SPRAVKA_DISCOUNT + ' розшуку') : 'немає активної', !hasSpravka) +
+                    btn('medcom', '🏥 Медкомісія', Math.round(ECONOMY.NOTICE_MEDCOM_SUCCESS * 100) + '% успіху · безкоштовно') +
+                    btn('hide', '🏃 Сховатись', Math.round(ECONOMY.NOTICE_HIDE_SUCCESS * 100) + '% · вся енергія') +
+                    btn('ignore', '😐 Ігнорувати', 'таймер тікає далі') +
+                '</div>';
+            }).join('');
+        }
+
+        window.resolveNotice = async (noticeId, method) => {
+            const res = await apiFetch('/api/notice/resolve', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, noticeId, method }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            absorbHeat(data);
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            if (typeof data.shieldUntil === 'number') state.shieldUntil = data.shieldUntil;
+            if (data.resources) state.resources = data.resources;
+
+            if (!data.ignored) {
+                let text = (data.resolved ? '✅ ' : '❌ ') + data.message;
+                if (data.penalty && data.penalty.coins > 0) text += '\\nМінус ' + data.penalty.coins.toLocaleString('uk-UA') + ' ТК';
+                if (data.penalty && data.penalty.resources > 0) text += '\\nЗабрали ресурсів: ' + data.penalty.resources;
+                if (data.penalty && data.penalty.energyLocked) text += '\\nПівгодини тобі не до кліків';
+                tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
+                tg.showAlert(text);
+            }
+            renderNotices();
+            renderStorage();
+            updateUI();
+        };
 
         // ===== Резервна копія в Telegram CloudStorage =====
         // Диск сервера на Render скидається при кожному редеплої — CloudStorage лежить у
@@ -2753,6 +3469,8 @@ function buildHtml(botUsername) {
                 state.prestigeCount = data.prestigeCount || 0;
                 state.prestigeMultiplier = data.prestigeMultiplier || 1;
                 state.prestigeAvailable = data.prestigeAvailable || 0;
+                state.seasonPoints = data.seasonPoints || 0;
+                absorbHeat(data);
 
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
@@ -2796,6 +3514,13 @@ function buildHtml(botUsername) {
                     totalClicks: state.totalClicks, boxesOpened: state.boxesOpened, raidsSurvived: state.raidsSurvived,
                 })
             }).then(r => r.json()).then(data => {
+                // Повістка могла прийти або протухнути, поки гравець грав — автозбереження
+                // раз на 5с і є каналом, яким він про це дізнається.
+                const hadNotices = (state.notices || []).length;
+                absorbHeat(data);
+                if ((state.notices || []).length > hadNotices) {
+                    tg.HapticFeedback.notificationOccurred('warning');
+                }
                 // Сервер відхилив наш баланс — значить він змінював його сам (ящик/крафт/апгрейд),
                 // поки ми не встигли синхронізуватись. Беремо його значення як авторитетне.
                 if (data.balanceRejected && typeof data.balance === 'number') {
@@ -2819,11 +3544,16 @@ function buildHtml(botUsername) {
 
         function handleMainClick(e) {
             e.preventDefault();
+            // "Вручення в руки" забирає пів години — весь цей час клікати нічим.
+            if (energyLocked()) {
+                tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
             if (state.energy <= 0 && !state.isVip) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
-            let earned = state.clickVal * petMult('click') * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1);
+            let earned = state.clickVal * heatIncomeMult() * petMult('click') * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1);
             state.balance += earned;
             state.totalClicks += 1;
             if (!state.isVip) state.energy = Math.max(0, state.energy - ECONOMY.ENERGY_PER_CLICK);
@@ -2849,8 +3579,9 @@ function buildHtml(botUsername) {
         // Енергія — головний обмежувач темпу гри. Регенерація ~1/сек (ENERGY_REGEN_PER_TICK
         // за тік у 100мс): повний бак на 100 енергії відновлюється ~100 секунд.
         setInterval(() => {
-            if (state.passive > 0) state.balance += (state.passive * state.clanBonus * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1)) / 10;
-            if (state.energy < state.maxEnergy) {
+            // Єдиний порядок множників доходу: base * heat * vip * prestige * clan.
+            if (state.passive > 0) state.balance += (state.passive * heatIncomeMult() * (state.isVip ? 3 : 1) * (state.prestigeMultiplier || 1) * state.clanBonus) / 10;
+            if (state.energy < state.maxEnergy && !energyLocked()) {
                 state.energy = Math.min(state.maxEnergy, state.energy + ECONOMY.ENERGY_REGEN_PER_TICK * petMult('energy'));
             }
             updateUI();
@@ -2864,6 +3595,28 @@ function buildHtml(botUsername) {
             if (!state.expedition) return;
             const panel = document.getElementById('storage-exp');
             if (panel && panel.classList.contains('active')) renderExpeditions();
+        }, 1000);
+
+        // Таймери повісток. Оновлюємо лише текст уже відрендерених елементів — повний
+        // renderNotices() тут викликати не можна, він перебудовує розмітку з кнопками.
+        setInterval(() => {
+            const screen = document.getElementById('notices-screen');
+            if (!screen || screen.classList.contains('hidden')) return;
+            const now = Date.now();
+            let expired = false;
+            screen.querySelectorAll('.notice-timer').forEach(el => {
+                const left = Number(el.dataset.expires) - now;
+                if (left <= 0) { expired = true; return; }
+                el.innerText = fmtCountdown(left);
+                const card = el.closest('.notice-card');
+                if (!card) return;
+                const notice = (state.notices || []).find(n => n.uid === card.dataset.uid);
+                const type = notice && NOTICE_BY_ID[notice.typeId];
+                if (type) card.classList.toggle('urgent', left < type.ttlH * 3600 * 1000 * 0.2);
+            });
+            // Повістка протухла прямо на очах — штраф уже нарахував сервер, тягнемо
+            // свіжий список, щоб картка не висіла з нулем на таймері.
+            if (expired) openNotices();
         }, 1000);
 
         // ===== Навігація =====
@@ -3326,6 +4079,8 @@ function buildHtml(botUsername) {
                 ['🚨 Пережито облав', fmtNum(state.raidsSurvived)],
                 ['📜 Довідок престижу', fmtNum(state.prestigePoints) + ' (x' + (state.prestigeMultiplier || 1).toFixed(2) + ')'],
                 ['🗄 Рівень кладовки', fmtNum(state.storageLevel) + ' (' + fmtNum(state.storageCapacity) + ' місць)'],
+                ['🔥 Розшук', Math.round(state.heat || 0) + ' — ' + ((state.heatTier || HEAT_TIERS[0]).name)],
+                ['📬 Знято повісток', fmtNum((state.noticeStats || {}).resolved || 0) + ' (протухло: ' + fmtNum((state.noticeStats || {}).expired || 0) + ')'],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -4087,7 +4842,9 @@ function buildHtml(botUsername) {
         // МЕХАНІКА ОБЛАВИ (БОС-ФАЙТ)
         // ==========================================
         setInterval(() => {
-            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid')) return;
+            // Шанс облави масштабується розшуком: на 91+ heat облави вчетверо частіші,
+            // ніж у "тихого" гравця. Це друга половина трейд-офу до множника доходу.
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult()) return;
 
             const raidScreen = document.getElementById('raid-screen');
             const timerEl = document.getElementById('raid-timer');
@@ -4144,7 +4901,7 @@ function buildHtml(botUsername) {
         // QTE: СТУК У ДВЕРІ
         // ==========================================
         setInterval(() => {
-            if (state.isVip || hasShield() || Math.random() > ECONOMY.QTE_KNOCK_CHANCE) return;
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.QTE_KNOCK_CHANCE * heatRaidMult()) return;
 
             const overlay = document.getElementById('knock-screen');
             const timerEl = document.getElementById('knock-timer');
