@@ -190,6 +190,12 @@ const ECONOMY = {
     INSPECTOR_BRIBE_WINDOW_MIN: 30, // "за сесію був хабар" = хабар за останні 30 хв
     INSPECTOR_SPEED_CPS: 6,
     INSPECTOR_CHARM_MIN_PRICE: 2000, // косметика тіру 3+ визначається ціною
+
+    // --- Блокпост при переїзді в новий схрон ---
+    CHECKPOINT_PIGEON_BONUS: 0.15,   // Голуб-курʼєр знає обʼїзні
+    CHECKPOINT_HEAT_DOCS: 20,
+    CHECKPOINT_HEAT_BABA: 10,
+    CHECKPOINT_RESOURCE_LOSS: 0.30,
 };
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
@@ -251,6 +257,68 @@ const INSPECTORS = [
 ];
 const INSPECTOR_BY_ID = Object.fromEntries(INSPECTORS.map((i) => [i.id, i]));
 
+// Відстрочки — паралельна прогресія до Білого Квитка. Одна активна за раз.
+// Поки діє: повістки не приходять, розшук не росте, стуки не діють, блокпост
+// проходиться автоматично.
+//
+// ВАЖЛИВО (і це фіча, а не баг): спад розшуку під відстрочкою працює, а приріст —
+// ні. За два тижні "Помічника депутата" heat падає до нуля разом із множником
+// доходу. Безпека коштує грошей: обережний заробляє в базовому темпі, ризиковий
+// тримає heat 90 і має подвійний дохід ціною постійних облав.
+const DEFERMENTS = [
+    {
+        id: 'student', emoji: '🎓', name: 'Студентський заочки', hours: 24,
+        cost: { tk: 18000 },
+        flavor: 'Вступив на «Богословʼя». Пара раз на місяць, і та онлайн',
+    },
+    {
+        id: 'opikun', emoji: '🧓', name: 'Догляд за бабусею', hours: 12,
+        cost: { res: { cans: 10, meds: 2 } },
+        flavor: 'Бабуся здорова як бик, але ти дуже переживаєш',
+    },
+    {
+        id: 'health', emoji: '🩺', name: 'Довідка по здоровʼю', hours: 48,
+        cost: { res: { meds: 5, stamp: 1 } },
+        flavor: 'Печатка справжня. Все інше — ні',
+    },
+    {
+        id: 'bron', emoji: '🏭', name: 'Бронь від підприємства', hours: 72,
+        cost: { clanLevel: 5 },
+        flavor: 'ОСББ офіційно визнано критичною інфраструктурою',
+    },
+    {
+        id: 'batko', emoji: '👶', name: 'Багатодітний батько', hours: 7 * 24,
+        cost: { stars: 100 },
+        flavor: 'Троє. Ну, майже. Ну, планується',
+    },
+    {
+        id: 'deputat', emoji: '🎩', name: 'Помічник депутата', hours: 14 * 24,
+        cost: { res: { phone: 1, cash: 20 } },
+        flavor: 'Помічник помічника помічника. На громадських засадах',
+    },
+];
+const DEFERMENT_BY_ID = Object.fromEntries(DEFERMENTS.map((d) => [d.id, d]));
+
+// Блокпост: переїзд у новий схрон більше не просто транзакція. Шанси показані
+// гравцю відкрито — той самий чесний підхід, що й у ящиках.
+const CHECKPOINT_CHOICES = [
+    {
+        id: 'docs', emoji: '📄', name: 'Показати документи', chance: 0.60,
+        fail: 'heat_notice', failText: '+20 розшуку і повістка просто тут, на місці',
+    },
+    {
+        id: 'field', emoji: '🌾', name: 'Обʼїхати полем', chance: 0.45,
+        fail: 'resources', failText: 'Загубиш 30% випадкових ресурсів із кладовки',
+    },
+    {
+        id: 'baba', emoji: '🧓', name: '«Я до баби, вона хворіє»', chance: 0.40,
+        fail: 'heat', failText: '+10 розшуку',
+        // Репутація з Бабою Ніною — Фаза 6. Поки її немає, працює базовий шанс.
+        bonusWithNinaRep: 0.75, ninaRepRequired: 50,
+    },
+];
+const CHECKPOINT_BY_ID = Object.fromEntries(CHECKPOINT_CHOICES.map((c) => [c.id, c]));
+
 // Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
 // вчетверо частіші облави. Порядок важливий — шукаємо перший тір, у чий `max` влазить heat.
 const HEAT_TIERS = [
@@ -308,6 +376,7 @@ const RESOURCES = [
     { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
     { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
     { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
+    { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
     { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
 ];
 const RESOURCE_BY_ID = Object.fromEntries(RESOURCES.map((r) => [r.id, r]));
@@ -376,6 +445,9 @@ const CRATES = [
             { type: 'res', res: 'stamp', min: 1, max: 3, weight: 12 },
             { type: 'cosmetic', weight: 10 },
             { type: 'res', res: 'ticket', min: 1, max: 1, weight: 5 },
+            // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
+            // не взяти найдовшу відстрочку.
+            { type: 'res', res: 'phone', min: 1, max: 1, weight: 3 },
             { type: 'energy', weight: 3 },
         ],
     },
@@ -429,6 +501,7 @@ const CRATES = [
             { type: 'res', res: 'cash', min: 10, max: 25, weight: 20 },
             { type: 'coins', min: 200000, max: 500000, weight: 18 },
             { type: 'cosmetic', weight: 15 },
+            { type: 'res', res: 'phone', min: 1, max: 2, weight: 12 },
         ],
     },
 ];
@@ -905,7 +978,11 @@ function createFreshUser(id, name) {
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
         lastMedcomCards: [],        // щоб та сама скарга двічі поспіль працювала гірше
         medcomStats: { passed: 0, failed: 0 },
-        deferUntil: 0,              // відстрочка: повістки не приходять (повна система — Фаза 3)
+        deferUntil: 0,              // поки діє — повістки не приходять і розшук не росте
+        defermentId: null,          // яка саме відстрочка активна
+        defermentsTaken: 0,
+        checkpointStats: { passed: 0, failed: 0 },
+        reputation: { nina: 0, tolik: 0, mykola: 0, oksana: 0 }, // NPC-репутація — Фаза 6
         lastBribeAt: 0,             // слабкість Валіка: чи "вирішував питання" нещодавно
         inspector: null,            // { id, hp, hpMax, endsAt } — активний бос
         inspectorStats: { defeated: {}, lost: 0 },
@@ -994,6 +1071,10 @@ function migrateUser(user) {
     if (typeof user.inspectorLastSeen !== 'object' || user.inspectorLastSeen === null) user.inspectorLastSeen = {};
     if (typeof user.skills !== 'object' || user.skills === null) user.skills = {};
     if (typeof user.deferUntil !== 'number') user.deferUntil = 0;
+    if (user.defermentId === undefined) user.defermentId = null;
+    if (typeof user.defermentsTaken !== 'number') user.defermentsTaken = 0;
+    if (typeof user.checkpointStats !== 'object' || user.checkpointStats === null) user.checkpointStats = { passed: 0, failed: 0 };
+    if (typeof user.reputation !== 'object' || user.reputation === null) user.reputation = { nina: 0, tolik: 0, mykola: 0, oksana: 0 };
     if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
     if (typeof user.inspectorCooldownUntil !== 'number') user.inspectorCooldownUntil = 0;
     if (user.medcomSession === undefined) user.medcomSession = null;
@@ -1201,6 +1282,10 @@ function heatRaidMult(user) { return heatTierOf(user.heat).raidMult; }
 // компаньйон-пліткарка гасив приріст в одному місці, а не в кожному виклику.
 function changeHeat(user, delta, reason) {
     if (!delta) return 0;
+    // Поки діє відстрочка, розшук НЕ РОСТЕ (спад працює). Це і є ціна безпеки:
+    // за два тижні "Помічника депутата" heat падає до нуля разом із множником
+    // доходу. Не "виправляй" це — на трейд-офі тримається вся Система 1.
+    if (delta > 0 && (user.deferUntil || 0) > Date.now()) return 0;
     if (delta > 0 && user.petId === 'neighbor') delta *= ECONOMY.HEAT_NEIGHBOR_MULT;
     const before = user.heat || 0;
     const after = Math.max(0, Math.min(ECONOMY.HEAT_MAX, before + delta));
@@ -1374,6 +1459,7 @@ function snitchEligibility(user, target) {
 
     if (target.id === user.id) return deny('На себе стукати — це вже діагноз');
     if (target.permanentShield) return deny('У нього Білий Квиток — дзвінок нікого не зацікавив');
+    if ((target.deferUntil || 0) > Date.now()) return deny('У нього офіційна відстрочка. Дзвінок ні до чого');
     if (hasActiveShield(target)) return deny('У нього довідка. Тобі просто не повірять');
     if ((target.notices || []).length >= ECONOMY.NOTICE_MAX_ACTIVE) {
         return deny('У нього і так повна скринька повісток');
@@ -1726,6 +1812,14 @@ bot.on('successful_payment', (ctx) => {
         } else {
             ctx.reply('🎉 Оплата успішна!');
         }
+    } else if (type.startsWith('defer-')) {
+        const def = DEFERMENT_BY_ID[type.slice('defer-'.length)];
+        if (def) {
+            grantDeferment(user, def);
+            ctx.reply(`🎉 Оплата успішна! ${def.emoji} ${def.name} на ${Math.round(def.hours / 24)} діб. ${def.flavor}.`);
+        } else {
+            ctx.reply('🎉 Оплата успішна!');
+        }
     } else if (type === 'donate') {
         ctx.reply('❤️ Дякуємо за підтримку розробників! Жодних ігрових бонусів це не дає — просто дуже приємно. Ти найкращий.');
     } else {
@@ -1759,6 +1853,13 @@ app.post('/api/invoice', requireTelegramAuth, async (req, res) => {
             description = crate.desc;
             amount = crate.price;
             payloadPrefix = 'crate-' + crate.id;
+        } else if (type === 'deferment') {
+            const def = DEFERMENT_BY_ID[req.body.defermentId];
+            if (!def || !def.cost.stars) return res.status(400).json({ error: 'Ця відстрочка не купується за ⭐' });
+            title = def.name;
+            description = def.flavor;
+            amount = def.cost.stars;
+            payloadPrefix = 'defer-' + def.id;
         } else if (type === 'donate') {
             const requested = Number(req.body.amount);
             if (!ECONOMY.DONATE_AMOUNTS.includes(requested)) {
@@ -1864,8 +1965,9 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         trophies: user.trophies || [],
         medcomStats: user.medcomStats,
-        deferUntil: user.deferUntil || 0,
         inspectorStats: user.inspectorStats,
+        checkpointStats: user.checkpointStats,
+        ...defermentSnapshot(user),
         ...inspectorSnapshot(user),
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
@@ -2479,6 +2581,162 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
         seasonPoints: user.seasonPoints, ...storageSnapshot(user),
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
+// ---- Відстрочки ----
+function defermentActive(user) {
+    return (user.deferUntil || 0) > Date.now();
+}
+
+// Чи по кишені відстрочка і чому ні — одна перевірка для покупки і для UI,
+// щоб заблокована картка показувала конкретну причину, а не просто сіріла.
+function defermentEligibility(user, def) {
+    if (defermentActive(user)) {
+        return { ok: false, reason: 'Спершу дочекайся кінця поточної відстрочки' };
+    }
+    const c = def.cost;
+    if (c.tk && user.balance < c.tk) return { ok: false, reason: 'Не вистачає ТК' };
+    if (c.clanLevel) {
+        const clan = user.clanId && clansDB.get(user.clanId);
+        if (!clan) return { ok: false, reason: 'Потрібен чат ОСББ' };
+        if (clanLevel(clan) < c.clanLevel) {
+            return { ok: false, reason: `Потрібен чат ОСББ ${c.clanLevel} рівня (зараз ${clanLevel(clan)})` };
+        }
+    }
+    if (c.res) {
+        for (const [resId, qty] of Object.entries(c.res)) {
+            if ((user.resources[resId] || 0) < qty) {
+                return { ok: false, reason: `Не вистачає: ${RESOURCE_BY_ID[resId].name}` };
+            }
+        }
+    }
+    return { ok: true };
+}
+
+function defermentSnapshot(user) {
+    return {
+        deferUntil: user.deferUntil || 0,
+        defermentId: user.defermentId || null,
+        deferments: DEFERMENTS.map((d) => {
+            const e = defermentEligibility(user, d);
+            return {
+                id: d.id, emoji: d.emoji, name: d.name, hours: d.hours, flavor: d.flavor,
+                cost: d.cost, can: e.ok, reason: e.reason || null,
+            };
+        }),
+    };
+}
+
+function grantDeferment(user, def) {
+    user.deferUntil = Date.now() + def.hours * 3600 * 1000;
+    user.defermentId = def.id;
+    user.defermentsTaken = (user.defermentsTaken || 0) + 1;
+}
+
+app.get('/api/deferments', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    syncHeatAndNotices(user);
+    res.json(defermentSnapshot(user));
+});
+
+app.post('/api/deferment/buy', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    // Саме defermentId, а не id: у dev-режимі полем id клієнт передає свій Telegram id.
+    const def = DEFERMENT_BY_ID[req.body.defermentId];
+    if (!def) return res.json({ success: false, message: 'Невідома відстрочка' });
+    // За Stars — окремий флоу через інвойс, сюди така покупка не приходить.
+    if (def.cost.stars) return res.json({ success: false, message: 'Ця відстрочка купується за ⭐' });
+
+    const e = defermentEligibility(user, def);
+    if (!e.ok) return res.json({ success: false, message: e.reason });
+
+    if (def.cost.tk) user.balance -= def.cost.tk;
+    for (const [resId, qty] of Object.entries(def.cost.res || {})) {
+        user.resources[resId] -= qty;
+        if (user.resources[resId] <= 0) delete user.resources[resId];
+    }
+    grantDeferment(user, def);
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, message: `${def.emoji} ${def.name} оформлено. ${def.flavor}.`,
+        balance: user.balance, unlockedAchievements: unlocked,
+        ...defermentSnapshot(user), ...storageSnapshot(user), ...noticeSnapshot(user),
+    });
+});
+
+// ---- Блокпост ----
+// Спрацьовує при переїзді в новий схрон. Локація купується в будь-якому разі —
+// блокпост впливає лише на "ціну переїзду".
+function checkpointChance(user, choice) {
+    let chance = choice.chance;
+    if (choice.ninaRepRequired && (user.reputation?.nina || 0) >= choice.ninaRepRequired) {
+        chance = choice.bonusWithNinaRep;
+    }
+    if (user.petId === 'pigeon') chance += ECONOMY.CHECKPOINT_PIGEON_BONUS;
+    return Math.max(0, Math.min(1, chance));
+}
+
+function checkpointSnapshot(user) {
+    return {
+        checkpointAuto: defermentActive(user),
+        checkpointChoices: CHECKPOINT_CHOICES.map((c) => ({
+            id: c.id, emoji: c.emoji, name: c.name, failText: c.failText,
+            chance: Math.round(checkpointChance(user, c) * 100),
+        })),
+    };
+}
+
+app.get('/api/checkpoint', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json({ ...checkpointSnapshot(user), stats: user.checkpointStats });
+});
+
+app.post('/api/checkpoint/pass', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const choice = CHECKPOINT_BY_ID[req.body.choice];
+    if (!choice) return res.json({ success: false, message: 'Невідомий вибір' });
+
+    // Під відстрочкою документи в порядку — питань немає взагалі.
+    const auto = defermentActive(user);
+    const passed = auto || Math.random() < checkpointChance(user, choice);
+
+    let consequence = null;
+    if (!passed) {
+        if (choice.fail === 'heat_notice') {
+            changeHeat(user, ECONOMY.CHECKPOINT_HEAT_DOCS, 'Спалився на блокпосту');
+            // При повній скриньці повістку не видаємо — і чесно про це не звітуємо,
+            // інакше гравець шукав би в списку четверту, якої немає.
+            const issued = (user.notices || []).length < ECONOMY.NOTICE_MAX_ACTIVE;
+            if (issued) {
+                const type = NOTICE_BY_ID['blokpost'];
+                const now = Date.now();
+                user.notices.push({
+                    uid: 'n' + now.toString(36) + Math.floor(Math.random() * 1000).toString(36),
+                    typeId: type.id, issuedAt: now, expiresAt: now + type.ttlH * 3600 * 1000, pushSent: false,
+                });
+                user.noticeStats.received += 1;
+            }
+            consequence = { heat: ECONOMY.CHECKPOINT_HEAT_DOCS, notice: issued };
+        } else if (choice.fail === 'resources') {
+            const lost = loseRandomResources(user, Math.ceil(storageUsed(user) * ECONOMY.CHECKPOINT_RESOURCE_LOSS));
+            consequence = { resourcesLost: lost };
+        } else {
+            changeHeat(user, ECONOMY.CHECKPOINT_HEAT_BABA, 'Не повірили на блокпосту');
+            consequence = { heat: ECONOMY.CHECKPOINT_HEAT_BABA };
+        }
+        user.checkpointStats.failed += 1;
+    } else {
+        user.checkpointStats.passed += 1;
+    }
+
+    res.json({
+        success: true, passed, auto, consequence,
+        message: auto ? 'Показав відстрочку — навіть виходити з машини не довелось.'
+            : passed ? 'Пропустили. Навіть у багажник не заглянули.'
+                : 'Не пройшло.',
+        balance: user.balance, ...storageSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user),
     });
 });
 
@@ -3271,6 +3529,26 @@ function buildHtml(botUsername) {
         .insp-roster-name { font-size: 13px; font-weight: 700; }
         .insp-roster-meta { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
 
+        /* ===== Відстрочки та блокпост ===== */
+        #deferment-screen, #checkpoint-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(4,4,10,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
+        .defer-card.locked { opacity: 0.55; }
+        .defer-head { display: flex; align-items: center; gap: 9px; }
+        .defer-name { font-size: 14px; font-weight: 700; }
+        .defer-dur { margin-left: auto; font-size: 12px; color: var(--gold); white-space: nowrap; }
+        .defer-flavor { font-size: 11px; color: #9fb4c7; font-style: italic; margin: 5px 0 8px; line-height: 1.4; }
+        .defer-cost { font-size: 12px; color: #cfe3f2; margin-bottom: 8px; }
+        .defer-reason { font-size: 11px; color: #ff8a8a; margin-top: 6px; }
+        .defer-active { background: linear-gradient(135deg, rgba(57,255,20,0.16), rgba(57,255,20,0.05)); border: 1px solid rgba(57,255,20,0.5); border-radius: 10px; padding: 12px; margin-bottom: 14px; text-align: center; }
+        .defer-active b { color: #39ff14; }
+        #defer-chip { display: none; align-items: center; gap: 4px; font-size: 11px; background: rgba(57,255,20,0.14); color: #39ff14; border-radius: 20px; padding: 3px 9px; font-weight: 700; }
+        #defer-chip.on { display: inline-flex; }
+        .cp-choice { background: rgba(255,255,255,0.04); border: 2px solid #3a3a4d; border-radius: 10px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
+        .cp-choice:active { border-color: var(--accent); }
+        .cp-head { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
+        .cp-chance { margin-left: auto; font-size: 16px; color: var(--gold); }
+        .cp-fail { font-size: 11px; color: #ff8a8a; margin-top: 6px; }
+
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
         .clickable:active { transform: scale(0.92); }
@@ -3588,6 +3866,7 @@ function buildHtml(botUsername) {
             <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
         </div>
         <div class="energy-lock hidden" id="energy-lock"></div>
+        <div id="defer-chip" onclick="openDeferments()"></div>
         <div class="clan-line hidden" id="clan-line"></div>
     </header>
 
@@ -3828,6 +4107,32 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Відстрочки: паралельна прогресія до Білого Квитка. Одна активна за раз. -->
+    <div id="deferment-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeDeferments()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🎫 Відстрочки</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+                Поки діє відстрочка — повістки не приходять, стуки не діють, блокпост проходиться
+                автоматично. Але й розшук не росте: <b>поки ти невидимий, ти й заробляєш як невидимий</b>.
+            </p>
+            <div id="deferment-active" class="hidden"></div>
+            <div id="deferment-list"></div>
+            <button onclick="closeDeferments()" style="margin-top:8px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Блокпост: переїзд у новий схрон. Шанси показані відкрито. -->
+    <div id="checkpoint-screen" class="hidden">
+        <div class="case-card">
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🚧 Блокпост</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+                Переїзд помітили. Треба якось пояснити, куди це ти зібрався.
+            </p>
+            <div id="checkpoint-body"></div>
+        </div>
+    </div>
+
     <!-- Медкомісія: збери діагноз із трьох карток, перебий скептицизм комісії. -->
     <div id="medcom-screen" class="hidden">
         <div class="case-card">
@@ -3894,6 +4199,9 @@ function buildHtml(botUsername) {
             <div class="invest-banner hidden" id="invest-banner" onclick="openInvestigation()">
                 🐍 <b>Тебе хтось здав.</b> Ти маєш право на одне розслідування — тапни, щоб подивитись на підозрюваних.
             </div>
+            <button class="secondary" onclick="closeNotices(); openDeferments();" style="margin-bottom:12px;">
+                🎫 Відстрочки — щоб повістки не приходили взагалі
+            </button>
             <div id="notices-list"></div>
             <button onclick="closeNotices()" style="margin-top:6px;">Закрити</button>
         </div>
@@ -4011,7 +4319,8 @@ function buildHtml(botUsername) {
             notices: [], noticeStats: null, energyLockUntil: 0, seasonPoints: 0,
             pid: null, snitchStats: null, snitchesLeft: ECONOMY.SNITCH_DAILY_LIMIT,
             investigationPending: false, trophies: [],
-            medcomStats: null, inspectorStats: null, deferUntil: 0,
+            medcomStats: null, inspectorStats: null, checkpointStats: null,
+            deferUntil: 0, defermentId: null, deferments: [],
         };
 
         const ui = {
@@ -4113,6 +4422,15 @@ function buildHtml(botUsername) {
             ui.heatTierLabel.innerText = tier.emoji + ' ' + tier.name;
             ui.heatValue.innerText = 'Розшук: ' + Math.round(state.heat || 0);
             ui.heatWrap.classList.toggle('hot', (state.heat || 0) >= 76);
+
+            // Плашка активної відстрочки з живим таймером. Поки вона світиться —
+            // повістки не приходять, але й розшук не росте.
+            const deferLeft = (state.deferUntil || 0) - Date.now();
+            const chip = document.getElementById('defer-chip');
+            chip.classList.toggle('on', deferLeft > 0);
+            if (deferLeft > 0) chip.innerText = '🎫 Відстрочка: ' + fmtCountdown(deferLeft);
+            const deferCountdown = document.getElementById('defer-countdown');
+            if (deferCountdown && deferLeft > 0) deferCountdown.innerText = fmtCountdown(deferLeft);
 
             // Непочате розслідування теж світиться в бейджі — інакше гравець просто
             // не дізнається, що має право вирахувати того, хто його здав.
@@ -4314,6 +4632,141 @@ function buildHtml(botUsername) {
             tg.showAlert('🏅 Досягнення: ' + list.map(a => a.name + ' (+' + a.reward + ' ТК)').join(', '));
             renderAchievements();
         }
+
+        // Українське відмінювання: 1 доба, 2-4 доби, 5+ діб.
+        function plural(n, one, few, many) {
+            const mod100 = n % 100, mod10 = n % 10;
+            if (mod100 >= 11 && mod100 <= 14) return n + ' ' + many;
+            if (mod10 === 1) return n + ' ' + one;
+            if (mod10 >= 2 && mod10 <= 4) return n + ' ' + few;
+            return n + ' ' + many;
+        }
+
+        // ===== Відстрочки =====
+        window.openDeferments = async () => {
+            try {
+                const data = await apiFetch('/api/deferments?id=' + user.id).then(r => r.json());
+                renderDeferments(data);
+                document.getElementById('deferment-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити відстрочки'); }
+        };
+        window.closeDeferments = () => document.getElementById('deferment-screen').classList.add('hidden');
+
+        function renderDeferments(data) {
+            state.deferUntil = data.deferUntil || 0;
+            state.defermentId = data.defermentId || null;
+            state.deferments = data.deferments;
+
+            const activeBox = document.getElementById('deferment-active');
+            const active = state.deferUntil > Date.now();
+            activeBox.classList.toggle('hidden', !active);
+            if (active) {
+                const def = (data.deferments || []).find(d => d.id === data.defermentId);
+                activeBox.className = 'defer-active';
+                activeBox.innerHTML = '<b>' + (def ? def.emoji + ' ' + esc(def.name) : 'Відстрочка діє') + '</b><br>' +
+                    '<span style="font-size:12px; color:#9fb4c7;">Лишилось: <b id="defer-countdown">' +
+                    fmtCountdown(state.deferUntil - Date.now()) + '</b></span>';
+            }
+
+            document.getElementById('deferment-list').innerHTML = data.deferments.map(d => {
+                let cost;
+                if (d.cost.stars) cost = '💰 ' + d.cost.stars + ' ⭐';
+                else if (d.cost.tk) cost = '💰 ' + fmtNum(d.cost.tk) + ' ТК';
+                else if (d.cost.clanLevel) cost = '🏘️ Чат ОСББ ' + d.cost.clanLevel + ' рівня';
+                else cost = '📦 ' + Object.entries(d.cost.res || {})
+                    .map(([r, q]) => (RESOURCE_BY_ID[r] ? RESOURCE_BY_ID[r].emoji + ' ' + RESOURCE_BY_ID[r].name : r) + ' ×' + q)
+                    .join(', ');
+                const dur = d.hours >= 24 ? plural(Math.round(d.hours / 24), 'доба', 'доби', 'діб') : d.hours + ' год';
+                const btn = d.cost.stars
+                    ? '<button onclick="buyDefermentStars(\\'' + d.id + '\\')">Купити за ' + d.cost.stars + ' ⭐</button>'
+                    : '<button onclick="buyDeferment(\\'' + d.id + '\\')"' + (d.can ? '' : ' disabled') + '>Оформити</button>';
+                return '<div class="defer-card' + (d.can || d.cost.stars ? '' : ' locked') + '">' +
+                    '<div class="defer-head"><span style="font-size:22px;">' + d.emoji + '</span>' +
+                    '<span class="defer-name">' + esc(d.name) + '</span>' +
+                    '<span class="defer-dur">' + dur + '</span></div>' +
+                    '<div class="defer-flavor">«' + esc(d.flavor) + '»</div>' +
+                    '<div class="defer-cost">' + cost + '</div>' + btn +
+                    (!d.can && d.reason ? '<div class="defer-reason">' + esc(d.reason) + '</div>' : '') +
+                    '</div>';
+            }).join('');
+        }
+
+        window.buyDeferment = async (id) => {
+            const res = await apiFetch('/api/deferment/buy', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, defermentId: id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (data.resources) state.resources = data.resources;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('✅ ' + data.message);
+            if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
+            renderDeferments(data);
+            renderStorage();
+            updateUI();
+        };
+
+        window.buyDefermentStars = async (id) => {
+            const res = await apiFetch('/api/invoice', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, type: 'deferment', defermentId: id }),
+            });
+            const data = await res.json();
+            if (!data.link) return tg.showAlert('Не вдалося створити рахунок');
+            tg.openInvoice(data.link, (status) => {
+                if (status === 'paid') tg.showAlert('✅ Оплачено! Відстрочка активна — перезайди в гру.');
+            });
+        };
+
+        // ===== Блокпост =====
+        window.openCheckpoint = async () => {
+            try {
+                const data = await apiFetch('/api/checkpoint?id=' + user.id).then(r => r.json());
+                renderCheckpoint(data);
+                document.getElementById('checkpoint-screen').classList.remove('hidden');
+            } catch (e) { /* блокпост не критичний — не блокуємо переїзд */ }
+        };
+        window.closeCheckpoint = () => document.getElementById('checkpoint-screen').classList.add('hidden');
+
+        function renderCheckpoint(data) {
+            const box = document.getElementById('checkpoint-body');
+            if (data.checkpointAuto) {
+                // Під відстрочкою вибору немає — і це приємно.
+                box.innerHTML = '<div class="defer-active"><b>🎫 У тебе відстрочка</b><br>' +
+                    '<span style="font-size:12px; color:#9fb4c7;">Показав папірець — навіть виходити з машини не довелось.</span></div>' +
+                    '<button onclick="passCheckpoint(\\'auto\\')">Їхати далі</button>';
+                return;
+            }
+            box.innerHTML = data.checkpointChoices.map(c =>
+                '<div class="cp-choice" onclick="passCheckpoint(\\'' + c.id + '\\')">' +
+                '<div class="cp-head"><span style="font-size:22px;">' + c.emoji + '</span>' +
+                '<span>' + esc(c.name) + '</span><span class="cp-chance">' + c.chance + '%</span></div>' +
+                '<div class="cp-fail">Провал: ' + esc(c.failText) + '</div></div>'
+            ).join('');
+        }
+
+        window.passCheckpoint = async (choice) => {
+            const res = await apiFetch('/api/checkpoint/pass', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, choice: choice === 'auto' ? 'docs' : choice }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            closeCheckpoint();
+            absorbHeat(data);
+            if (data.resources) state.resources = data.resources;
+            tg.HapticFeedback.notificationOccurred(data.passed ? 'success' : 'error');
+            let msg = (data.passed ? '✅ ' : '❌ ') + data.message;
+            const c = data.consequence;
+            if (c && c.heat) msg += '\\n+' + c.heat + ' до розшуку';
+            if (c && c.notice) msg += '\\nІ повістка просто тут, на місці';
+            if (c && c.resourcesLost) msg += '\\nЗагубив ресурсів: ' + c.resourcesLost;
+            tg.showAlert(msg);
+            renderStorage();
+            updateUI();
+        };
 
         // ===== Медкомісія =====
         let medcomHand = null;
@@ -4840,7 +5293,10 @@ function buildHtml(botUsername) {
                 state.trophies = data.trophies || [];
                 state.medcomStats = data.medcomStats || null;
                 state.inspectorStats = data.inspectorStats || null;
+                state.checkpointStats = data.checkpointStats || null;
                 state.deferUntil = data.deferUntil || 0;
+                state.defermentId = data.defermentId || null;
+                state.deferments = data.deferments || [];
                 absorbHeat(data);
                 absorbInspector(data);
                 // Поки тебе не було, хтось вирахував твій стук і забрав компенсацію.
@@ -5024,6 +5480,7 @@ function buildHtml(botUsername) {
         // Тут лишились разові покупки: енергетик і переїзди між локаціями.
         window.buy = (item, price) => {
             if (state.balance < price) return tg.showAlert('Недостатньо ТК!');
+            const levelBefore = state.level;
             state.balance -= price;
             if (item === 'energy_drink') state.energy = state.maxEnergy;
             if (item === 'basement' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
@@ -5034,6 +5491,9 @@ function buildHtml(botUsername) {
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
             saveState();
+            // Переїзд — це подія, а не транзакція: на виїзді стоїть блокпост.
+            // Локація вже куплена, блокпост впливає лише на "ціну переїзду".
+            if (item !== 'energy_drink' && levelBefore !== state.level) openCheckpoint();
         };
 
         // ===== Компаньйони =====
