@@ -218,6 +218,12 @@ const ECONOMY = {
     // --- Офлайн-звіт ---
     OFFLINE_REPORT_MIN_MS: 15 * 60 * 1000, // показуємо, лише якщо не було 15+ хвилин
     OFFLINE_LOG_SIZE: 12,
+
+    // --- Репутація з районом ---
+    REP_MAX: 100,
+    REP_TOLIK_SELL_BONUS: 0.40,   // преміум-лот біржі на 100 репи
+    REP_OKSANA_HEAT_CUT: 0.20,    // -20% приросту розшуку на 100 репи
+    REP_NINA_MAX_ENERGY: 50,      // "Бабусина заготовка" на 100 репи
 };
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
@@ -382,6 +388,56 @@ const SKILL_BRANCHES = [
         ],
     },
 ];
+// Репутація з районом: чотири NPC, у кожного щоденний квест і постійний перк
+// на 100 репутації. Квести рахуються з уже наявних денних лічильників.
+//
+// Волонтерка Оксана тут не для галочки: наявність персонажа, якому вигідно
+// ДОПОМАГАТИ, робить сатиру не однобокою і рятує гру від відчуття, що вона
+// тупо прославляє ухиляння. Її гілка має бути реально корисною.
+const REPUTATION_NPCS = [
+    {
+        id: 'nina', emoji: '🧓', name: 'Баба Ніна',
+        about: 'Знає всіх у дворі й усе про всіх. Підгодовує і прикриває.',
+        quests: [
+            { id: 'nina_cans', text: 'Занеси бабі 5 консервів', type: 'donate', res: 'cans', target: 5, rep: 15 },
+            { id: 'nina_meds', text: 'Занеси бабі 2 упаковки ліків', type: 'donate', res: 'meds', target: 2, rep: 15 },
+            { id: 'nina_quiet', text: 'Посидь удома: жодної вилазки за добу', type: 'metric', metric: 'expeditionsToday', max: 0, rep: 12 },
+        ],
+        perk: 'Рецепт «Бабусина заготовка»: +50 до макс. енергії назавжди',
+    },
+    {
+        id: 'tolik', emoji: '💰', name: 'Перекуп Толік',
+        about: 'Купує все. Продає все. Питань не задає, але й ціну не завищує.',
+        quests: [
+            { id: 'tolik_volume', text: 'Наторгуй на біржі на 50 000 ТК', type: 'metric', metric: 'dailyTradeVolume', target: 50000, rep: 15 },
+            { id: 'tolik_paper', text: 'Назбирай 20 ресурсів за добу', type: 'metric', metric: 'dailyResources', target: 20, rep: 12 },
+            { id: 'tolik_trades', text: 'Зроби 5 угод на біржі', type: 'metric', metric: 'dailyTrades', target: 5, rep: 12 },
+        ],
+        perk: 'Преміум-лот: ще +40% до ціни продажу на біржі',
+    },
+    {
+        id: 'mykola', emoji: '👮', name: 'Дільничний Микола',
+        about: 'Формально при виконанні. Фактично — теж людина, і теж стомився.',
+        quests: [
+            { id: 'mykola_raids', text: 'Переживи 2 облави за добу', type: 'metric', metric: 'dailyRaids', target: 2, rep: 15 },
+            { id: 'mykola_bribe', text: 'Виріши питання по-хорошому (1 хабар)', type: 'metric', metric: 'dailyBribes', target: 1, rep: 15 },
+            { id: 'mykola_quiet', text: 'Протримай розшук нижче 30', type: 'metric', metric: 'heatNow', max: 30, rep: 12 },
+        ],
+        perk: '«Прикриття»: одне безкоштовне зняття повістки на добу',
+    },
+    {
+        id: 'oksana', emoji: '🎗️', name: 'Волонтерка Оксана',
+        about: 'Возить туди, куди ти дуже не хочеш. Просить небагато і завжди дякує.',
+        quests: [
+            { id: 'oksana_meds', text: 'Здай на волонтерку 3 упаковки ліків', type: 'donate', res: 'meds', target: 3, rep: 18 },
+            { id: 'oksana_cans', text: 'Здай на волонтерку 10 консервів', type: 'donate', res: 'cans', target: 10, rep: 15 },
+            { id: 'oksana_fuel', text: 'Здай на волонтерку 5 каністр пального', type: 'donate', res: 'fuel', target: 5, rep: 20 },
+        ],
+        perk: 'Титул «Не такий вже й падлюка» і постійні −20% до приросту розшуку',
+    },
+];
+const NPC_BY_ID = Object.fromEntries(REPUTATION_NPCS.map((n) => [n.id, n]));
+
 const SKILL_BY_ID = {};
 for (const br of SKILL_BRANCHES) {
     br.skills.forEach((s, i) => { SKILL_BY_ID[s.id] = { ...s, branchId: br.id, index: i }; });
@@ -1056,7 +1112,12 @@ function createFreshUser(id, name) {
         defermentId: null,          // яка саме відстрочка активна
         defermentsTaken: 0,
         checkpointStats: { passed: 0, failed: 0 },
-        reputation: { nina: 0, tolik: 0, mykola: 0, oksana: 0 }, // NPC-репутація — Фаза 6
+        reputation: { nina: 0, tolik: 0, mykola: 0, oksana: 0 },
+        claimedRepQuests: [],       // які щоденні квести NPC уже здані сьогодні
+        dailyTradeVolume: 0,
+        dailyBribes: 0,
+        dailyDonated: 0,
+        mykolaCoverUsed: false,     // "Прикриття" від дільничного — раз на добу
         lastBribeAt: 0,             // слабкість Валіка: чи "вирішував питання" нещодавно
         inspector: null,            // { id, hp, hpMax, endsAt } — активний бос
         inspectorStats: { defeated: {}, lost: 0 },
@@ -1159,6 +1220,13 @@ function migrateUser(user) {
     if (typeof user.defermentsTaken !== 'number') user.defermentsTaken = 0;
     if (typeof user.checkpointStats !== 'object' || user.checkpointStats === null) user.checkpointStats = { passed: 0, failed: 0 };
     if (typeof user.reputation !== 'object' || user.reputation === null) user.reputation = { nina: 0, tolik: 0, mykola: 0, oksana: 0 };
+    for (const npc of REPUTATION_NPCS) {
+        if (typeof user.reputation[npc.id] !== 'number') user.reputation[npc.id] = 0;
+    }
+    if (!Array.isArray(user.claimedRepQuests)) user.claimedRepQuests = [];
+    if (typeof user.dailyTradeVolume !== 'number') user.dailyTradeVolume = 0;
+    if (typeof user.dailyBribes !== 'number') user.dailyBribes = 0;
+    if (typeof user.dailyDonated !== 'number') user.dailyDonated = 0;
     if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
     if (typeof user.lastSeenAt !== 'number') user.lastSeenAt = 0;
     if (!Array.isArray(user.offlineLog)) user.offlineLog = [];
@@ -1307,6 +1375,11 @@ function resetDailyIfNeeded(user) {
         user.dailyResources = 0;
         user.claimedQuests = [];
         user.snitchesToday = 0;
+        user.dailyTradeVolume = 0;
+        user.dailyBribes = 0;
+        user.dailyDonated = 0;
+        user.claimedRepQuests = [];
+        user.mykolaCoverUsed = false;
     }
 }
 
@@ -1406,6 +1479,8 @@ function changeHeat(user, delta, reason) {
     if (delta > 0 && (user.deferUntil || 0) > Date.now()) return 0;
     if (delta > 0 && user.petId === 'neighbor') delta *= ECONOMY.HEAT_NEIGHBOR_MULT;
     if (delta > 0 && hasSkill(user, 'quiet')) delta *= (1 - ECONOMY.SKILL_HEAT_GAIN_CUT);
+    // Оксана замовила за тебе слівце — про тебе згадують рідше.
+    if (delta > 0 && repMaxed(user, 'oksana')) delta *= (1 - ECONOMY.REP_OKSANA_HEAT_CUT);
     const before = user.heat || 0;
     const after = Math.max(0, Math.min(ECONOMY.HEAT_MAX, before + delta));
     user.heat = after;
@@ -2101,8 +2176,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         medcomStats: user.medcomStats,
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
+        mykolaCoverUsed: !!user.mykolaCoverUsed,
         ...defermentSnapshot(user),
         ...skillsSnapshot(user),
+        ...reputationSnapshot(user),
         ...inspectorSnapshot(user),
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
@@ -2188,8 +2265,14 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // новому контейнері). Викликається лише коли сервер бачить "свіжого" гравця (без
 // прогресу), а в CloudStorage лежить копія зі старим прогресом. Без анти-чіт перевірок —
 // жартівливий проєкт для друзів, довіряємо клієнту так само, як і в /api/save.
-const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount'];
-const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems'];
+// Усе, що гравець заробив і що має пережити скидання диска Render. Додаєш нове
+// поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
+// поверне гравця без нього.
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed'];
+const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
+// Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
+// щоб бекап не міг підсунути довільну структуру.
+const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
@@ -2206,6 +2289,30 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
     }
     for (const f of RESTORE_ARRAY_FIELDS) {
         if (Array.isArray(backup[f])) user[f] = backup[f];
+    }
+    // Словники відновлюємо по ключах, які ВЖЕ є у гравця: так бекап не може
+    // ані додати невідому навичку, ані підсунути об'єкт замість числа.
+    for (const f of RESTORE_MAP_FIELDS) {
+        const src = backup[f];
+        if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+        for (const key of Object.keys(user[f] || {})) {
+            const v = src[key];
+            if (typeof v === 'number' && isFinite(v)) user[f][key] = v;
+            else if (typeof v === 'boolean') user[f][key] = v;
+        }
+    }
+    // Навички — окремо: ключів у свіжого гравця немає, тому звіряємось із каталогом.
+    if (backup.skills && typeof backup.skills === 'object') {
+        for (const id of Object.keys(SKILL_BY_ID)) {
+            if (backup.skills[id]) user.skills[id] = true;
+        }
+    }
+    // maxEnergy із бекапу ВЖЕ містить бонус від «Загартованого», тому лише
+    // синхронізуємо бухгалтерію, не чіпаючи саме число: інакше applySkillLimits
+    // нарахував би ці +25 удруге.
+    user.skillEnergyBonus = hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0;
+    if (typeof backup.defermentId === 'string' && DEFERMENT_BY_ID[backup.defermentId]) {
+        user.defermentId = backup.defermentId;
     }
     if (backup.petId === null || typeof backup.petId === 'string') user.petId = backup.petId;
     if (backup.equippedCosmetics && typeof backup.equippedCosmetics === 'object') {
@@ -2710,13 +2817,22 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
     let message = '';
     let penalty = null;
 
-    if (method === 'bribe') {
+    if (method === 'cover') {
+        // «Прикриття» від дільничного Миколи: раз на добу він просто не дає ходу
+        // папірцю. Розшук при цьому не падає — питання не вирішене, а відкладене.
+        if (!repMaxed(user, 'mykola')) return res.json({ success: false, message: 'Микола тебе ще недостатньо знає' });
+        if (user.mykolaCoverUsed) return res.json({ success: false, message: 'Микола вже прикрив тебе сьогодні' });
+        user.mykolaCoverUsed = true;
+        resolved = true;
+        message = 'Микола глянув на папірець і поклав його в найнижчу шухляду.';
+    } else if (method === 'bribe') {
         const cost = noticeBribeCost(user, type);
         if (user.balance < cost) return res.json({ success: false, message: 'Не вистачає ТК, щоб "вирішити питання"' });
         user.balance -= cost;
         changeHeat(user, -ECONOMY.HEAT_BRIBE_DISCOUNT, 'Вирішив питання');
         // Валік Настирливий якраз і ловиться на тих, хто вже сьогодні "вирішував".
         user.lastBribeAt = Date.now();
+        user.dailyBribes = (user.dailyBribes || 0) + 1;
         resolved = true;
         message = `Питання вирішено за ${cost.toLocaleString('uk-UA')} ТК. Про тебе трохи забули.`;
     } else if (method === 'spravka') {
@@ -2755,6 +2871,109 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
         seasonPoints: user.seasonPoints, ...storageSnapshot(user),
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
+// ---- Репутація з районом ----
+function repOf(user, npcId) { return (user.reputation || {})[npcId] || 0; }
+function repMaxed(user, npcId) { return repOf(user, npcId) >= ECONOMY.REP_MAX; }
+
+// Квест дня обирається детерміновано від дати й id NPC — в усіх гравців він
+// однаковий і його не можна «перекрутити», перезайшовши в гру.
+function dailyQuestFor(npc, date = new Date()) {
+    const seed = Number(`${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}`) + npc.id.length;
+    return npc.quests[seed % npc.quests.length];
+}
+
+// Значення метрики для квестів, яких немає серед звичайних денних лічильників.
+function questMetric(user, metric) {
+    if (metric === 'heatNow') return Math.round(user.heat || 0);
+    if (metric === 'expeditionsToday') return (user.expeditions || []).length;
+    return user[metric] || 0;
+}
+
+function questProgress(user, quest) {
+    if (quest.type === 'donate') {
+        return { have: user.resources[quest.res] || 0, need: quest.target, invert: false };
+    }
+    if (typeof quest.max === 'number') {
+        // Квест «не перевищ»: виконаний, поки показник не більший за поріг.
+        return { have: questMetric(user, quest.metric), need: quest.max, invert: true };
+    }
+    return { have: questMetric(user, quest.metric), need: quest.target, invert: false };
+}
+
+function questDone(user, quest) {
+    const p = questProgress(user, quest);
+    return p.invert ? p.have <= p.need : p.have >= p.need;
+}
+
+function reputationSnapshot(user) {
+    return {
+        reputation: user.reputation,
+        repMax: ECONOMY.REP_MAX,
+        claimedRepQuests: user.claimedRepQuests || [],
+        npcs: REPUTATION_NPCS.map((npc) => {
+            const quest = dailyQuestFor(npc);
+            const p = questProgress(user, quest);
+            return {
+                id: npc.id, emoji: npc.emoji, name: npc.name, about: npc.about, perk: npc.perk,
+                rep: repOf(user, npc.id), maxed: repMaxed(user, npc.id),
+                quest: {
+                    id: quest.id, text: quest.text, rep: quest.rep, type: quest.type,
+                    res: quest.res || null, have: p.have, need: p.need, invert: p.invert,
+                    done: questDone(user, quest),
+                    claimed: (user.claimedRepQuests || []).includes(quest.id),
+                },
+            };
+        }),
+    };
+}
+
+app.get('/api/reputation', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    res.json(reputationSnapshot(user));
+});
+
+app.post('/api/reputation/claim', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    resetDailyIfNeeded(user);
+    const npc = NPC_BY_ID[req.body.npcId];
+    if (!npc) return res.json({ success: false, message: 'Такого в районі не знають' });
+    const quest = dailyQuestFor(npc);
+    if ((user.claimedRepQuests || []).includes(quest.id)) {
+        return res.json({ success: false, message: 'Сьогодні вже допоміг. Приходь завтра.' });
+    }
+    if (!questDone(user, quest)) return res.json({ success: false, message: 'Ще не виконано' });
+
+    // Ресурсні квести — це саме ВІДДАТИ: ресурси списуються безповоротно.
+    if (quest.type === 'donate') {
+        user.resources[quest.res] -= quest.target;
+        if (user.resources[quest.res] <= 0) delete user.resources[quest.res];
+        user.dailyDonated = (user.dailyDonated || 0) + quest.target;
+    }
+
+    const before = repOf(user, npc.id);
+    user.reputation[npc.id] = Math.min(ECONOMY.REP_MAX, before + quest.rep);
+    user.claimedRepQuests.push(quest.id);
+
+    // Перк «Бабусина заготовка» — постійний бонус до енергії, тому видаємо його
+    // рівно один раз, у момент, коли репутація вперше досягла максимуму.
+    let perkUnlocked = null;
+    if (before < ECONOMY.REP_MAX && repMaxed(user, npc.id)) {
+        perkUnlocked = npc.perk;
+        if (npc.id === 'nina') {
+            user.maxEnergy += ECONOMY.REP_NINA_MAX_ENERGY;
+            user.energy = user.maxEnergy;
+        }
+    }
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, message: `${npc.emoji} ${npc.name}: дякую! +${quest.rep} репутації`,
+        perkUnlocked, maxEnergy: user.maxEnergy, energy: user.energy,
+        unlockedAchievements: unlocked, ...reputationSnapshot(user), ...storageSnapshot(user),
     });
 });
 
@@ -3550,7 +3769,11 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
     const price = marketState.prices[assetId];
     // «Знайомий перекуп» піднімає лише ціну ПРОДАЖУ: якби він діяв і на купівлю,
     // це була б просто знижка на все, а не звʼязок із конкретним баригою.
-    const sellPrice = hasSkill(user, 'dealer') ? Math.round(price * (1 + ECONOMY.SKILL_SELL_BONUS)) : price;
+    // Толік на максимальній репутації відкриває преміум-лот — це складається
+    // з навичкою «Знайомий перекуп».
+    const sellMult = 1 + (hasSkill(user, 'dealer') ? ECONOMY.SKILL_SELL_BONUS : 0)
+        + (repMaxed(user, 'tolik') ? ECONOMY.REP_TOLIK_SELL_BONUS : 0);
+    const sellPrice = Math.round(price * sellMult);
     const total = (action === 'sell' ? sellPrice : price) * quantity;
 
     if (action === 'buy') {
@@ -3574,6 +3797,7 @@ app.post('/api/market/trade', requireTelegramAuth, (req, res) => {
     }
     user.tradesCount += 1;
     user.dailyTrades += 1;
+    user.dailyTradeVolume = (user.dailyTradeVolume || 0) + total;
     const unlocked = checkAchievements(user);
     res.json({
         success: true, balance: user.balance, price: action === 'sell' ? sellPrice : price,
@@ -3880,6 +4104,21 @@ function buildHtml(botUsername) {
         .offline-line { display: flex; align-items: center; gap: 9px; font-size: 13px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
         .offline-line b { margin-left: auto; color: var(--gold); white-space: nowrap; }
         .offline-line.bad b { color: #ff8a8a; }
+
+        /* ===== Репутація з районом ===== */
+        #reputation-screen { position: fixed; inset: 0; z-index: 1770; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .npc-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 11px; padding: 12px; margin-bottom: 11px; }
+        .npc-card.maxed { border-color: rgba(255,215,0,0.55); background: rgba(255,215,0,0.07); }
+        .npc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+        .npc-name { font-size: 15px; font-weight: 800; }
+        .npc-rep { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--gold); }
+        .npc-about { font-size: 11px; color: #9fb4c7; font-style: italic; line-height: 1.4; margin-bottom: 8px; }
+        .npc-quest { background: rgba(0,0,0,0.25); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; }
+        .npc-quest-text { font-size: 12px; margin-bottom: 6px; }
+        .npc-quest-prog { font-size: 11px; color: #9fb4c7; }
+        .npc-quest-prog.done { color: #39ff14; font-weight: 700; }
+        .npc-perk { font-size: 11px; color: #cfe3f2; background: rgba(255,255,255,0.05); border-radius: 7px; padding: 7px 9px; margin-top: 7px; }
+        .npc-perk.on { color: #ffd700; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -4440,6 +4679,20 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Репутація з районом: чотири NPC, щоденні квести, постійні перки на 100. -->
+    <div id="reputation-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeReputation()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🤝 Район</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+                Люди навколо теж чогось хочуть. Допомагаєш — вони памʼятають.
+                На 100 репутації кожен дає щось назавжди.
+            </p>
+            <div id="npc-list"></div>
+            <button onclick="closeReputation()" style="margin-top:6px;">Закрити</button>
+        </div>
+    </div>
+
     <!-- Офлайн-звіт: що сталось, поки гра була закрита. -->
     <div id="offline-report" class="hidden">
         <div class="case-card">
@@ -4557,8 +4810,11 @@ function buildHtml(botUsername) {
             <div class="invest-banner hidden" id="invest-banner" onclick="openInvestigation()">
                 🐍 <b>Тебе хтось здав.</b> Ти маєш право на одне розслідування — тапни, щоб подивитись на підозрюваних.
             </div>
-            <button class="secondary" onclick="closeNotices(); openDeferments();" style="margin-bottom:12px;">
+            <button class="secondary" onclick="closeNotices(); openDeferments();" style="margin-bottom:8px;">
                 🎫 Відстрочки — щоб повістки не приходили взагалі
+            </button>
+            <button class="secondary" onclick="closeNotices(); openReputation();" style="margin-bottom:12px;">
+                🤝 Район — люди, які можуть за тебе заступитись
             </button>
             <div id="notices-list"></div>
             <button onclick="closeNotices()" style="margin-top:6px;">Закрити</button>
@@ -4680,6 +4936,7 @@ function buildHtml(botUsername) {
             medcomStats: null, inspectorStats: null, checkpointStats: null,
             deferUntil: 0, defermentId: null, deferments: [],
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
+            reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
         };
 
         const ui = {
@@ -4926,6 +5183,7 @@ function buildHtml(botUsername) {
             }
             const now = Date.now();
             const hasSpravka = (state.shieldUntil || 0) > now;
+            const hasCover = ((state.reputation || {}).mykola || 0) >= ECONOMY.REP_MAX;
             list.innerHTML = notices.map(n => {
                 const type = NOTICE_BY_ID[n.typeId];
                 if (!type) return '';
@@ -4945,7 +5203,12 @@ function buildHtml(botUsername) {
                     '<div class="notice-threat">' + noticeThreatText(type) + '</div>' +
                     btn('bribe', '💵 Вирішити питання', n.bribeCost.toLocaleString('uk-UA') + ' ТК · −' + ECONOMY.HEAT_BRIBE_DISCOUNT + ' розшуку') +
                     btn('spravka', '📄 Липова довідка', hasSpravka ? ('витратить щит · −' + ECONOMY.HEAT_SPRAVKA_DISCOUNT + ' розшуку') : 'немає активної', !hasSpravka) +
-                    btn('medcom', '🏥 Медкомісія', Math.round(ECONOMY.NOTICE_MEDCOM_SUCCESS * 100) + '% успіху · безкоштовно') +
+                    btn('medcom', '🏥 Медкомісія', 'міні-гра · безкоштовно') +
+                    // Кнопку «Прикриття» показуємо лише тим, хто дійшов до 100 репутації
+                    // з дільничним — решті вона нічого не пояснює.
+                    (hasCover ? btn('cover', '👮 Прикриття від Миколи',
+                        state.mykolaCoverUsed ? 'сьогодні вже прикривав' : 'безкоштовно, раз на добу',
+                        state.mykolaCoverUsed) : '') +
                     btn('hide', '🏃 Сховатись', Math.round(ECONOMY.NOTICE_HIDE_SUCCESS * 100) + '% · вся енергія') +
                     btn('ignore', '😐 Ігнорувати', 'таймер тікає далі') +
                 '</div>';
@@ -5001,6 +5264,68 @@ function buildHtml(botUsername) {
             if (mod10 >= 2 && mod10 <= 4) return n + ' ' + few;
             return n + ' ' + many;
         }
+
+        // ===== Репутація з районом =====
+        window.openReputation = async () => {
+            try {
+                const data = await apiFetch('/api/reputation?id=' + user.id).then(r => r.json());
+                renderReputation(data);
+                document.getElementById('reputation-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити район'); }
+        };
+        window.closeReputation = () => document.getElementById('reputation-screen').classList.add('hidden');
+
+        function renderReputation(data) {
+            state.reputation = data.reputation || {};
+            document.getElementById('npc-list').innerHTML = data.npcs.map(n => {
+                const q = n.quest;
+                const pct = Math.round(100 * n.rep / data.repMax);
+                let prog;
+                if (q.claimed) prog = '✅ Сьогодні вже допоміг';
+                else if (q.invert) prog = (q.done ? '✅ ' : '❌ ') + 'зараз ' + q.have + ' (треба не більше ' + q.need + ')';
+                else prog = q.have + ' / ' + q.need + (q.done ? ' ✅' : '');
+
+                const btn = n.maxed
+                    ? ''
+                    : '<button onclick="claimRep(\\'' + n.id + '\\')"' +
+                      (q.done && !q.claimed ? '' : ' disabled') + '>' +
+                      (q.claimed ? 'Приходь завтра' : (q.type === 'donate' ? 'Віддати й отримати +' + q.rep : 'Отримати +' + q.rep)) +
+                      '</button>';
+
+                return '<div class="npc-card' + (n.maxed ? ' maxed' : '') + '">' +
+                    '<div class="npc-head"><span style="font-size:26px;">' + n.emoji + '</span>' +
+                    '<span class="npc-name">' + esc(n.name) + '</span>' +
+                    '<span class="npc-rep">' + n.rep + ' / ' + data.repMax + '</span></div>' +
+                    '<div class="npc-about">«' + esc(n.about) + '»</div>' +
+                    '<div class="storage-bar" style="margin-bottom:9px;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
+                    (n.maxed ? '' :
+                        '<div class="npc-quest"><div class="npc-quest-text">' + esc(q.text) + '</div>' +
+                        '<div class="npc-quest-prog' + (q.done ? ' done' : '') + '">' + esc(prog) + '</div></div>') +
+                    btn +
+                    '<div class="npc-perk' + (n.maxed ? ' on' : '') + '">' +
+                    (n.maxed ? '🏅 ' : '🔒 ') + esc(n.perk) + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.claimRep = async (npcId) => {
+            const res = await apiFetch('/api/reputation/claim', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, npcId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            if (data.resources) state.resources = data.resources;
+            if (typeof data.maxEnergy === 'number') state.maxEnergy = data.maxEnergy;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert(data.message + (data.perkUnlocked ? '\\n\\n🏅 Відкрито назавжди: ' + data.perkUnlocked : ''));
+            if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
+            renderReputation(data);
+            renderStorage();
+            updateUI();
+            saveState();
+        };
 
         // ===== Офлайн-звіт =====
         // Раніше гравець після повернення просто бачив іншу цифру балансу й не
@@ -5679,6 +6004,13 @@ function buildHtml(botUsername) {
                 expeditionsDone: state.expeditionsDone,
                 totalEarned: state.totalEarned,
                 prestigePoints: state.prestigePoints, prestigeCount: state.prestigeCount,
+                // Прогрес розширення 2.0 теж має пережити скидання диска Render.
+                heat: state.heat, seasonPoints: state.seasonPoints, deceivedCount: state.deceivedCount,
+                deferUntil: state.deferUntil, defermentId: state.defermentId,
+                skills: state.skills,
+                reputation: state.reputation, trophies: state.trophies,
+                snitchStats: state.snitchStats, medcomStats: state.medcomStats,
+                checkpointStats: state.checkpointStats,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -5757,6 +6089,8 @@ function buildHtml(botUsername) {
                 state.pid = data.pid || null;
                 state.skills = data.skills || {};
                 state.skillPoints = data.skillPoints || 0;
+                state.reputation = data.reputation || {};
+                state.mykolaCoverUsed = !!data.mykolaCoverUsed;
                 state.snitchStats = data.snitchStats || null;
                 state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
                 state.investigationPending = !!data.investigationPending;
