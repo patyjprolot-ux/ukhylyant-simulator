@@ -164,7 +164,92 @@ const ECONOMY = {
     SNITCH_STEAL_CAP_PER_LEVEL: 8000,
     SNITCH_CAUGHT_SEASON_POINTS: 5,
     SNITCH_HISTORY_SIZE: 10,
+
+    // --- Медкомісія: збираємо "діагноз" із карток симптомів ---
+    MEDCOM_HAND_SIZE: 5,
+    MEDCOM_PICK: 3,
+    MEDCOM_BASE_SKEPTICISM: 100,   // + поточний heat: чим ти помітніший, тим менше віри
+    MEDCOM_REROLL_COST: 800,
+    MEDCOM_REROLL_MAX: 2,
+    MEDCOM_STAMP_BONUS: 25,
+    MEDCOM_MEDS_BONUS: 15,
+    MEDCOM_MEDS_QTY: 3,
+    MEDCOM_CAT_BONUS: 10,          // Кіт-антистрес: виглядаєш переконливо змученим
+    MEDCOM_REPEAT_PENALTY: 20,     // "ви вже приходили з цим" — змушує варіювати
+    MEDCOM_DEFER_H: 12,
+    MEDCOM_SEASON_POINTS: 3,
+
+    // --- Інспектори ТЦК (боси) ---
+    INSPECTOR_SPAWN_CHANCE: 0.12,
+    INSPECTOR_COOLDOWN_H: 6,
+    INSPECTOR_ENERGY_PER_CLICK: 3,
+    INSPECTOR_BATCH_MS: 500,
+    INSPECTOR_MAX_CPS: 30,         // анти-чіт: більше 30 кліків/сек не буває навіть у автоклікера
+    INSPECTOR_WEAKNESS_MULT: 2,
+    INSPECTOR_LOSE_HEAT: 10,
+    INSPECTOR_BRIBE_WINDOW_MIN: 30, // "за сесію був хабар" = хабар за останні 30 хв
+    INSPECTOR_SPEED_CPS: 6,
+    INSPECTOR_CHARM_MIN_PRICE: 2000, // косметика тіру 3+ визначається ціною
 };
+
+// Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
+// карток брала базовий скептицизм 100, але на високому heat уже не вистачало —
+// саме тоді й потрібні бонуси з кладовки.
+const SYMPTOMS = [
+    { id: 'ploskostopist', name: 'Плоскостопість 3 ступеня', emoji: '🦶', power: 45, weight: 12 },
+    { id: 'skolioz', name: 'Сколіоз як у знака питання', emoji: '🦴', power: 50, weight: 11 },
+    { id: 'alergiya', name: 'Алергія на камуфляж', emoji: '🤧', power: 35, weight: 12 },
+    { id: 'tysk', name: 'Тиск 200 на 140 (виміряв сам)', emoji: '🩸', power: 40, weight: 12 },
+    { id: 'zir', name: 'Мінус вісім (окуляри забув)', emoji: '👓', power: 42, weight: 12 },
+    { id: 'panika', name: 'Панічні атаки в чергах', emoji: '😰', power: 55, weight: 9 },
+    { id: 'sluh', name: 'Не чую, коли кличуть на імʼя', emoji: '👂', power: 38, weight: 12 },
+    { id: 'sertse', name: 'Серце розбите (довідка від колишньої)', emoji: '💔', power: 25, weight: 12 },
+    { id: 'gryzha', name: 'Грижа, яку видно тільки мені', emoji: '🩹', power: 48, weight: 10 },
+    { id: 'hronichna', name: 'Хронічна втома від новин', emoji: '😵', power: 30, weight: 12 },
+    { id: 'ruka', name: 'Рука не піднімається (принципово)', emoji: '🤲', power: 44, weight: 11 },
+    { id: 'spravzhnye', name: 'Справжня медична карта', emoji: '📋', power: 90, weight: 1 },
+];
+const SYMPTOM_BY_ID = Object.fromEntries(SYMPTOMS.map((s) => [s.id, s]));
+
+// Інспектори ТЦК — іменовані боси, що приходять на високому розшуку. Кожен смішний
+// характером, а не тим, що він "ворог": об'єкт жарту — абсурд бюрократії.
+const INSPECTORS = [
+    {
+        id: 'valik', emoji: '🧔', name: 'Валік Настирливий', hp: 3000,
+        unlockHeat: 30, window: 90, weakness: 'bribe',
+        weaknessHint: 'Бере на слабо тих, хто вже сьогодні "вирішував питання"',
+        reward: { tk: 12000, res: { sim: 2 }, sp: 10 },
+        taunt: '«Та я на хвилинку, документи глянути»',
+    },
+    {
+        id: 'sanych', emoji: '🕶️', name: 'Санич Мовчазний', hp: 12000,
+        unlockHeat: 50, window: 75, weakness: 'speed',
+        weaknessHint: 'Ламається від напору: тримай 6+ кліків за секунду',
+        reward: { tk: 45000, res: { stamp: 1 }, sp: 20 },
+        taunt: '«...» (він просто дивиться)',
+    },
+    {
+        id: 'lyuda', emoji: '💅', name: 'Люда з паспортного', hp: 40000,
+        unlockHeat: 65, window: 60, weakness: 'charm',
+        weaknessHint: 'Поважає солідних: вдягни щось дороге з гардеробу',
+        reward: { tk: 150000, res: { cash: 10 }, sp: 35 },
+        taunt: '«Молодой человек, вы в очереди последний?»',
+    },
+    {
+        id: 'pivnyk', emoji: '🎖️', name: 'Генерал Півник', hp: 250000,
+        unlockHeat: 85, window: 45, weakness: null, cooldownH: 7 * 24,
+        // 250k HP за 45 секунд непрохідні, поки кліки в боях витрачають енергію:
+        // повного бака вистачає на ~66 кліків. Це навмисний ендгейм-гейт за навичкою
+        // "Марафонець" (Фаза 6), а не баг — тому бос показується заблокованим, а не
+        // ховається зовсім.
+        requiresSkill: 'marathon',
+        lockedHint: 'Ти ще не в тій ваговій категорії. Потрібна навичка «Марафонець»',
+        weaknessHint: 'Слабкостей немає. Тільки ти і твій палець',
+        reward: { tk: 600000, res: { ticket: 1 }, sp: 50 },
+        taunt: '«Я 30 років у системі. Ти — 30 хвилин у бункері»',
+    },
+];
+const INSPECTOR_BY_ID = Object.fromEntries(INSPECTORS.map((i) => [i.id, i]));
 
 // Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
 // вчетверо частіші облави. Порядок важливий — шукаємо перший тір, у чий `max` влазить heat.
@@ -690,6 +775,13 @@ const ACHIEVEMENTS = [
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
+// Трофеї — окрема від досягнень колекція: їх не «наклікаєш», кожен треба в когось
+// відібрати. Id мають збігатися з тим, що пишеться в user.trophies.
+const TROPHIES = [
+    { id: 'detective', emoji: '🕵️', name: 'Вирахував стукача', desc: 'Розкрив того, хто на тебе доніс' },
+    ...INSPECTORS.map((i) => ({ id: 'insp_' + i.id, emoji: i.emoji, name: 'Спекався: ' + i.name, desc: i.taunt })),
+];
+
 // Коди для друзів/тестувальників — повністю байпасять монетизацію.
 const PROMO_CODES = {
     MAMYN_SYNOK: { type: 'vip' },
@@ -808,7 +900,18 @@ function createFreshUser(id, name) {
         freeSnitchOn: [],           // id гравців, на яких є безкоштовний стук (за хибне звинувачення)
         lastSnitchTargets: {},      // { targetId: timestamp } — кулдаун на ту саму ціль
         pendingRobbery: null,       // { byName, amount, at } — показати жертві при найближчому save
-        trophies: [],               // 🕵️ та майбутні трофеї з босів
+        trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
+        // --- Медкомісія та інспектори ---
+        medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
+        lastMedcomCards: [],        // щоб та сама скарга двічі поспіль працювала гірше
+        medcomStats: { passed: 0, failed: 0 },
+        deferUntil: 0,              // відстрочка: повістки не приходять (повна система — Фаза 3)
+        lastBribeAt: 0,             // слабкість Валіка: чи "вирішував питання" нещодавно
+        inspector: null,            // { id, hp, hpMax, endsAt } — активний бос
+        inspectorStats: { defeated: {}, lost: 0 },
+        inspectorLastSeen: {},      // { inspectorId: timestamp } — кулдаун Півника
+        inspectorCooldownUntil: 0,
+        skills: {},                 // дерево навичок престижу — Фаза 6
         questsDate: null,
         dailyClicks: 0,
         dailyTrades: 0,
@@ -883,6 +986,18 @@ function migrateUser(user) {
     for (const k of ['sent', 'received', 'caught', 'falselyAccused', 'stolen', 'robbed']) {
         if (typeof user.snitchStats[k] !== 'number') user.snitchStats[k] = 0;
     }
+    if (!Array.isArray(user.lastMedcomCards)) user.lastMedcomCards = [];
+    if (typeof user.medcomStats !== 'object' || user.medcomStats === null) user.medcomStats = { passed: 0, failed: 0 };
+    if (typeof user.inspectorStats !== 'object' || user.inspectorStats === null) user.inspectorStats = { defeated: {}, lost: 0 };
+    if (typeof user.inspectorStats.defeated !== 'object' || user.inspectorStats.defeated === null) user.inspectorStats.defeated = {};
+    if (typeof user.inspectorStats.lost !== 'number') user.inspectorStats.lost = 0;
+    if (typeof user.inspectorLastSeen !== 'object' || user.inspectorLastSeen === null) user.inspectorLastSeen = {};
+    if (typeof user.skills !== 'object' || user.skills === null) user.skills = {};
+    if (typeof user.deferUntil !== 'number') user.deferUntil = 0;
+    if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
+    if (typeof user.inspectorCooldownUntil !== 'number') user.inspectorCooldownUntil = 0;
+    if (user.medcomSession === undefined) user.medcomSession = null;
+    if (user.inspector === undefined) user.inspector = null;
     registerPid(user);
     installBalanceTracking(user);
     migrateLegacyPortfolio(user);
@@ -1128,7 +1243,20 @@ function noticeBribeCost(user, type) {
 
 // Білий Квиток — постійний імунітет, повістки такому гравцю просто не приходять.
 function noticesBlocked(user) {
-    return !!user.permanentShield;
+    return !!user.permanentShield || (user.deferUntil || 0) > Date.now();
+}
+
+// Знімає повістку зі списку й веде статистику. Спільне для /api/notice/resolve і
+// для медкомісії, яка завершується вже в іншому роуті.
+function finishNotice(user, idx, method, resolved) {
+    user.notices.splice(idx, 1);
+    user.noticeStats.byMethod[method] = (user.noticeStats.byMethod[method] || 0) + 1;
+    if (resolved) {
+        user.noticeStats.resolved += 1;
+        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.NOTICE_SEASON_POINTS;
+    } else {
+        user.noticeStats.failed += 1;
+    }
 }
 
 function scheduleNextNotice(user) {
@@ -1314,6 +1442,26 @@ function sendPush(userId, text) {
 // Раз на 5 хвилин: згасання, протухання, видача нових повісток і пуш про те, що
 // повістка ось-ось протухне. Кілька сотень профілів обходяться миттєво; від тисячі
 // варто буде розбити на пачки зі зміщенням.
+// Інспектор приходить сам, коли розшук достатньо високий. Обираємо НАЙСИЛЬНІШОГО
+// доступного: чим ти помітніший, тим серйозніші люди тобою займаються.
+function maybeSpawnInspector(user, now = Date.now()) {
+    if (user.inspector) {
+        inspectorTimeout(user);
+        return false;
+    }
+    if (now < (user.inspectorCooldownUntil || 0)) return false;
+    if (Math.random() >= ECONOMY.INSPECTOR_SPAWN_CHANCE) return false;
+
+    const candidates = INSPECTORS.filter((i) => inspectorAvailable(user, i));
+    if (!candidates.length) return false;
+    const insp = candidates[candidates.length - 1];
+
+    user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, endsAt: now + insp.window * 1000 };
+    user.inspectorLastSeen[insp.id] = now;
+    sendPush(user.id, `${insp.emoji} ${insp.name} стоїть під дверима. ${insp.taunt}\nУ тебе ${insp.window} секунд, щоб його спекатись.`);
+    return true;
+}
+
 function tickNotices() {
     const now = Date.now();
     const pushWindow = ECONOMY.NOTICE_PUSH_BEFORE_MIN * 60000;
@@ -1333,6 +1481,8 @@ function tickNotices() {
                     scheduleNextNotice(user);
                 }
             }
+
+            maybeSpawnInspector(user, now);
 
             for (const n of user.notices) {
                 if (n.pushSent || n.expiresAt - now > pushWindow) continue;
@@ -1713,6 +1863,10 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         freeSnitchCount: (user.freeSnitchOn || []).length,
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         trophies: user.trophies || [],
+        medcomStats: user.medcomStats,
+        deferUntil: user.deferUntil || 0,
+        inspectorStats: user.inspectorStats,
+        ...inspectorSnapshot(user),
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
     };
@@ -1787,7 +1941,8 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
         balanceRejected: !balanceAccepted, unlockedAchievements: unlocked,
         robbery, snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
-        ...heatSnapshot(user), ...noticeSnapshot(user),
+        deferUntil: user.deferUntil || 0,
+        ...inspectorSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user),
     });
 });
 
@@ -2284,6 +2439,8 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         if (user.balance < cost) return res.json({ success: false, message: 'Не вистачає ТК, щоб "вирішити питання"' });
         user.balance -= cost;
         changeHeat(user, -ECONOMY.HEAT_BRIBE_DISCOUNT, 'Вирішив питання');
+        // Валік Настирливий якраз і ловиться на тих, хто вже сьогодні "вирішував".
+        user.lastBribeAt = Date.now();
         resolved = true;
         message = `Питання вирішено за ${cost.toLocaleString('uk-UA')} ТК. Про тебе трохи забули.`;
     } else if (method === 'spravka') {
@@ -2299,15 +2456,9 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         resolved = true;
         message = 'Довідку прийняли, навіть не читаючи. Розшук помітно впав.';
     } else if (method === 'medcom') {
-        // Заглушка до Фази 2 — там буде міні-гра зі збиранням діагнозу з карток.
-        resolved = Math.random() < ECONOMY.NOTICE_MEDCOM_SUCCESS;
-        if (resolved) {
-            message = 'Комісія повірила. "Непридатний. Наступний!"';
-        } else {
-            penalty = applyNoticePenalty(user, type, 1);
-            changeHeat(user, ECONOMY.HEAT_MEDCOM_FAIL, 'Провалив медкомісію');
-            message = '"Придатний. Наступний!" Не спрацювало.';
-        }
+        // Медкомісія — не миттєвий кидок, а міні-гра: віддаємо картки, а знімається
+        // повістка вже в /api/medcom/submit.
+        return res.json({ success: true, medcom: true, ...dealMedcom(user, notice) });
     } else if (method === 'hide') {
         if ((user.energy || 0) <= 0) return res.json({ success: false, message: 'Немає енергії, щоб десь пересидіти' });
         user.energy = 0;
@@ -2320,14 +2471,7 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         return res.status(400).json({ error: 'Невідомий спосіб' });
     }
 
-    user.notices.splice(idx, 1);
-    user.noticeStats.byMethod[method] = (user.noticeStats.byMethod[method] || 0) + 1;
-    if (resolved) {
-        user.noticeStats.resolved += 1;
-        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.NOTICE_SEASON_POINTS;
-    } else {
-        user.noticeStats.failed += 1;
-    }
+    finishNotice(user, idx, method, resolved);
 
     const unlocked = checkAchievements(user);
     res.json({
@@ -2335,6 +2479,304 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
         seasonPoints: user.seasonPoints, ...storageSnapshot(user),
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
+// ---- Інспектори ТЦК (боси) ----
+// Навички з дерева престижу — Фаза 6. Поки їх немає, функція чесно повертає false,
+// і Генерал Півник лишається видимим, але заблокованим.
+function hasSkill(user, skillId) {
+    return !!(user.skills && user.skills[skillId]);
+}
+
+function inspectorAvailable(user, insp) {
+    if ((user.heat || 0) < insp.unlockHeat) return false;
+    if (insp.requiresSkill && !hasSkill(user, insp.requiresSkill)) return false;
+    if (insp.cooldownH && Date.now() - (user.inspectorLastSeen[insp.id] || 0) < insp.cooldownH * 3600 * 1000) return false;
+    return true;
+}
+
+// Слабкість активна — урон подвоюється. Перевіряється на сервері в момент удару,
+// бо всі три умови можна підробити на клієнті.
+function inspectorWeaknessActive(user, insp, cps) {
+    if (!insp.weakness) return false;
+    if (insp.weakness === 'bribe') {
+        return Date.now() - (user.lastBribeAt || 0) < ECONOMY.INSPECTOR_BRIBE_WINDOW_MIN * 60000;
+    }
+    if (insp.weakness === 'speed') return cps >= ECONOMY.INSPECTOR_SPEED_CPS;
+    if (insp.weakness === 'charm') {
+        return Object.values(user.equipped || {}).some((id) => {
+            const c = COSMETICS.find((x) => x.id === id);
+            return c && (c.price || 0) >= ECONOMY.INSPECTOR_CHARM_MIN_PRICE;
+        });
+    }
+    return false;
+}
+
+function inspectorSnapshot(user) {
+    const s = user.inspector;
+    if (!s) return { inspector: null };
+    const insp = INSPECTOR_BY_ID[s.id];
+    return {
+        inspector: {
+            id: s.id, emoji: insp.emoji, name: insp.name, taunt: insp.taunt,
+            hp: Math.max(0, Math.round(s.hp)), hpMax: s.hpMax, endsAt: s.endsAt,
+            weakness: insp.weakness, weaknessHint: insp.weaknessHint,
+        },
+    };
+}
+
+// Список "розшукуваних" для окремого екрана: видно і тих, до кого ще не доріс.
+function inspectorRoster(user) {
+    return INSPECTORS.map((insp) => {
+        const locked = insp.requiresSkill && !hasSkill(user, insp.requiresSkill);
+        const cdLeft = insp.cooldownH
+            ? Math.max(0, insp.cooldownH * 3600 * 1000 - (Date.now() - (user.inspectorLastSeen[insp.id] || 0)))
+            : 0;
+        return {
+            id: insp.id, emoji: insp.emoji, name: insp.name, taunt: insp.taunt,
+            hp: insp.hp, window: insp.window, unlockHeat: insp.unlockHeat,
+            weaknessHint: insp.weaknessHint, reward: insp.reward,
+            defeated: user.inspectorStats.defeated[insp.id] || 0,
+            locked, lockedHint: locked ? insp.lockedHint : null,
+            cooldownLeft: cdLeft,
+            heatReady: (user.heat || 0) >= insp.unlockHeat,
+        };
+    });
+}
+
+// Бос пішов, бо гравець не встиг у вікно.
+function inspectorTimeout(user) {
+    if (!user.inspector || Date.now() < user.inspector.endsAt) return false;
+    user.inspector = null;
+    user.inspectorStats.lost += 1;
+    user.inspectorCooldownUntil = Date.now() + ECONOMY.INSPECTOR_COOLDOWN_H * 3600 * 1000;
+    changeHeat(user, ECONOMY.INSPECTOR_LOSE_HEAT, 'Інспектор пішов ні з чим (і образився)');
+    return true;
+}
+
+app.get('/api/inspector', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    syncHeatAndNotices(user);
+    const gone = inspectorTimeout(user);
+    res.json({ ...inspectorSnapshot(user), roster: inspectorRoster(user), stats: user.inspectorStats, gone });
+});
+
+// Тестовий виклик боса. Реєструється ТІЛЬКИ в dev-режимі — у проді цього роуту
+// просто не існує, інакше будь-хто міг би фармити інспекторів на вимогу.
+if (DEV_MODE_INSECURE) {
+    app.post('/api/dev/spawn-inspector', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const insp = INSPECTOR_BY_ID[req.body.inspectorId];
+        if (!insp) return res.json({ success: false, message: 'Невідомий інспектор' });
+        user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, endsAt: Date.now() + insp.window * 1000 };
+        user.inspectorLastSeen[insp.id] = Date.now();
+        res.json({ success: true, ...inspectorSnapshot(user) });
+    });
+}
+
+// Клієнт шле кліки батчами раз на 500мс, а не по одному — інакше сервер ляже.
+app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (!user.inspector) return res.json({ success: false, message: 'Нікого немає' });
+    if (inspectorTimeout(user)) {
+        return res.json({ success: false, gone: true, message: 'Не встиг. Інспектор пішов писати рапорт.', ...heatSnapshot(user) });
+    }
+    const insp = INSPECTOR_BY_ID[user.inspector.id];
+
+    // Анти-чіт: обмежуємо і кількістю кліків у батчі, і фізично можливим темпом.
+    const dt = Math.max(1, Math.min(5000, Number(req.body.dt) || ECONOMY.INSPECTOR_BATCH_MS));
+    const maxClicks = Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS);
+    let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), maxClicks));
+    if (!clicks) return res.json({ success: true, ...inspectorSnapshot(user), energy: user.energy });
+
+    // Енергія — той самий обмежувач, що й у звичайному кліку, лише дорожчий.
+    const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+    const outOfEnergy = clicks > affordable;
+    clicks = Math.min(clicks, affordable);
+    if (!clicks) {
+        return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...inspectorSnapshot(user) });
+    }
+    user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+
+    const cps = clicks / (dt / 1000);
+    const weak = inspectorWeaknessActive(user, insp, cps);
+    const power = Math.max(1, Number(user.clickVal) || 1);
+    const damage = clicks * power * (weak ? ECONOMY.INSPECTOR_WEAKNESS_MULT : 1);
+    user.inspector.hp -= damage;
+
+    if (user.inspector.hp > 0) {
+        return res.json({ success: true, damage, weak, outOfEnergy, energy: user.energy, ...inspectorSnapshot(user) });
+    }
+
+    // Переможений: нагорода, трофей і кулдаун до наступного візиту.
+    user.inspector = null;
+    user.inspectorStats.defeated[insp.id] = (user.inspectorStats.defeated[insp.id] || 0) + 1;
+    user.inspectorLastSeen[insp.id] = Date.now();
+    user.inspectorCooldownUntil = Date.now() + ECONOMY.INSPECTOR_COOLDOWN_H * 3600 * 1000;
+    if (!user.trophies.includes('insp_' + insp.id)) user.trophies.push('insp_' + insp.id);
+
+    const tk = Math.round(insp.reward.tk * heatIncomeMult(user));
+    user.balance += tk;
+    user.seasonPoints = (user.seasonPoints || 0) + (insp.reward.sp || 0);
+    const gotRes = [];
+    for (const [resId, qty] of Object.entries(insp.reward.res || {})) {
+        const { added, lost } = addResource(user, resId, qty);
+        gotRes.push({ id: resId, name: RESOURCE_BY_ID[resId].name, emoji: RESOURCE_BY_ID[resId].emoji, added, lost });
+    }
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, defeated: true, damage, weak, energy: user.energy,
+        reward: { tk, res: gotRes, sp: insp.reward.sp || 0 },
+        balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
+        stats: user.inspectorStats, unlockedAchievements: unlocked, ...storageSnapshot(user),
+    });
+});
+
+// ---- Медкомісія ----
+// Роздача карток — на сервері, інакше гравець просто вибрав би собі "Справжню
+// медичну карту" п'ять разів поспіль.
+function drawSymptoms(count) {
+    const pool = SYMPTOMS.slice();
+    const hand = [];
+    for (let i = 0; i < count && pool.length; i++) {
+        const total = pool.reduce((s, c) => s + c.weight, 0);
+        let roll = Math.random() * total;
+        let idx = 0;
+        for (; idx < pool.length; idx++) {
+            roll -= pool[idx].weight;
+            if (roll <= 0) break;
+        }
+        hand.push(pool.splice(Math.min(idx, pool.length - 1), 1)[0].id);
+    }
+    return hand;
+}
+
+// Скільки переконливості дасть картка саме цьому гравцю: та сама скарга двічі
+// поспіль працює гірше ("ви вже приходили з цим").
+function symptomPower(user, id) {
+    const card = SYMPTOM_BY_ID[id];
+    if (!card) return 0;
+    const repeated = (user.lastMedcomCards || []).includes(id);
+    return Math.max(0, card.power - (repeated ? ECONOMY.MEDCOM_REPEAT_PENALTY : 0));
+}
+
+function medcomHand(user) {
+    const s = user.medcomSession;
+    if (!s) return null;
+    return {
+        noticeId: s.noticeId,
+        rerolls: s.rerolls,
+        rerollsLeft: Math.max(0, ECONOMY.MEDCOM_REROLL_MAX - s.rerolls),
+        rerollCost: ECONOMY.MEDCOM_REROLL_COST,
+        pick: ECONOMY.MEDCOM_PICK,
+        skepticism: Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0)),
+        cards: s.cards.map((id) => {
+            const c = SYMPTOM_BY_ID[id];
+            return {
+                id, name: c.name, emoji: c.emoji, power: symptomPower(user, id),
+                repeated: (user.lastMedcomCards || []).includes(id),
+            };
+        }),
+        bonuses: {
+            stamp: { have: (user.resources.stamp || 0) >= 1, bonus: ECONOMY.MEDCOM_STAMP_BONUS, qty: 1 },
+            meds: { have: (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY, bonus: ECONOMY.MEDCOM_MEDS_BONUS, qty: ECONOMY.MEDCOM_MEDS_QTY },
+            cat: { have: user.petId === 'cat', bonus: ECONOMY.MEDCOM_CAT_BONUS, qty: 0 },
+        },
+    };
+}
+
+function dealMedcom(user, notice) {
+    user.medcomSession = { noticeId: notice.uid, cards: drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE), rerolls: 0 };
+    return { hand: medcomHand(user) };
+}
+
+app.get('/api/medcom', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json({ hand: medcomHand(user) });
+});
+
+app.post('/api/medcom/reroll', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const s = user.medcomSession;
+    if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
+    if (s.rerolls >= ECONOMY.MEDCOM_REROLL_MAX) {
+        return res.json({ success: false, message: 'Більше перекидати не можна — лікар уже щось запідозрив' });
+    }
+    if (user.balance < ECONOMY.MEDCOM_REROLL_COST) {
+        return res.json({ success: false, message: 'Не вистачає ТК на "консультацію"' });
+    }
+    user.balance -= ECONOMY.MEDCOM_REROLL_COST;
+    s.rerolls += 1;
+    s.cards = drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE);
+    res.json({ success: true, balance: user.balance, hand: medcomHand(user) });
+});
+
+app.post('/api/medcom/submit', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const s = user.medcomSession;
+    if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
+
+    const picked = Array.isArray(req.body.cardIds) ? [...new Set(req.body.cardIds)] : [];
+    if (picked.length !== ECONOMY.MEDCOM_PICK || !picked.every((id) => s.cards.includes(id))) {
+        return res.json({ success: false, message: `Треба обрати рівно ${ECONOMY.MEDCOM_PICK} картки зі своїх` });
+    }
+
+    const idx = (user.notices || []).findIndex((n) => n.uid === s.noticeId);
+    if (idx === -1) {
+        user.medcomSession = null;
+        return res.json({ success: false, message: 'Повістка вже неактуальна' });
+    }
+    const type = NOTICE_BY_ID[user.notices[idx].typeId];
+
+    let power = picked.reduce((sum, id) => sum + symptomPower(user, id), 0);
+    // Не `used`: у відповіді нижче розгортається storageSnapshot, у якого своє поле
+    // used (зайнято місць у кладовці), і воно б це затерло.
+    const usedBonuses = [];
+    // Бонуси витрачаються НЕЗАЛЕЖНО від результату — це і є ціна спроби.
+    if (req.body.useStamp && (user.resources.stamp || 0) >= 1) {
+        user.resources.stamp -= 1;
+        if (user.resources.stamp <= 0) delete user.resources.stamp;
+        power += ECONOMY.MEDCOM_STAMP_BONUS;
+        usedBonuses.push('печатка');
+    }
+    if (req.body.useMeds && (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY) {
+        user.resources.meds -= ECONOMY.MEDCOM_MEDS_QTY;
+        if (user.resources.meds <= 0) delete user.resources.meds;
+        power += ECONOMY.MEDCOM_MEDS_BONUS;
+        usedBonuses.push('ліки');
+    }
+    if (user.petId === 'cat') {
+        power += ECONOMY.MEDCOM_CAT_BONUS;
+        usedBonuses.push('кіт-антистрес');
+    }
+
+    const skepticism = Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0));
+    const resolved = power >= skepticism;
+    user.lastMedcomCards = picked;
+    user.medcomSession = null;
+
+    let penalty = null;
+    let message;
+    if (resolved) {
+        user.deferUntil = Date.now() + ECONOMY.MEDCOM_DEFER_H * 3600 * 1000;
+        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.MEDCOM_SEASON_POINTS;
+        user.medcomStats.passed += 1;
+        message = `«Непридатний. Наступний!» Відстрочка на ${ECONOMY.MEDCOM_DEFER_H} годин.`;
+    } else {
+        penalty = applyNoticePenalty(user, type, 1);
+        changeHeat(user, ECONOMY.HEAT_MEDCOM_FAIL, 'Провалив медкомісію');
+        user.medcomStats.failed += 1;
+        message = '«Придатний. Наступний!» Не повірили.';
+    }
+    finishNotice(user, idx, 'medcom', resolved);
+
+    const unlocked = checkAchievements(user);
+    res.json({
+        success: true, resolved, power, skepticism, usedBonuses, message, penalty,
+        deferUntil: user.deferUntil || 0, unlockedAchievements: unlocked,
+        balance: user.balance, energy: user.energy, seasonPoints: user.seasonPoints,
+        ...storageSnapshot(user), ...heatSnapshot(user, true), ...noticeSnapshot(user),
     });
 });
 
@@ -2790,6 +3232,44 @@ function buildHtml(botUsername) {
         .suspect-meta { font-size: 11px; color: #9fb4c7; }
         .leader-row { cursor: pointer; }
         .leader-row:active { color: var(--accent2); }
+
+        /* ===== Медкомісія ===== */
+        #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #3a3a4d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+        .symptom-card.picked { border-color: var(--gold); background: rgba(255,215,0,0.10); }
+        .symptom-card.repeated { opacity: 0.75; }
+        .symptom-emoji { font-size: 24px; }
+        .symptom-name { font-size: 13px; font-weight: 700; line-height: 1.3; }
+        .symptom-power { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+        .symptom-note { font-size: 10px; color: #ff8a8a; }
+        .medcom-scale { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
+        .medcom-scale .val { font-size: 19px; }
+        .medcom-ok { color: #39ff14; }
+        .medcom-bad { color: #ff4d4d; }
+        .medcom-bonus { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); border: 1px solid #2f2f42; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+        .medcom-bonus.off { opacity: 0.45; }
+        .medcom-bonus input { width: 16px; height: 16px; accent-color: var(--gold); }
+
+        /* ===== Інспектори ТЦК ===== */
+        #inspector-screen { position: fixed; inset: 0; z-index: 1900; background: radial-gradient(circle at 50% 30%, #2a0d16 0%, #07070d 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; text-align: center; }
+        #inspector-face { font-size: 82px; line-height: 1; margin-bottom: 6px; }
+        #inspector-face.hit { animation: inspShake .12s; }
+        @keyframes inspShake { 0%{transform:translateX(0)} 25%{transform:translateX(-7px) rotate(-3deg)} 75%{transform:translateX(7px) rotate(3deg)} 100%{transform:translateX(0)} }
+        #inspector-name { font-size: 20px; font-weight: 800; color: var(--gold); }
+        #inspector-taunt { font-size: 12px; color: #cfe3f2; font-style: italic; margin: 6px 0 14px; max-width: 320px; }
+        .insp-hpbar { width: 100%; max-width: 340px; height: 22px; background: #1a1a26; border-radius: 11px; overflow: hidden; border: 1px solid #3a3a4d; }
+        .insp-hpfill { height: 100%; background: linear-gradient(90deg, #c3073f, #ff6b6b); transition: width .12s linear; }
+        .insp-hptext { font-size: 12px; color: #9fb4c7; margin: 6px 0 2px; }
+        #inspector-timer { font-size: 30px; font-weight: 800; margin: 10px 0 4px; }
+        #inspector-timer.low { color: #ff4d4d; }
+        #inspector-weak { font-size: 12px; padding: 7px 12px; border-radius: 8px; margin: 8px 0 14px; background: rgba(255,255,255,0.05); color: #9fb4c7; max-width: 340px; }
+        #inspector-weak.on { background: rgba(57,255,20,0.14); color: #39ff14; font-weight: 700; }
+        #inspector-hitzone { width: 190px; height: 190px; border-radius: 50%; border: 3px solid var(--accent); background: radial-gradient(circle, rgba(195,7,63,0.35), rgba(195,7,63,0.08)); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; cursor: pointer; user-select: none; -webkit-user-select: none; }
+        #inspector-hitzone:active { transform: scale(0.96); }
+        .insp-roster-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; text-align: left; }
+        .insp-roster-card.locked { opacity: 0.55; }
+        .insp-roster-name { font-size: 13px; font-weight: 700; }
+        .insp-roster-meta { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -3338,8 +3818,46 @@ function buildHtml(botUsername) {
                 Про тебе поступово забувають: −1 за кожні 12 хвилин, навіть коли гра закрита.
             </p>
             <div class="case-log" id="case-log"></div>
+            <h3 style="font-size:14px; color:var(--gold); margin: 16px 0 4px;">🎖️ Ким ти вже цікавий</h3>
+            <p style="font-size:11px; color:#9fb4c7; margin: 0 0 10px; line-height:1.45;">
+                Інспектори приходять самі, коли розшук достатньо високий. Приходить завжди
+                найсерйозніший із доступних.
+            </p>
+            <div id="inspector-roster"></div>
             <button onclick="closeHeatCase()" style="margin-top:12px;">Закрити</button>
         </div>
+    </div>
+
+    <!-- Медкомісія: збери діагноз із трьох карток, перебий скептицизм комісії. -->
+    <div id="medcom-screen" class="hidden">
+        <div class="case-card">
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🏥 Медкомісія</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px;">
+                Обери <b>3 скарги</b> з п'яти. Сума переконливості має перебити скептицизм комісії.
+                Чим вищий твій розшук — тим менше тобі вірять.
+            </p>
+            <div id="medcom-cards"></div>
+            <div id="medcom-bonuses"></div>
+            <div class="medcom-scale">
+                <span>Переконливість <span class="val" id="medcom-power">0</span></span>
+                <span style="color:#9fb4c7;">Скептицизм <span class="val" id="medcom-skept">100</span></span>
+            </div>
+            <button id="medcom-submit" onclick="submitMedcom()">Подати діагноз</button>
+            <button class="secondary" id="medcom-reroll" onclick="rerollMedcom()">Перекинути картки</button>
+        </div>
+    </div>
+
+    <!-- Інспектор ТЦК: таймований клік-енкаунтер зі шкалою терпіння. -->
+    <div id="inspector-screen" class="hidden">
+        <div id="inspector-face">🧔</div>
+        <div id="inspector-name">Інспектор</div>
+        <div id="inspector-taunt"></div>
+        <div class="insp-hptext" id="inspector-hptext"></div>
+        <div class="insp-hpbar"><div class="insp-hpfill" id="inspector-hpfill" style="width:100%"></div></div>
+        <div id="inspector-timer">0.0</div>
+        <div id="inspector-weak"></div>
+        <div id="inspector-hitzone">ТИСНИ</div>
+        <div style="font-size:11px; color:#9fb4c7; margin-top:12px;">Кожен клік коштує 3 енергії</div>
     </div>
 
     <!-- Порівняння профілів: твоя статистика проти його + кнопка "здати". -->
@@ -3457,6 +3975,7 @@ function buildHtml(botUsername) {
         const MARKET_ASSETS = ${JSON.stringify(MARKET_ASSETS)};
         const WHEEL_SEGMENTS = ${JSON.stringify(WHEEL_SEGMENTS)};
         const ACHIEVEMENTS_META = ${JSON.stringify(ACHIEVEMENTS_META)};
+        const TROPHIES = ${JSON.stringify(TROPHIES)};
         const COSMETICS = ${JSON.stringify(COSMETICS)};
         const QUESTS = ${JSON.stringify(QUESTS)};
         const ROOM_ITEMS = ${JSON.stringify(ROOM_ITEMS)};
@@ -3492,6 +4011,7 @@ function buildHtml(botUsername) {
             notices: [], noticeStats: null, energyLockUntil: 0, seasonPoints: 0,
             pid: null, snitchStats: null, snitchesLeft: ECONOMY.SNITCH_DAILY_LIMIT,
             investigationPending: false, trophies: [],
+            medcomStats: null, inspectorStats: null, deferUntil: 0,
         };
 
         const ui = {
@@ -3564,6 +4084,10 @@ function buildHtml(botUsername) {
         }
 
         function updateUI() {
+            // Бос показує десяті долі секунди, тому таймер живе тут, а не в секундному
+            // інтервалі. Це лише оновлення тексту — важких рендерів у циклі як не було,
+            // так і немає.
+            updateInspectorTimer();
             ui.bal.innerText = Math.floor(state.balance);
             ui.pas.innerText = state.passive;
             ui.str.innerText = 0;
@@ -3631,13 +4155,38 @@ function buildHtml(botUsername) {
         // ===== Екран "Твоя справа" =====
         // Рендериться лише при відкритті — у гарячий цикл ці innerHTML не потрапляють.
         window.openHeatCase = async () => {
+            let roster = null;
             try {
                 const res = await apiFetch('/api/notices?id=' + user.id);
                 absorbHeat(await res.json());
+                const ins = await apiFetch('/api/inspector?id=' + user.id).then(r => r.json());
+                roster = ins.roster;
+                state.inspectorStats = ins.stats || state.inspectorStats;
+                absorbInspector(ins);
             } catch (e) { /* покажемо те, що вже маємо в стані */ }
             renderHeatCase();
+            renderInspectorRoster(roster);
             document.getElementById('heat-case-overlay').classList.remove('hidden');
         };
+
+        function renderInspectorRoster(roster) {
+            const box = document.getElementById('inspector-roster');
+            if (!box || !roster) return;
+            box.innerHTML = roster.map(i => {
+                let status;
+                if (i.locked) status = '🔒 ' + i.lockedHint;
+                else if (i.cooldownLeft > 0) status = '⏳ Наступний візит через ' + fmtCountdown(i.cooldownLeft);
+                else if (!i.heatReady) status = '🔥 Прийде на розшуку ' + i.unlockHeat + '+';
+                else status = '👀 Може прийти будь-коли';
+                return '<div class="insp-roster-card' + (i.locked || !i.heatReady ? ' locked' : '') + '">' +
+                    '<span style="font-size:26px;">' + i.emoji + '</span><div>' +
+                    '<div class="insp-roster-name">' + esc(i.name) +
+                    (i.defeated ? ' <span style="color:var(--gold)">×' + i.defeated + '</span>' : '') + '</div>' +
+                    '<div class="insp-roster-meta">' + esc(status) + '<br>' +
+                    'Терпіння ' + fmtNum(i.hp) + ' · ' + i.window + 'с · нагорода ' + fmtNum(i.reward.tk) + ' ТК</div>' +
+                    '</div></div>';
+            }).join('');
+        }
         window.closeHeatCase = () => document.getElementById('heat-case-overlay').classList.add('hidden');
 
         function renderHeatCase() {
@@ -3732,6 +4281,12 @@ function buildHtml(botUsername) {
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            // Медкомісія не вирішується одним запитом — сервер роздав картки, далі міні-гра.
+            if (data.medcom) {
+                closeNotices();
+                openMedcom(data.hand);
+                return;
+            }
             absorbHeat(data);
             if (typeof data.balance === 'number') state.balance = data.balance;
             if (typeof data.energy === 'number') state.energy = data.energy;
@@ -3750,6 +4305,259 @@ function buildHtml(botUsername) {
             renderStorage();
             updateUI();
         };
+
+        // Той самий показ розблокованих досягнень, що й у решті місць, але одним
+        // викликом — нові механіки (медкомісія, боси) теж їх видають.
+        function showAchievements(list) {
+            if (!list || !list.length) return;
+            list.forEach(a => { if (!state.achievements.includes(a.id)) state.achievements.push(a.id); });
+            tg.showAlert('🏅 Досягнення: ' + list.map(a => a.name + ' (+' + a.reward + ' ТК)').join(', '));
+            renderAchievements();
+        }
+
+        // ===== Медкомісія =====
+        let medcomHand = null;
+        let medcomPicked = [];
+        let medcomBonuses = { stamp: false, meds: false };
+
+        function openMedcom(hand) {
+            medcomHand = hand;
+            medcomPicked = [];
+            medcomBonuses = { stamp: false, meds: false };
+            renderMedcom();
+            document.getElementById('medcom-screen').classList.remove('hidden');
+        }
+        window.closeMedcom = () => document.getElementById('medcom-screen').classList.add('hidden');
+
+        function renderMedcom() {
+            if (!medcomHand) return;
+            document.getElementById('medcom-cards').innerHTML = medcomHand.cards.map((c, i) =>
+                '<div class="symptom-card' + (medcomPicked.includes(c.id) ? ' picked' : '') +
+                (c.repeated ? ' repeated' : '') + '" onclick="toggleSymptom(' + i + ')">' +
+                '<span class="symptom-emoji">' + c.emoji + '</span>' +
+                '<div><div class="symptom-name">' + esc(c.name) + '</div>' +
+                (c.repeated ? '<div class="symptom-note">Ви вже приходили з цим (−' + ECONOMY.MEDCOM_REPEAT_PENALTY + ')</div>' : '') +
+                '</div><span class="symptom-power">' + c.power + '</span></div>'
+            ).join('');
+
+            const b = medcomHand.bonuses;
+            const row = (key, label, on, avail, bonus) =>
+                '<label class="medcom-bonus' + (avail ? '' : ' off') + '">' +
+                '<input type="checkbox"' + (on ? ' checked' : '') + (avail ? '' : ' disabled') +
+                ' onchange="toggleMedcomBonus(\\'' + key + '\\', this.checked)">' +
+                '<span>' + label + '</span><b style="margin-left:auto; color:var(--gold)">+' + bonus + '</b></label>';
+            document.getElementById('medcom-bonuses').innerHTML =
+                row('stamp', '🔏 Печатка (витратиться 1)', medcomBonuses.stamp, b.stamp.have, b.stamp.bonus) +
+                row('meds', '💊 Ліки ×' + b.meds.qty + ' (витратяться)', medcomBonuses.meds, b.meds.have, b.meds.bonus) +
+                (b.cat.have ? '<div class="medcom-bonus">🐈 Кіт-антистрес: маєш змучений вигляд<b style="margin-left:auto; color:var(--gold)">+' + b.cat.bonus + '</b></div>' : '');
+
+            updateMedcomScale();
+            const rr = document.getElementById('medcom-reroll');
+            rr.disabled = medcomHand.rerollsLeft <= 0 || state.balance < medcomHand.rerollCost;
+            rr.innerText = medcomHand.rerollsLeft > 0
+                ? 'Перекинути картки — ' + fmtNum(medcomHand.rerollCost) + ' ТК (лишилось ' + medcomHand.rerollsLeft + ')'
+                : 'Перекидати більше не можна';
+        }
+
+        function medcomTotalPower() {
+            if (!medcomHand) return 0;
+            let p = medcomPicked.reduce((s, id) => s + (medcomHand.cards.find(c => c.id === id) || {}).power, 0);
+            if (medcomBonuses.stamp) p += medcomHand.bonuses.stamp.bonus;
+            if (medcomBonuses.meds) p += medcomHand.bonuses.meds.bonus;
+            if (medcomHand.bonuses.cat.have) p += medcomHand.bonuses.cat.bonus;
+            return p;
+        }
+
+        function updateMedcomScale() {
+            const power = medcomTotalPower();
+            const el = document.getElementById('medcom-power');
+            el.innerText = power;
+            el.className = 'val ' + (power >= medcomHand.skepticism ? 'medcom-ok' : 'medcom-bad');
+            document.getElementById('medcom-skept').innerText = medcomHand.skepticism;
+            const submit = document.getElementById('medcom-submit');
+            submit.disabled = medcomPicked.length !== medcomHand.pick;
+            submit.innerText = medcomPicked.length === medcomHand.pick
+                ? 'Подати діагноз'
+                : 'Обери ще ' + (medcomHand.pick - medcomPicked.length);
+        }
+
+        window.toggleSymptom = (i) => {
+            const id = medcomHand.cards[i].id;
+            const at = medcomPicked.indexOf(id);
+            if (at >= 0) medcomPicked.splice(at, 1);
+            else if (medcomPicked.length < medcomHand.pick) medcomPicked.push(id);
+            else return tg.HapticFeedback.notificationOccurred('warning');
+            tg.HapticFeedback.impactOccurred('light');
+            renderMedcom();
+        };
+
+        window.toggleMedcomBonus = (key, on) => { medcomBonuses[key] = on; updateMedcomScale(); };
+
+        window.rerollMedcom = async () => {
+            const res = await apiFetch('/api/medcom/reroll', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            state.balance = data.balance;
+            medcomHand = data.hand;
+            medcomPicked = [];
+            renderMedcom();
+            updateUI();
+        };
+
+        window.submitMedcom = async () => {
+            const res = await apiFetch('/api/medcom/submit', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, cardIds: medcomPicked,
+                    useStamp: medcomBonuses.stamp, useMeds: medcomBonuses.meds }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            closeMedcom();
+            absorbHeat(data);
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            if (data.resources) state.resources = data.resources;
+            if (typeof data.deferUntil === 'number') state.deferUntil = data.deferUntil;
+            tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
+            let msg = (data.resolved ? '✅ ' : '❌ ') + data.message +
+                '\\n\\nПереконливість ' + data.power + ' проти скептицизму ' + data.skepticism;
+            if (data.penalty && data.penalty.coins) msg += '\\nШтраф: −' + fmtNum(data.penalty.coins) + ' ТК';
+            tg.showAlert(msg);
+            if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
+            renderStorage();
+            renderNotices();
+            updateUI();
+        };
+
+        // ===== Інспектори ТЦК (боси) =====
+        let inspectorState = null;
+        let inspectorClicks = 0;      // накопичені кліки, летять батчем раз на 500мс
+        let inspectorBatchTimer = null;
+        let inspectorBatchStart = 0;
+        let inspectorWeakOn = false;
+
+        function openInspector(insp) {
+            inspectorState = insp;
+            inspectorClicks = 0;
+            inspectorBatchStart = Date.now();
+            inspectorWeakOn = false;
+            document.getElementById('inspector-face').innerText = insp.emoji;
+            document.getElementById('inspector-name').innerText = insp.name;
+            document.getElementById('inspector-taunt').innerText = insp.taunt;
+            document.getElementById('inspector-weak').innerText = insp.weakness
+                ? '🎯 Слабкість: ' + insp.weaknessHint
+                : 'Слабкостей немає. Тільки ти і твій палець';
+            renderInspectorBars();
+            document.getElementById('inspector-screen').classList.remove('hidden');
+            if (inspectorBatchTimer) clearInterval(inspectorBatchTimer);
+            inspectorBatchTimer = setInterval(flushInspectorClicks, ECONOMY.INSPECTOR_BATCH_MS);
+        }
+
+        function closeInspector() {
+            document.getElementById('inspector-screen').classList.add('hidden');
+            if (inspectorBatchTimer) { clearInterval(inspectorBatchTimer); inspectorBatchTimer = null; }
+            inspectorState = null;
+            inspectorClicks = 0;
+        }
+
+        function renderInspectorBars() {
+            if (!inspectorState) return;
+            const pct = Math.max(0, inspectorState.hp / inspectorState.hpMax * 100);
+            document.getElementById('inspector-hpfill').style.width = pct + '%';
+            document.getElementById('inspector-hptext').innerText =
+                'Терпіння: ' + fmtNum(inspectorState.hp) + ' / ' + fmtNum(inspectorState.hpMax);
+        }
+
+        // Таймер боса крутиться в тому ж циклі, що й решта UI — це лише текст,
+        // важких рендерів тут немає.
+        function updateInspectorTimer() {
+            if (!inspectorState) return;
+            const left = Math.max(0, inspectorState.endsAt - Date.now()) / 1000;
+            const el = document.getElementById('inspector-timer');
+            el.innerText = left.toFixed(1);
+            el.classList.toggle('low', left <= 10);
+            if (left <= 0) {
+                flushInspectorClicks();
+                if (inspectorState) {
+                    closeInspector();
+                    tg.HapticFeedback.notificationOccurred('error');
+                    tg.showAlert('⏰ Не встиг. Інспектор пішов писати рапорт. +' +
+                        ECONOMY.INSPECTOR_LOSE_HEAT + ' до розшуку.');
+                }
+            }
+        }
+
+        document.getElementById('inspector-hitzone').addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (!inspectorState) return;
+            if (state.energy < ECONOMY.INSPECTOR_ENERGY_PER_CLICK) {
+                tg.HapticFeedback.notificationOccurred('warning');
+                return;
+            }
+            inspectorClicks++;
+            // Оптимістично малюємо витрату енергії й трясемо боса, авторитетні
+            // цифри прилетять з відповіді на батч.
+            state.energy = Math.max(0, state.energy - ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+            const face = document.getElementById('inspector-face');
+            face.classList.remove('hit');
+            void face.offsetWidth;
+            face.classList.add('hit');
+            tg.HapticFeedback.impactOccurred('medium');
+        });
+
+        async function flushInspectorClicks() {
+            if (!inspectorState || !inspectorClicks) return;
+            const clicks = inspectorClicks;
+            const dt = Date.now() - inspectorBatchStart;
+            inspectorClicks = 0;
+            inspectorBatchStart = Date.now();
+            const res = await apiFetch('/api/inspector/hit', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, clicks, dt }),
+            });
+            const data = await res.json();
+            if (typeof data.energy === 'number') state.energy = data.energy;
+
+            if (data.gone) { closeInspector(); tg.showAlert('⏰ ' + data.message); absorbHeat(data); return; }
+            if (data.defeated) {
+                closeInspector();
+                state.balance = data.balance;
+                state.trophies = data.trophies;
+                if (data.resources) state.resources = data.resources;
+                tg.HapticFeedback.notificationOccurred('success');
+                const loot = (data.reward.res || []).map(r => r.emoji + ' ' + r.name + ' ×' + r.added).join(', ');
+                tg.showAlert('🏆 Спекався!\\n\\n+' + fmtNum(data.reward.tk) + ' ТК' +
+                    (loot ? '\\n' + loot : '') + '\\n+' + data.reward.sp + ' сезонних очок');
+                if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
+                renderStorage();
+                updateUI();
+                return;
+            }
+            if (data.inspector) {
+                inspectorState = data.inspector;
+                renderInspectorBars();
+            }
+            // Слабкість підсвічуємо тільки коли вона реально спрацювала на сервері.
+            if (data.weak !== inspectorWeakOn) {
+                inspectorWeakOn = !!data.weak;
+                const w = document.getElementById('inspector-weak');
+                w.classList.toggle('on', inspectorWeakOn);
+                if (inspectorWeakOn) w.innerText = '🎯 Слабкість спрацювала — подвійний урон!';
+                else w.innerText = inspectorState && inspectorState.weaknessHint
+                    ? '🎯 Слабкість: ' + inspectorState.weaknessHint : '';
+            }
+        }
+
+        // Бос міг прийти, поки гра була закрита або поки ти клікав — ловимо це в
+        // будь-якій відповіді сервера, а не окремим полінгом.
+        function absorbInspector(data) {
+            if (!data || data.inspector === undefined) return;
+            if (data.inspector && !inspectorState) openInspector(data.inspector);
+            else if (!data.inspector && inspectorState) closeInspector();
+        }
 
         // ===== PvP: "Здати сусіда" =====
         // Порівняння профілів. Тап по гравцю в лідерборді — єдина точка входу
@@ -4030,7 +4838,11 @@ function buildHtml(botUsername) {
                 state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
                 state.investigationPending = !!data.investigationPending;
                 state.trophies = data.trophies || [];
+                state.medcomStats = data.medcomStats || null;
+                state.inspectorStats = data.inspectorStats || null;
+                state.deferUntil = data.deferUntil || 0;
                 absorbHeat(data);
+                absorbInspector(data);
                 // Поки тебе не було, хтось вирахував твій стук і забрав компенсацію.
                 if (data.robbery) showRobbery(data.robbery);
 
@@ -4085,6 +4897,8 @@ function buildHtml(botUsername) {
                 }
                 if (typeof data.snitchesLeft === 'number') state.snitchesLeft = data.snitchesLeft;
                 if (typeof data.investigationPending === 'boolean') state.investigationPending = data.investigationPending;
+                if (typeof data.deferUntil === 'number') state.deferUntil = data.deferUntil;
+                absorbInspector(data);
                 // Крадіжку сервер віддає рівно один раз — інакше гравець побачив би
                 // лише тихий відкат балансу і вирішив, що це баг.
                 if (data.robbery) {
@@ -4654,6 +5468,10 @@ function buildHtml(botUsername) {
                 ['🐍 Здав сусідів', fmtNum((state.snitchStats || {}).sent || 0)],
                 ['🎯 Здали тебе', fmtNum((state.snitchStats || {}).received || 0)],
                 ['🕵️ Розкрив стукачів', fmtNum((state.snitchStats || {}).caught || 0)],
+                ['🏥 Медкомісій пройдено', fmtNum((state.medcomStats || {}).passed || 0) +
+                    ' (провалів: ' + fmtNum((state.medcomStats || {}).failed || 0) + ')'],
+                ['🎖️ Інспекторів спекався', fmtNum(Object.values((state.inspectorStats || {}).defeated || {}).reduce((a, b) => a + b, 0)) +
+                    ' (втік: ' + fmtNum((state.inspectorStats || {}).lost || 0) + ')'],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -4672,6 +5490,7 @@ function buildHtml(botUsername) {
                 ['✨ Рамки', COSMETICS.filter(c => c.slot === 'frame'), state.ownedCosmetics],
                 ['🛋 Декор кімнати', ROOM_ITEMS, state.ownedRoomItems],
                 ['🐾 Компаньйони', PETS, state.ownedPets],
+                ['🏆 Трофеї', TROPHIES, state.trophies],
                 ['🏅 Досягнення', ACHIEVEMENTS_META, state.achievements],
             ];
             box.innerHTML = groups.map(([name, all, owned]) => {
