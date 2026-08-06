@@ -2452,15 +2452,22 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     if (balanceAccepted && typeof balance === 'number') user.balance = balance;
 
     // Сила кліку й пасив ростуть ТІЛЬКИ через серверні роути (апгрейди, крафт,
-    // престиж, відновлення з бекапу), тому серверне значення повне й авторитетне.
-    // Клієнтське приймаємо лише якщо воно не БІЛЬШЕ за серверне: інакше підроблений
-    // clickVal у /api/save давав би миттєву перемогу над Генералом Півником разом
-    // із Білим Квитком, а роздутий passive — нескінченний офлайн-дохід.
+    // престиж), тому в гравця з історією серверне значення повне й авторитетне:
+    // приймаємо клієнтське, лише якщо воно не БІЛЬШЕ. Інакше підроблений clickVal
+    // у /api/save давав би миттєву перемогу над Генералом Півником разом із Білим
+    // Квитком, а роздутий passive — нескінченний офлайн-дохід.
+    //
+    // АЛЕ: диск Render не переживає редеплой, і після нього сервер бачить свіжого
+    // гравця з clickVal=1. Якби ми обрізали й тут, кожен редеплой обнуляв би силу
+    // кліку всім, у кого не спрацювало відновлення з CloudStorage. Тому поки сервер
+    // не бачив у гравця жодної покупки, крафту чи легалізації — довіряємо клієнту.
+    const serverKnowsPlayer = Object.values(user.upgrades || {}).some((n) => n > 0)
+        || (user.craftedCount || 0) > 0 || (user.prestigeCount || 0) > 0;
     if (typeof clickVal === 'number' && isFinite(clickVal)) {
-        user.clickVal = Math.max(1, Math.min(clickVal, user.clickVal));
+        user.clickVal = serverKnowsPlayer ? Math.max(1, Math.min(clickVal, user.clickVal)) : Math.max(1, clickVal);
     }
     if (typeof passive === 'number' && isFinite(passive)) {
-        user.passive = Math.max(0, Math.min(passive, user.passive));
+        user.passive = serverKnowsPlayer ? Math.max(0, Math.min(passive, user.passive)) : Math.max(0, passive);
     }
     if (typeof level === 'number') user.level = level;
     if (typeof energy === 'number') user.energy = energy;
