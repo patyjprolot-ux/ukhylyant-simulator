@@ -109,6 +109,12 @@ const ECONOMY = {
     QTE_KNOCK_DURATION_S: 3,
     QTE_KNOCK_PENALTY_PCT: 0.15,
     AIRDROP_CHANCE: 0.25,
+    // --- Згода на рекламні повідомлення в чаті ---
+    AD_CONSENT_BONUS: 3000,
+    // Кожен, хто погодився, трохи піднімає шанс аірдропу ВСІМ — то й сенс питати:
+    // чим більше друзів дало згоду, тим частіше падає халява в грі загалом.
+    AD_CONSENT_AIRDROP_BONUS_PER_PLAYER: 0.004,
+    AD_CONSENT_AIRDROP_BONUS_CAP: 0.5,
     AIRDROP_INTERVAL_MS: 20000,
     AIRDROP_MIN: 60,
     AIRDROP_MAX: 180,
@@ -1164,6 +1170,7 @@ const PROMO_CODES = {
     FREE_STARS: { type: 'balance', amount: 10000 }, // символічний бонус ТК; реальні Telegram Stars неможливо і не можна видати кодом
     NEVYCHERPNO: { type: 'infinite_money' }, // читерський код для тестів/жарту — ставить баланс у практично нескінченне число
     OBNULYUVACH: { type: 'reset' }, // повністю скидає прогрес гравця (в т.ч. знімає "нескінченний" баланс) до чистого старту
+    KATOK: { type: 'crate', crateId: 'starter', once: true }, // одноразово безкоштовний Стартовий пакет
 };
 
 // ==========================================
@@ -1200,6 +1207,23 @@ function saveData() {
 }
 
 loadData();
+
+// Скільки гравців погодились на рекламні повідомлення в чаті. Рахуємо на льоту
+// замість окремого лічильника — гравців мало (гра для друзів), тож обхід дешевий,
+// а зайвого стану, який можна розсинхронізувати, немає.
+function adConsentCount() {
+    let n = 0;
+    for (const u of usersDB.values()) if (u.adConsent === true) n++;
+    return n;
+}
+
+// Множник, на який згода громади піднімає шанс аірдропу — з покриттям.
+function adConsentAirdropMult() {
+    return 1 + Math.min(
+        ECONOMY.AD_CONSENT_AIRDROP_BONUS_CAP,
+        adConsentCount() * ECONOMY.AD_CONSENT_AIRDROP_BONUS_PER_PLAYER,
+    );
+}
 
 // Знімок усієї бази для позаплатформного бекапу: диск Render не переживає
 // редеплой, тож перед кожним пушем варто стягнути актуальний стан гравців
@@ -1299,6 +1323,8 @@ function createFreshUser(id, name) {
         heatDaySP: null,            // щоб доба з високим розшуком рахувалась раз на день
         pendingWarCrate: 0,         // трофейні ящики з війн і облав на район
         grannyUntil: 0,             // автоклікер «Бабуся клікає за тебе»
+        adConsent: null,            // null — ще не питали, true/false — відповів
+        redeemedPromos: [],         // одноразові промокоди (once:true), щоб не активувати вдруге
         trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
         // --- Медкомісія та інспектори ---
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
@@ -1440,6 +1466,8 @@ function migrateUser(user) {
     if (user.heatDaySP === undefined) user.heatDaySP = null;
     if (typeof user.pendingWarCrate !== 'number') user.pendingWarCrate = 0;
     if (typeof user.grannyUntil !== 'number') user.grannyUntil = 0;
+    if (user.adConsent === undefined) user.adConsent = null;
+    if (!Array.isArray(user.redeemedPromos)) user.redeemedPromos = [];
     if (typeof user.inspectorCooldownUntil !== 'number') user.inspectorCooldownUntil = 0;
     if (user.medcomSession === undefined) user.medcomSession = null;
     if (user.inspector === undefined) user.inspector = null;
@@ -2244,7 +2272,43 @@ bot.start(async (ctx) => {
     ctx.reply(welcomeText, Markup.inlineKeyboard([
         Markup.button.webApp('🛋 Залягти на дно (Грати)', WEB_APP_URL)
     ]));
+
+    // Питаємо про рекламу лише поки гравець ще не відповідав — байдуже, якою
+    // була відповідь минулого разу, повторно не турбуємо.
+    if (user.adConsent === null) {
+        try {
+            await ctx.reply(
+                'Ще одне: можна іноді надсилати в цей чат рекламні повідомлення?\n' +
+                `За згоду — одразу +${ECONOMY.AD_CONSENT_BONUS} 🪙 на баланс. І чим більше друзів погодиться, ` +
+                'тим частіше в грі падатимуть аірдропи та інша халява — усім одразу.',
+                Markup.inlineKeyboard([
+                    Markup.button.callback('✅ Так, дозволяю', 'ad_consent_yes'),
+                    Markup.button.callback('❌ Ні, дякую', 'ad_consent_no'),
+                ])
+            );
+        } catch (e) { /* не критично, якщо не надіслалось */ }
+    }
 });
+
+// Одноразове опитування про згоду на рекламу в чаті. Відповідь фіксується
+// назавжди — повторно питання не зʼявляється незалежно від вибору.
+async function answerAdConsent(ctx, consent) {
+    const userId = String(ctx.from.id);
+    const user = getUser(userId, ctx.from.first_name || 'Ухилянт');
+    if (user.adConsent !== null) {
+        return ctx.answerCbQuery('Ти вже відповідав на це питання.');
+    }
+    user.adConsent = consent;
+    if (consent) user.balance += ECONOMY.AD_CONSENT_BONUS;
+    await ctx.answerCbQuery(consent ? `+${ECONOMY.AD_CONSENT_BONUS} 🪙!` : 'Зрозуміло, не будемо.');
+    try {
+        await ctx.editMessageText(consent
+            ? `✅ Дякую! +${ECONOMY.AD_CONSENT_BONUS} 🪙 на баланс. Зараз згодних: ${adConsentCount()} — саме вони й тримають на плаву аірдропи для всіх.`
+            : '❌ Без проблем, більше не питатиму.');
+    } catch (e) { /* повідомлення могло бути надто старим для редагування — не критично */ }
+}
+bot.action('ad_consent_yes', (ctx) => answerAdConsent(ctx, true));
+bot.action('ad_consent_no', (ctx) => answerAdConsent(ctx, false));
 
 // Обробка оплат Telegram Stars
 bot.on('pre_checkout_query', (ctx) => ctx.answerPreCheckoutQuery(true));
@@ -2438,6 +2502,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
         mykolaCoverUsed: !!user.mykolaCoverUsed,
+        adConsent: user.adConsent, adConsentCount: adConsentCount(), adAirdropMult: adConsentAirdropMult(),
         defermentsTaken: user.defermentsTaken || 0,
         ...defermentSnapshot(user),
         ...skillsSnapshot(user),
@@ -2680,9 +2745,24 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'Відсутній код' });
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const promo = PROMO_CODES[String(code).toUpperCase().trim()];
+    const normalized = String(code).toUpperCase().trim();
+    const promo = PROMO_CODES[normalized];
     if (!promo) return res.json({ success: false, message: 'Невірний код' });
+    if (promo.once && user.redeemedPromos.includes(normalized)) {
+        return res.json({ success: false, message: 'Цей код ти вже використав' });
+    }
 
+    if (promo.type === 'crate') {
+        const crate = CRATE_BY_ID[promo.crateId];
+        if (!crate) return res.json({ success: false, message: 'Невірний код' });
+        if (promo.once) user.redeemedPromos.push(normalized);
+        const reward = rollCrate(user, crate);
+        return res.json({
+            success: true, message: `${crate.name}: ${reward.title}`,
+            crateReward: reward, crateId: crate.id,
+            isVip: user.isVip, balance: user.balance, ...storageSnapshot(user),
+        });
+    }
     if (promo.type === 'vip') {
         user.isVip = true;
         return res.json({ success: true, message: 'VIP отримано!', isVip: true, balance: user.balance });
@@ -5893,6 +5973,7 @@ function buildHtml(botUsername) {
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
             reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
+            adAirdropMult: 1, adConsentCount: 0,
         };
 
         const ui = {
@@ -7511,6 +7592,8 @@ function buildHtml(botUsername) {
                 state.skillPoints = data.skillPoints || 0;
                 state.reputation = data.reputation || {};
                 state.mykolaCoverUsed = !!data.mykolaCoverUsed;
+                state.adAirdropMult = data.adAirdropMult || 1;
+                state.adConsentCount = data.adConsentCount || 0;
                 state.league = data.league || null;
                 state.seasonTitle = data.seasonTitle || null;
                 state.seasonEndsAt = data.seasonEndsAt || 0;
@@ -8216,6 +8299,8 @@ function buildHtml(botUsername) {
                 ['🏅 Сезонні очки', fmtNum(state.seasonPoints || 0) +
                     (state.league ? ' — ' + state.league.emoji + ' ' + state.league.name : '')],
                 ['👑 Титул', state.seasonTitle || '—'],
+                ['📣 Згодних на рекламу', fmtNum(state.adConsentCount || 0) +
+                    ' · аірдропи ×' + (state.adAirdropMult || 1).toFixed(2)],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -8970,15 +9055,20 @@ function buildHtml(botUsername) {
                     body: JSON.stringify({ id: user.id, code: val })
                 });
                 let data = await res.json();
-                tg.showAlert(data.message);
                 if (data.success) {
                     document.getElementById('promo').value = '';
                     if (data.reset) {
                         await init(); // повне обнулення — перетягуємо весь стан з сервера заново, а не патчимо шматками
                     } else {
                         state.balance = data.balance; state.isVip = data.isVip;
+                        if (data.resources) { state.resources = data.resources; state.storageUsed = data.used; }
                         updateUI();
+                        // Код на ящик — та сама анімація відкривання, що й у купленого.
+                        if (data.crateReward) { playCrateAnimation(data.crateReward, data.crateId || 'starter'); return; }
                     }
+                    tg.showAlert(data.message);
+                } else {
+                    tg.showAlert(data.message);
                 }
             } catch (e) { tg.showAlert('Помилка активації коду'); }
         };
@@ -9146,7 +9236,9 @@ function buildHtml(botUsername) {
         // АІРДРОПИ: ГОЛУБ МИРУ / ДРОН З ПОВІСТКОЮ
         // ==========================================
         setInterval(() => {
-            if (Math.random() > ECONOMY.AIRDROP_CHANCE) return;
+            // Чим більше друзів дало згоду на рекламу, тим частіше падає халява
+            // всім — множник рахує сервер і віддає разом зі станом гравця.
+            if (Math.random() > ECONOMY.AIRDROP_CHANCE * (state.adAirdropMult || 1)) return;
             const isDrone = Math.random() < 0.5;
             const el = document.createElement('div');
             el.className = 'airdrop';
