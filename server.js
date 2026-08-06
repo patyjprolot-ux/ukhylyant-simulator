@@ -831,7 +831,7 @@ const RECIPES = [
         id: 'glue_fashion', name: 'Склеїти Модну валізу', emoji: '👗',
         cost: { shard: 45, stamp: 3, cash: 6 },
         desc: 'Модна валіза з уламків. Гарантована річ у гардероб.',
-        effect: { type: 'crate', crateId: 'fashion' },
+        effect: { type: 'crate', crateId: 'wardrobe' },
     },
     {
         id: 'glue_legendary', name: 'Склеїти Легендарний схрон', emoji: '🏆',
@@ -1170,7 +1170,8 @@ const PROMO_CODES = {
     FREE_STARS: { type: 'balance', amount: 10000 }, // символічний бонус ТК; реальні Telegram Stars неможливо і не можна видати кодом
     NEVYCHERPNO: { type: 'infinite_money' }, // читерський код для тестів/жарту — ставить баланс у практично нескінченне число
     OBNULYUVACH: { type: 'reset' }, // повністю скидає прогрес гравця (в т.ч. знімає "нескінченний" баланс) до чистого старту
-    KATOK: { type: 'crate', crateId: 'starter', once: true }, // одноразово безкоштовний Стартовий пакет
+    // Одноразово по одному з кожного донатного ящика (ті самі, що за Stars).
+    KATOK: { type: 'crate_bundle', crateIds: ['starter', 'elite', 'wardrobe', 'legendary'], once: true },
 };
 
 // ==========================================
@@ -2761,6 +2762,18 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
             success: true, message: `${crate.name}: ${reward.title}`,
             crateReward: reward, crateId: crate.id,
             isVip: user.isVip, balance: user.balance, ...storageSnapshot(user),
+        });
+    }
+    if (promo.type === 'crate_bundle') {
+        const crates = promo.crateIds.map((id) => CRATE_BY_ID[id]).filter(Boolean);
+        if (!crates.length) return res.json({ success: false, message: 'Невірний код' });
+        if (promo.once) user.redeemedPromos.push(normalized);
+        // Розкриваємо всі одразу на сервері — клієнт програє їх послідовно
+        // однією й тією ж анімацією відкривання, що й куплений ящик.
+        const rewards = crates.map((c) => ({ crateId: c.id, crateName: c.name, reward: rollCrate(user, c) }));
+        return res.json({
+            success: true, message: `Отримано по одному з ${crates.length} донатних ящиків!`,
+            crateBundle: rewards, isVip: user.isVip, balance: user.balance, ...storageSnapshot(user),
         });
     }
     if (promo.type === 'vip') {
@@ -8019,7 +8032,7 @@ function buildHtml(botUsername) {
         let lastCrateId = null;
 
         // Програє триетапну анімацію: трясіння → вибух із іскрами → поява призу.
-        function playCrateAnimation(reward, crateId) {
+        function playCrateAnimation(reward, crateId, hasMore) {
             const crate = CRATES.find(c => c.id === crateId) || CRATES[0];
             const overlay = document.getElementById('crate-overlay');
             const sparks = document.getElementById('crate-sparks');
@@ -8061,10 +8074,11 @@ function buildHtml(botUsername) {
             setTimeout(() => {
                 overlay.classList.add('stage-reveal');
                 tg.HapticFeedback.notificationOccurred(reward.kind === 'nothing' ? 'warning' : 'success');
+                document.getElementById('crate-close').innerText = hasMore ? 'Далі →' : 'Забрати';
                 document.getElementById('crate-close').classList.remove('hidden');
-                // Повторне відкриття доступне лише для ящиків за ігрову валюту —
-                // за Stars повтор має йти через звичайний платіжний флоу, без "ще раз" в один тап.
-                if (crate.currency === 'coins') {
+                // У черзі (пачка з промокоду) кнопку "ще раз" не показуємо — вона тут
+                // означала б "купити ще один", а не "перейти до наступного в пачці".
+                if (crate.currency === 'coins' && !hasMore) {
                     lastCrateId = crate.id;
                     document.getElementById('crate-again-wrap').classList.remove('hidden');
                     document.getElementById('crate-again').innerText = 'Ще раз — ' + clientCratePrice(crate).toLocaleString('uk-UA') + ' 🪙';
@@ -8076,9 +8090,22 @@ function buildHtml(botUsername) {
             setTimeout(() => overlay.classList.add('anim-done'), 2100);
         }
 
+        // Черга для промокоду-пачки (KATOK): показуємо ящики один за одним тією
+        // самою анімацією, а не всі одразу — інакше з чотирьох призів побачиш лише останній.
+        let crateQueue = [];
         window.closeCrateOverlay = () => {
+            if (crateQueue.length) {
+                const next = crateQueue.shift();
+                playCrateAnimation(next.reward, next.crateId, crateQueue.length > 0);
+                return;
+            }
             document.getElementById('crate-overlay').className = 'hidden';
         };
+        function playCrateBundle(bundle) {
+            if (!bundle || !bundle.length) return;
+            crateQueue = bundle.slice(1).map((b) => ({ reward: b.reward, crateId: b.crateId }));
+            playCrateAnimation(bundle[0].reward, bundle[0].crateId, crateQueue.length > 0);
+        }
 
         window.repeatCrate = () => {
             if (lastCrateId) openCrate(lastCrateId);
@@ -9064,6 +9091,7 @@ function buildHtml(botUsername) {
                         if (data.resources) { state.resources = data.resources; state.storageUsed = data.used; }
                         updateUI();
                         // Код на ящик — та сама анімація відкривання, що й у купленого.
+                        if (data.crateBundle) { playCrateBundle(data.crateBundle); return; }
                         if (data.crateReward) { playCrateAnimation(data.crateReward, data.crateId || 'starter'); return; }
                     }
                     tg.showAlert(data.message);
