@@ -224,6 +224,46 @@ const ECONOMY = {
     REP_TOLIK_SELL_BONUS: 0.40,   // преміум-лот біржі на 100 репи
     REP_OKSANA_HEAT_CUT: 0.20,    // -20% приросту розшуку на 100 репи
     REP_NINA_MAX_ENERGY: 50,      // "Бабусина заготовка" на 100 репи
+
+    // --- Сезони й ліги ---
+    LEAGUE_PROMOTE: 8,            // топ-8 групи піднімаються
+    LEAGUE_RELEGATE: 8,           // дно-8 падають
+    SEASON_MIN_POINTS: 1,         // з нулем очок нікуди не рухаємо: гравець просто не грав
+    SEASON_HEAT_DAILY_SP: 5,      // доба з розшуком > 60
+    SEASON_HEAT_THRESHOLD: 60,
+    SEASON_EXPEDITION_SP: 3,      // × рівень вилазки
+    SEASON_RAID_SP: 1,            // вижив в облаві
+    SEASON_CRAFT_SP: 8,           // крафт предмета тіру 3+
+    SEASON_PRESTIGE_SP: 100,
+
+    // --- Війна ОСББ ---
+    WAR_POINTS_RAID: 2,
+    WAR_POINTS_EXPEDITION: 3,
+    WAR_POINTS_SNITCH: 10,        // стук на ворога — головна тактика війни
+    WAR_POINTS_INSPECTOR: 25,
+    WAR_POINTS_PER_DONATION: 10000, // 10k у скарбницю = +1 очко
+    WAR_SNITCH_DISCOUNT: 0.5,     // під час війни стук на ворога вдвічі дешевший
+    WAR_TREASURY_PRIZE: 0.20,
+    WAR_BUFF_DAYS: 7,
+    WAR_BUFF_PASSIVE: 0.10,
+
+    // --- Облава на район (кооп-бос) ---
+    DISTRICT_HEAT_TRIGGER: 400,   // сумарний розшук клану
+    DISTRICT_WINDOW_H: 6,
+    // hpMax рахуємо від РЕАЛЬНОЇ сили клану, а не від кількості учасників:
+    // за 6 годин один гравець накопичує тисячі кліків, і плоскі 40k×учасників
+    // помирали б за десять хвилин.
+    DISTRICT_HP_PER_CLICK_POWER: 1200,
+    DISTRICT_HP_FLOOR: 150000,
+    DISTRICT_WIN_TK: 25000,
+    DISTRICT_WIN_HEAT: -30,
+    DISTRICT_WIN_SP: 15,
+    DISTRICT_LOSE_BALANCE_PCT: 0.12,
+    DISTRICT_LOSE_HEAT: 10,
+
+    // --- Автоклікер «Бабуся клікає за тебе» ---
+    GRANNY_MINUTES: 30,
+    GRANNY_CPS: 3,
 };
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
@@ -438,6 +478,25 @@ const REPUTATION_NPCS = [
 ];
 const NPC_BY_ID = Object.fromEntries(REPUTATION_NPCS.map((n) => [n.id, n]));
 
+// Ліги. Лідерборд за балансом — це «хто довше грає»; ліги ж щотижня обнуляються,
+// тому новачок має реальний шанс, а сезонний титул не купиш за ⭐ ніколи.
+const LEAGUES = [
+    { id: 0, emoji: '🛋️', name: 'Ліга Дивана' },
+    { id: 1, emoji: '🕳️', name: 'Ліга Підвалу' },
+    { id: 2, emoji: '🏔️', name: 'Ліга Балкан' },
+    { id: 3, emoji: '🚣', name: 'Ліга Тиси' },
+    { id: 4, emoji: '🛂', name: 'Ліга Кордону' },
+    { id: 5, emoji: '🏛️', name: 'Ліга Бункера' },
+];
+
+// Сезонна косметика: НІКОЛИ не продається за ⭐ і не випадає з ящиків. Тільки
+// виграти. Це головна валюта статусу в грі для друзів.
+const SEASON_COSMETICS = [
+    { id: 'season_crown', slot: 'hat', name: 'Корона ухилянта сезону', emoji: '👑', seasonOnly: true, price: 0 },
+    { id: 'season_shades', slot: 'face', name: 'Окуляри чемпіона', emoji: '🕶️', seasonOnly: true, price: 0 },
+    { id: 'season_cape', slot: 'neck', name: 'Мантія непіймання', emoji: '🧥', seasonOnly: true, price: 0 },
+];
+
 const SKILL_BY_ID = {};
 for (const br of SKILL_BRANCHES) {
     br.skills.forEach((s, i) => { SKILL_BY_ID[s.id] = { ...s, branchId: br.id, index: i }; });
@@ -553,6 +612,7 @@ const CRATES = [
             { type: 'res', res: 'cans', min: 8, max: 15, weight: 12 },
             { type: 'coins', min: 6000, max: 15000, weight: 12 },
             { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
+            { type: 'granny', weight: 6 },
             { type: 'cosmetic', weight: 8 },
             { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
         ],
@@ -572,6 +632,7 @@ const CRATES = [
             // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
             // не взяти найдовшу відстрочку.
             { type: 'res', res: 'phone', min: 1, max: 1, weight: 3 },
+            { type: 'granny', weight: 4 },
             { type: 'energy', weight: 3 },
         ],
     },
@@ -626,6 +687,21 @@ const CRATES = [
             { type: 'coins', min: 200000, max: 500000, weight: 18 },
             { type: 'cosmetic', weight: 15 },
             { type: 'res', res: 'phone', min: 1, max: 2, weight: 12 },
+        ],
+    },
+    // Трофейний ящик за ТК/⭐ не купується взагалі — тільки з перемоги у війні
+    // ОСББ або з відбитої облави на район. Тому й дроп без порожніх результатів.
+    {
+        id: 'trophy', name: 'Трофейний ящик', emoji: '🏆', price: 0, currency: 'trophy',
+        desc: 'Здобич із війни ОСББ. Не продається — тільки виграється.',
+        loot: [
+            { type: 'coins', min: 30000, max: 90000, weight: 26 },
+            { type: 'res', res: 'cash', min: 3, max: 8, weight: 20 },
+            { type: 'res', res: 'stamp', min: 1, max: 3, weight: 18 },
+            { type: 'res', res: 'sim', min: 4, max: 10, weight: 16 },
+            { type: 'cosmetic', weight: 12 },
+            { type: 'res', res: 'phone', min: 1, max: 1, weight: 5 },
+            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 3 },
         ],
     },
 ];
@@ -853,6 +929,9 @@ const COSMETICS = [
     { id: 'frame_steel', slot: 'frame', name: 'Сталева рамка', color: '#90a4ae', price: 1400 },
     { id: 'frame_rainbow', slot: 'frame', name: 'Веселкова рамка (анімована)', color: 'rainbow', price: 6000 },
     { id: 'frame_siren', slot: 'frame', name: 'Сирена (анімована)', color: 'siren', price: 5500 },
+    // Сезонні нагороди живуть у тому ж каталозі, щоб їх бачив гардероб і кімната,
+    // але позначені seasonOnly — магазин їх не показує, купити не можна.
+    ...SEASON_COSMETICS,
 ];
 
 // Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
@@ -1103,6 +1182,14 @@ function createFreshUser(id, name) {
         pendingRobbery: null,       // { byName, amount, at } — показати жертві при найближчому save
         lastSeenAt: 0,              // для офлайн-звіту при вході
         offlineLog: [],             // [{ t, kind, text }] — що сталось, поки гравця не було
+        // --- Сезони, ліги, війни ---
+        league: 0,                  // індекс у LEAGUES
+        seasonId: null,             // "понеділок тижня" — межа сезону
+        seasonTitle: null,          // титул під ніком, який не купиш
+        seasonResult: null,         // підсумки минулого сезону, показуємо один раз
+        heatDaySP: null,            // щоб доба з високим розшуком рахувалась раз на день
+        pendingWarCrate: 0,         // трофейні ящики з війн і облав на район
+        grannyUntil: 0,             // автоклікер «Бабуся клікає за тебе»
         trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
         // --- Медкомісія та інспектори ---
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
@@ -1230,6 +1317,13 @@ function migrateUser(user) {
     if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
     if (typeof user.lastSeenAt !== 'number') user.lastSeenAt = 0;
     if (!Array.isArray(user.offlineLog)) user.offlineLog = [];
+    if (typeof user.league !== 'number') user.league = 0;
+    if (user.seasonId === undefined) user.seasonId = null;
+    if (user.seasonTitle === undefined) user.seasonTitle = null;
+    if (user.seasonResult === undefined) user.seasonResult = null;
+    if (user.heatDaySP === undefined) user.heatDaySP = null;
+    if (typeof user.pendingWarCrate !== 'number') user.pendingWarCrate = 0;
+    if (typeof user.grannyUntil !== 'number') user.grannyUntil = 0;
     if (typeof user.inspectorCooldownUntil !== 'number') user.inspectorCooldownUntil = 0;
     if (user.medcomSession === undefined) user.medcomSession = null;
     if (user.inspector === undefined) user.inspector = null;
@@ -1683,11 +1777,22 @@ function snitchEligibility(user, target) {
         const leftH = Math.ceil((cooldownMs - (Date.now() - lastAt)) / 3600000);
         return deny(`На цього ти вже стукав. Дай продихнути ще ${leftH} год`);
     }
-    if (user.balance < ECONOMY.SNITCH_COST_TK) return deny('Не вистачає ТК на анонімний дзвінок');
+    // Під час війни ОСББ стук на учасника ворожого чату вдвічі дешевший — саме
+    // це перетворює дрібну особисту гидоту на командний спорт.
+    const atWar = isWarEnemy(user, target);
+    const cost = atWar ? Math.round(ECONOMY.SNITCH_COST_TK * ECONOMY.WAR_SNITCH_DISCOUNT) : ECONOMY.SNITCH_COST_TK;
+    if (user.balance < cost) return deny('Не вистачає ТК на анонімний дзвінок');
     if ((user.resources[ECONOMY.SNITCH_COST_RES] || 0) < 1) {
         return deny('Потрібна ліва сімка — зі свого номера такі дзвінки не роблять');
     }
-    return { ok: true, free: false, costTk: ECONOMY.SNITCH_COST_TK };
+    return { ok: true, free: false, costTk: cost, warTarget: atWar };
+}
+
+// Чи ця ціль — учасник ворожого чату в активній війні.
+function isWarEnemy(user, target) {
+    const clan = user.clanId && clansDB.get(user.clanId);
+    if (!warActive(clan)) return false;
+    return target.clanId === clan.war.opponentId;
 }
 
 function shuffled(arr) {
@@ -1754,6 +1859,19 @@ function maybeSpawnInspector(user, now = Date.now()) {
 function tickNotices() {
     const now = Date.now();
     const pushWindow = ECONOMY.NOTICE_PUSH_BEFORE_MIN * 60000;
+    // Тижневі речі — у тому ж тіку, окремих інтервалів по всіх гравцях не заводимо.
+    try {
+        rolloverSeasonIfNeeded();
+        matchmakeWarsIfNeeded();
+        settleWarsIfNeeded();
+        announceWeeklyBest();
+        for (const clan of clansDB.values()) {
+            settleDistrictRaid(clan);
+            maybeStartDistrictRaid(clan);
+        }
+    } catch (e) {
+        console.error('⚠️  Помилка в тижневому тіку:', e.message);
+    }
     for (const user of usersDB.values()) {
         try {
             if (!Array.isArray(user.notices)) continue; // ще не мігрований — оживе при першому getUser
@@ -1772,6 +1890,7 @@ function tickNotices() {
             }
 
             maybeSpawnInspector(user, now);
+            awardHeatSeasonPoints(user);
 
             for (const n of user.notices) {
                 if (n.pushSent || n.expiresAt - now > pushWindow) continue;
@@ -1831,6 +1950,15 @@ function rollCrate(user, crate) {
     if (entry.type === 'energy') {
         user.energy = user.maxEnergy;
         return { kind: 'energy', title: 'Павербанк', emoji: '🔋', img: '/images/gacha-powerbank.webp', desc: 'Енергію відновлено повністю!' };
+    }
+    if (entry.type === 'granny') {
+        // Класичний clicker-товар: бабуся клікає замість тебе, але енергію
+        // витрачає твою — тож це прискорення, а не безкоштовні гроші.
+        user.grannyUntil = Math.max(Date.now(), user.grannyUntil || 0) + ECONOMY.GRANNY_MINUTES * 60000;
+        return {
+            kind: 'granny', title: 'Бабуся клікає за тебе!', emoji: '👵',
+            desc: `${ECONOMY.GRANNY_MINUTES} хвилин по ${ECONOMY.GRANNY_CPS} кліки/сек. Енергія витрачається твоя.`,
+        };
     }
     if (entry.type === 'cosmetic') {
         const notOwned = COSMETICS.filter((c) => !user.ownedCosmetics.includes(c.id));
@@ -2097,11 +2225,19 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     const today = new Date().toDateString();
     resetDailyIfNeeded(user);
+    // Тиждень міг змінитись, поки процес стояв без запитів, — підбиваємо підсумки
+    // сезону й розводимо війни ДО того, як зібрати відповідь для гравця.
+    rolloverSeasonIfNeeded();
+    matchmakeWarsIfNeeded();
+    settleWarsIfNeeded();
     const offlineEarnings = applyOfflineProgress(user);
     // Звіт «поки тебе не було» збираємо ПІСЛЯ нарахування пасиву й після
     // syncHeatAndNotices у getUser — тобто коли всі офлайн-події вже застосовані.
     const offlineReport = takeOfflineReport(user);
     if (offlineReport) offlineReport.earnings = offlineEarnings;
+    // Підсумки сезону віддаємо РІВНО ОДИН раз — далі гравець їх уже бачив.
+    const seasonResult = user.seasonResult;
+    if (seasonResult) user.seasonResult = null;
     const clan = getClanInfo(user);
     const response = {
         id: user.id,
@@ -2119,6 +2255,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         lastPremiumReward: user.lastPremiumReward,
         offlineEarnings,
         offlineReport,
+        seasonResult,
         totalClicks: user.totalClicks,
         boxesOpened: user.boxesOpened,
         raidsSurvived: user.raidsSurvived,
@@ -2180,6 +2317,8 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         ...defermentSnapshot(user),
         ...skillsSnapshot(user),
         ...reputationSnapshot(user),
+        ...seasonSnapshot(user),
+        ...warSnapshot(user),
         ...inspectorSnapshot(user),
         ...heatSnapshot(user, true),
         ...noticeSnapshot(user),
@@ -2207,7 +2346,14 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     const clickDelta = typeof totalClicks === 'number' ? Math.max(0, totalClicks - user.totalClicks) : 0;
     if (typeof totalClicks === 'number') user.dailyClicks += clickDelta;
     if (typeof boxesOpened === 'number') user.dailyBoxes += Math.max(0, boxesOpened - user.boxesOpened);
-    if (typeof raidsSurvived === 'number') user.dailyRaids += Math.max(0, raidsSurvived - user.raidsSurvived);
+    // Облави відбиваються на клієнті (QTE), тому сезонні й воєнні очки за них
+    // нараховуємо тут, за приростом лічильника.
+    const raidDelta = typeof raidsSurvived === 'number' ? Math.max(0, raidsSurvived - user.raidsSurvived) : 0;
+    if (raidDelta > 0) {
+        user.dailyRaids += raidDelta;
+        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_RAID_SP * raidDelta;
+        addWarPoints(user, ECONOMY.WAR_POINTS_RAID * raidDelta, 'пережив облаву');
+    }
 
     // Розшук росте від самої активності. Рахуємо сотнями кліків, залишок носимо в
     // clickHeatCarry — інакше при збереженні раз на 5 секунд приріст губився б в округленні.
@@ -2390,7 +2536,9 @@ app.get('/api/leaderboard', (req, res) => {
         .slice(0, 10)
         // pid — опаковий публічний ідентифікатор, саме він потрібен, щоб тапнути
         // по гравцю й порівняти профілі. Telegram id тут не світимо.
-        .map((u) => ({ pid: u.pid, name: u.name, balance: u.balance, isVip: u.isVip, level: u.level, snitch: publicSnitchStats(u) }));
+        .map((u) => ({ pid: u.pid, name: u.name, balance: u.balance, isVip: u.isVip, level: u.level,
+            snitch: publicSnitchStats(u), seasonTitle: u.seasonTitle || null,
+            league: LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, u.league || 0))].emoji }));
     res.json(top);
 });
 
@@ -2419,6 +2567,8 @@ app.post('/api/cosmetic/buy', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
     const item = COSMETICS.find((c) => c.id === req.body.cosmeticId);
     if (!item) return res.status(400).json({ error: 'Невідомий предмет гардеробу' });
+    // Сезонну річ не можна купити ні за ТК, ні за ⭐ — тільки виграти в лізі.
+    if (item.seasonOnly) return res.json({ success: false, message: 'Це нагорода сезону. Її не продають.' });
     if (user.ownedCosmetics.includes(item.id)) return res.json({ success: false, message: 'Вже куплено' });
     if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
     user.balance -= item.price;
@@ -2540,6 +2690,8 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
 
     user.prestigePoints = (user.prestigePoints || 0) + gain;
     user.prestigeCount = (user.prestigeCount || 0) + 1;
+    // Легалізація — найдорожча дія в грі, тому й найбільший разовий внесок у сезон.
+    user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_PRESTIGE_SP;
 
     // Скидаємо саме економіку. Все колекційне лишається.
     user.balance = 0;
@@ -2627,6 +2779,8 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     if (Date.now() < active.endsAt) return res.json({ success: false, message: 'Вилазка ще триває' });
 
     const exp = EXPEDITION_BY_ID[active.id];
+    user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_EXPEDITION_SP * exp.minLevel;
+    addWarPoints(user, ECONOMY.WAR_POINTS_EXPEDITION, 'завершив вилазку');
     // Компаньйон береться той, що був НА МОМЕНТ СТАРТУ вилазки (записаний у ній),
     // інакше можна було б зняти щура перед стартом і вдягнути пса перед клеймом.
     const pet = PET_EXPEDITION[active.petId] || {};
@@ -2670,6 +2824,7 @@ app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
     resetDailyIfNeeded(user);
     const crate = CRATE_BY_ID[req.body.crateId];
     if (!crate) return res.status(400).json({ error: 'Невідомий ящик' });
+    if (crate.currency === 'trophy') return res.json({ success: false, message: 'Трофейний ящик не продається — його треба виграти' });
     if (crate.currency !== 'coins') return res.json({ success: false, message: 'Цей ящик купується за Stars' });
     // Ціну рахує сервер (з урахуванням щоденної акції) — клієнту тут не довіряємо.
     const price = cratePriceFor(crate, user);
@@ -2682,7 +2837,7 @@ app.post('/api/crate/open', requireTelegramAuth, (req, res) => {
     const unlocked = checkAchievements(user);
     res.json({
         success: true, reward, balance: user.balance,
-        ownedCosmetics: user.ownedCosmetics, energy: user.energy,
+        ownedCosmetics: user.ownedCosmetics, energy: user.energy, grannyUntil: user.grannyUntil || 0,
         unlockedAchievements: unlocked, ...storageSnapshot(user), ...heatSnapshot(user),
     });
 });
@@ -2713,6 +2868,10 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
     }
     user.craftedCount = (user.craftedCount || 0) + 1;
     user.dailyCrafts = (user.dailyCrafts || 0) + 1;
+    // Тір рецепта визначаємо по найдорожчому інгредієнту: серйозний крафт — це
+    // саме той, що з'їдає печатки, валюту чи квитки.
+    const recipeTier = Math.max(...Object.keys(recipe.cost).map((r) => RESOURCE_BY_ID[r]?.tier || 1));
+    if (recipeTier >= 3) user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_CRAFT_SP;
 
     const eff = recipe.effect;
     let message;
@@ -2871,6 +3030,432 @@ app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
         balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
         seasonPoints: user.seasonPoints, ...storageSnapshot(user),
         ...heatSnapshot(user, true), ...noticeSnapshot(user),
+    });
+});
+
+// ==========================================
+// СЕЗОНИ Й ЛІГИ
+// ==========================================
+// Сезон = календарний тиждень за київським часом. Ідентифікатор рахуємо як
+// «понеділок цього тижня» — так межа сезону однозначна і її легко перевірити.
+function kyivNow(at = Date.now()) {
+    // Київ — UTC+2/+3. Точний зсув беремо через локаль, щоб не тримати таблицю переходів.
+    const s = new Date(at).toLocaleString('en-US', { timeZone: 'Europe/Kyiv' });
+    return new Date(s);
+}
+
+function seasonIdFor(at = Date.now()) {
+    const d = kyivNow(at);
+    // getDay(): 0=неділя. Зсуваємо так, щоб тиждень починався з понеділка.
+    const dow = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - dow);
+    d.setHours(0, 0, 0, 0);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function seasonEndsAt(at = Date.now()) {
+    const d = kyivNow(at);
+    const dow = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - dow + 7);
+    d.setHours(0, 0, 0, 0);
+    // Переводимо київську «стінну» дату назад у реальний час.
+    return d.getTime() + (Date.now() - kyivNow().getTime());
+}
+
+function leagueOf(user) {
+    return LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, user.league || 0))];
+}
+
+// Скільки місць піднімається й падає. План писався під групи по 30, але грає
+// компанія друзів: при 12 гравцях фіксовані 8/8 перетинались би, і підвищувались
+// би всі одразу. Тому зони — чверть групи, але не більше плану і не менше одного.
+function leagueZones(total) {
+    const q = Math.max(1, Math.floor(total / 4));
+    return {
+        promote: Math.min(ECONOMY.LEAGUE_PROMOTE, q),
+        relegate: Math.min(ECONOMY.LEAGUE_RELEGATE, q),
+    };
+}
+
+// Нагорода за місце в лізі. Сезонна косметика — тільки за перше місце і тільки
+// та, якої ще немає.
+function seasonPrizeFor(user, rank, total) {
+    const zones = leagueZones(total);
+    const prize = { rank, total, tk: 0, crates: 0, cosmetic: null, title: null, move: 0 };
+    if (rank === 1) {
+        prize.crates = 3;
+        prize.title = `${leagueOf(user).emoji} Чемпіон: ${leagueOf(user).name}`;
+        const avail = SEASON_COSMETICS.filter((c) => !user.ownedCosmetics.includes(c.id));
+        if (avail.length) prize.cosmetic = avail[0].id;
+        else prize.tk = 100000; // усе вже зібрано — компенсуємо, щоб перше місце не було пустим
+    } else if (rank <= 3) {
+        prize.crates = 2;
+        prize.title = `${leagueOf(user).emoji} Призер: ${leagueOf(user).name}`;
+    } else if (rank <= zones.promote) {
+        prize.crates = 1;
+    } else if (rank > total - zones.relegate) {
+        prize.tk = 5000; // втішні
+    } else {
+        prize.tk = Math.max(2000, 20000 - rank * 1000);
+    }
+    if (rank <= zones.promote) prize.move = 1;
+    else if (rank > total - zones.relegate) prize.move = -1;
+    return prize;
+}
+
+// Підсумки сезону рахуються ОДИН раз глобально: ранги залежать від усіх гравців,
+// тому не можна робити це ліниво для кожного окремо. Результат кладемо в
+// user.seasonResult, гравець забирає його при наступному вході.
+let lastProcessedSeason = null;
+function rolloverSeasonIfNeeded() {
+    const current = seasonIdFor();
+    if (lastProcessedSeason === current) return false;
+
+    // Перший запуск процесу: просто фіксуємо сезон, нікого не переміщуємо.
+    const anyUser = usersDB.values().next().value;
+    if (!lastProcessedSeason && (!anyUser || !anyUser.seasonId)) {
+        usersDB.forEach((u) => { u.seasonId = current; });
+        lastProcessedSeason = current;
+        return false;
+    }
+    // Скільки гравців ще живуть у старому сезоні — тільки їх і перераховуємо.
+    const stale = Array.from(usersDB.values()).filter((u) => u.seasonId && u.seasonId !== current);
+    if (!stale.length) {
+        usersDB.forEach((u) => { if (!u.seasonId) u.seasonId = current; });
+        lastProcessedSeason = current;
+        return false;
+    }
+
+    // Групи рахуємо ДО будь-яких переміщень. Інакше гравець, підвищений у лізі 0,
+    // потрапляє в ітерацію ліги 1 і підвищується знову — і так до бункера.
+    const groups = LEAGUES.map((league) => stale
+        .filter((u) => (u.league || 0) === league.id && (u.seasonPoints || 0) >= ECONOMY.SEASON_MIN_POINTS)
+        .sort((a, b) => (b.seasonPoints || 0) - (a.seasonPoints || 0)));
+
+    for (const league of LEAGUES) {
+        const group = groups[league.id];
+        group.forEach((u, i) => {
+            const prize = seasonPrizeFor(u, i + 1, group.length);
+            u.balance += prize.tk;
+            for (let c = 0; c < prize.crates; c++) {
+                // Нагородні ящики — «гуманітарний», найчесніший середній тір.
+                rollCrate(u, CRATE_BY_ID['humanitarian']);
+            }
+            if (prize.cosmetic && !u.ownedCosmetics.includes(prize.cosmetic)) {
+                u.ownedCosmetics.push(prize.cosmetic);
+            }
+            if (prize.title) u.seasonTitle = prize.title;
+            u.league = Math.max(0, Math.min(LEAGUES.length - 1, (u.league || 0) + prize.move));
+            u.seasonResult = { ...prize, seasonId: u.seasonId, leagueName: league.name, leagueEmoji: league.emoji };
+            logOffline(u, 'good', `🏆 Сезон завершено: ${prize.rank} місце в лізі «${league.name}»`);
+            sendPush(u.id, `🏆 Сезон завершено! Ти ${prize.rank}-й у лізі «${league.name}». Зайди забрати нагороду.`);
+        });
+    }
+
+    // Скидаємо очки ВСІМ застарілим — включно з тими, хто не набрав мінімуму.
+    for (const u of stale) {
+        u.seasonPoints = 0;
+        u.seasonId = current;
+        u.heatDaySP = null;
+    }
+    usersDB.forEach((u) => { if (!u.seasonId) u.seasonId = current; });
+    lastProcessedSeason = current;
+    console.log(`🏆 Сезон ${current}: підбито підсумки для ${stale.length} гравців.`);
+    return true;
+}
+
+// «Ухилянт тижня» — безкоштовний соціальний тиск: раз на тиждень кожен у чаті
+// бачить, хто попереду. Розсилаємо всім учасникам, окремого чат-бота немає.
+function announceWeeklyBest() {
+    for (const clan of clansDB.values()) {
+        if (clan.bestAnnounced === seasonIdFor()) continue;
+        clan.bestAnnounced = seasonIdFor();
+        const members = clan.members.map((id) => usersDB.get(id)).filter(Boolean);
+        if (members.length < 2) continue;
+        const best = members.slice().sort((a, b) => (b.seasonPoints || 0) - (a.seasonPoints || 0))[0];
+        if (!best || !(best.seasonPoints > 0)) continue;
+        for (const u of members) {
+            sendPush(u.id, `📰 Ухилянт тижня в «${clan.name}»: ${best.name} — ${best.seasonPoints} сезонних очок.` +
+                (u.id === best.id ? '\nЦе ти. Тримай марку.' : '\nНаздоганяй.'));
+        }
+    }
+}
+
+// Доба з високим розшуком — окреме джерело сезонних очок, тому рахуємо її раз на день.
+function awardHeatSeasonPoints(user) {
+    if ((user.heat || 0) < ECONOMY.SEASON_HEAT_THRESHOLD) return;
+    const today = new Date().toDateString();
+    if (user.heatDaySP === today) return;
+    user.heatDaySP = today;
+    user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_HEAT_DAILY_SP;
+}
+
+function seasonSnapshot(user) {
+    const league = leagueOf(user);
+    const rivals = Array.from(usersDB.values())
+        .filter((u) => (u.league || 0) === league.id)
+        .sort((a, b) => (b.seasonPoints || 0) - (a.seasonPoints || 0));
+    const myRank = rivals.findIndex((u) => u.id === user.id) + 1;
+    const zones = leagueZones(rivals.length);
+    return {
+        seasonId: user.seasonId || seasonIdFor(),
+        seasonEndsAt: seasonEndsAt(),
+        seasonPoints: user.seasonPoints || 0,
+        seasonTitle: user.seasonTitle || null,
+        league: { id: league.id, emoji: league.emoji, name: league.name },
+        rank: myRank || rivals.length + 1,
+        groupSize: rivals.length,
+        promoteAt: zones.promote,
+        relegateAt: zones.relegate,
+        standings: rivals.slice(0, 30).map((u, i) => ({
+            rank: i + 1, name: u.name, pid: u.pid, points: u.seasonPoints || 0,
+            title: u.seasonTitle || null, me: u.id === user.id,
+        })),
+    };
+}
+
+app.get('/api/season', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    res.json(seasonSnapshot(user));
+});
+
+// ==========================================
+// ВІЙНА ОСББ (клан проти клану)
+// ==========================================
+// Стуки на ворогів приносять очки війни — саме це перетворює PvP з особистої
+// дрібної гидоти на командний спорт, у якого раптом з'являється тактика.
+function warActive(clan) {
+    return !!(clan && clan.war && Date.now() < clan.war.endsAt);
+}
+
+function addWarPoints(user, points, reason) {
+    const clan = user.clanId && clansDB.get(user.clanId);
+    if (!warActive(clan)) return;
+    clan.war.myPoints = (clan.war.myPoints || 0) + points;
+    clan.war.log = clan.war.log || [];
+    clan.war.log.unshift({ t: Date.now(), name: user.name, points, reason });
+    if (clan.war.log.length > 20) clan.war.log.length = 20;
+    clan.war.contributions = clan.war.contributions || {};
+    clan.war.contributions[user.id] = (clan.war.contributions[user.id] || 0) + points;
+}
+
+// Матчмейкінг щопонеділка: клани сортуються за рівнем і паруються сусідні.
+// Війна триває Пн–Пт, вихідні лишаємо в спокої.
+function matchmakeWarsIfNeeded() {
+    const current = seasonIdFor();
+    const clans = Array.from(clansDB.values());
+    const needs = clans.filter((c) => !c.warSeason || c.warSeason !== current);
+    if (!needs.length) return false;
+
+    const pool = needs.sort((a, b) => clanLevel(b) - clanLevel(a));
+    for (let i = 0; i < pool.length; i += 2) {
+        const a = pool[i];
+        const b = pool[i + 1];
+        a.warSeason = current;
+        if (!b) { a.war = null; continue; } // непарний клан цього тижня відпочиває
+        b.warSeason = current;
+        // Кінець у пʼятницю 23:59 за київським часом = старт тижня + 5 діб.
+        const endsAt = seasonEndsAt() - 2 * 24 * 3600 * 1000;
+        const base = { startedAt: Date.now(), endsAt, myPoints: 0, contributions: {}, log: [] };
+        a.war = { ...base, opponentId: b.id, opponentName: b.name };
+        b.war = { ...base, opponentId: a.id, opponentName: a.name };
+        for (const id of [...a.members, ...b.members]) {
+            sendPush(id, '⚔️ Стартувала війна ОСББ! Стуки на учасників ворожого чату дають найбільше очок.');
+        }
+    }
+    return true;
+}
+
+// Підбиття підсумків війни: переможцю скарбниця +20%, трофейні ящики й бафф.
+// Переможеним — НІЧОГО. Без штрафів: це гра для друзів, токсичність не потрібна.
+function settleWarsIfNeeded() {
+    for (const clan of clansDB.values()) {
+        if (!clan.war || clan.warSettled === clan.warSeason) continue;
+        if (Date.now() < clan.war.endsAt) continue;
+        const foe = clansDB.get(clan.war.opponentId);
+        const mine = clan.war.myPoints || 0;
+        const theirs = (foe && foe.war && foe.war.myPoints) || 0;
+        clan.warSettled = clan.warSeason;
+        clan.warResult = { mine, theirs, won: mine > theirs, at: Date.now() };
+        if (mine > theirs) {
+            clan.treasury = Math.round((clan.treasury || 0) * (1 + ECONOMY.WAR_TREASURY_PRIZE));
+            clan.warBuffUntil = Date.now() + ECONOMY.WAR_BUFF_DAYS * 24 * 3600 * 1000;
+            for (const id of clan.members) {
+                const u = usersDB.get(id);
+                if (!u) continue;
+                u.pendingWarCrate = (u.pendingWarCrate || 0) + 1;
+                logOffline(u, 'good', '🏆 Ваш ОСББ виграв війну — трофейний ящик чекає');
+                sendPush(id, '🏆 Ваш чат ОСББ виграв війну! Забери трофейний ящик і тримай бафф на тиждень.');
+            }
+        } else {
+            for (const id of clan.members) {
+                sendPush(id, '⚔️ Війна ОСББ завершилась. Цього разу не наша, але й втрачати нічого.');
+            }
+        }
+    }
+}
+
+function warSnapshot(user) {
+    const clan = user.clanId && clansDB.get(user.clanId);
+    // Трофейні ящики й автоклікер до клану стосунку не мають: гравець міг вийти
+    // з чату, вже маючи нагороду, і вона не повинна зникати з відповіді.
+    const personal = { pendingWarCrate: user.pendingWarCrate || 0, grannyUntil: user.grannyUntil || 0 };
+    if (!clan) return { war: null, ...personal };
+    const foe = clan.war && clansDB.get(clan.war.opponentId);
+    return {
+        war: clan.war ? {
+            opponentName: clan.war.opponentName,
+            myPoints: clan.war.myPoints || 0,
+            theirPoints: (foe && foe.war && foe.war.myPoints) || 0,
+            endsAt: clan.war.endsAt,
+            active: warActive(clan),
+            myContribution: (clan.war.contributions || {})[user.id] || 0,
+            log: clan.war.log || [],
+            enemies: foe ? foe.members.map((id) => {
+                const u = usersDB.get(id);
+                return u ? { pid: u.pid, name: u.name, level: u.level } : null;
+            }).filter(Boolean) : [],
+        } : null,
+        warResult: clan.warResult || null,
+        warBuffUntil: clan.warBuffUntil || 0,
+        ...personal,
+    };
+}
+
+app.get('/api/war', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    matchmakeWarsIfNeeded();
+    settleWarsIfNeeded();
+    res.json(warSnapshot(user));
+});
+
+app.post('/api/war/crate', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (!(user.pendingWarCrate > 0)) return res.json({ success: false, message: 'Трофейних ящиків немає' });
+    user.pendingWarCrate -= 1;
+    // Трофейний ящик — унікальний, дістається ТІЛЬКИ з війн і за ТК не купується.
+    const reward = rollCrate(user, CRATE_BY_ID['trophy']);
+    res.json({ success: true, reward, balance: user.balance, ...storageSnapshot(user), pendingWarCrate: user.pendingWarCrate });
+});
+
+// ==========================================
+// ОБЛАВА НА РАЙОН (кооп-бос)
+// ==========================================
+// Єдина механіка, де друзям треба скооперуватись у реальному часі.
+function districtHpFor(clan) {
+    const power = clan.members.reduce((sum, id) => sum + Math.max(1, Number(usersDB.get(id)?.clickVal) || 1), 0);
+    return Math.max(ECONOMY.DISTRICT_HP_FLOOR, Math.round(power * ECONOMY.DISTRICT_HP_PER_CLICK_POWER));
+}
+
+function maybeStartDistrictRaid(clan) {
+    if (clan.districtRaid) return false;
+    const totalHeat = clan.members.reduce((sum, id) => sum + (usersDB.get(id)?.heat || 0), 0);
+    if (totalHeat < ECONOMY.DISTRICT_HEAT_TRIGGER) return false;
+    const hp = districtHpFor(clan);
+    clan.districtRaid = {
+        hp, hpMax: hp, startedAt: Date.now(),
+        endsAt: Date.now() + ECONOMY.DISTRICT_WINDOW_H * 3600 * 1000,
+        contributions: {},
+    };
+    for (const id of clan.members) {
+        sendPush(id, `🚌 Автобус ТЦК заїхав у район! Сумарний розшук чату перевищив ${ECONOMY.DISTRICT_HEAT_TRIGGER}. У вас ${ECONOMY.DISTRICT_WINDOW_H} годин.`);
+    }
+    return true;
+}
+
+function settleDistrictRaid(clan) {
+    const r = clan.districtRaid;
+    if (!r || Date.now() < r.endsAt || r.hp <= 0) return false;
+    // Не встигли: штраф усім, і клан на добу без бонусів.
+    clan.districtRaid = null;
+    clan.districtPenaltyUntil = Date.now() + 24 * 3600 * 1000;
+    for (const id of clan.members) {
+        const u = usersDB.get(id);
+        if (!u) continue;
+        const fine = Math.floor(Math.max(0, u.balance) * ECONOMY.DISTRICT_LOSE_BALANCE_PCT);
+        if (fine > 0) u.balance -= fine;
+        changeHeat(u, ECONOMY.DISTRICT_LOSE_HEAT, 'Автобус ТЦК постояв і поїхав');
+        logOffline(u, 'bad', `🚌 Облаву на район не відбили (−${fine.toLocaleString('uk-UA')} ТК)`);
+    }
+    return true;
+}
+
+function districtSnapshot(clan, user) {
+    const r = clan && clan.districtRaid;
+    if (!r) return { districtRaid: null, districtPenaltyUntil: (clan && clan.districtPenaltyUntil) || 0 };
+    return {
+        districtRaid: {
+            hp: Math.max(0, Math.round(r.hp)), hpMax: r.hpMax, endsAt: r.endsAt,
+            myDamage: (r.contributions || {})[user.id] || 0,
+            contributions: Object.entries(r.contributions || {})
+                .map(([id, dmg]) => ({ name: usersDB.get(id)?.name || '???', damage: Math.round(dmg) }))
+                .sort((a, b) => b.damage - a.damage),
+        },
+        districtPenaltyUntil: clan.districtPenaltyUntil || 0,
+    };
+}
+
+app.get('/api/district', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const clan = user.clanId && clansDB.get(user.clanId);
+    if (!clan) return res.json({ districtRaid: null, noClan: true });
+    settleDistrictRaid(clan);
+    res.json({ ...districtSnapshot(clan, user), heatTrigger: ECONOMY.DISTRICT_HEAT_TRIGGER,
+        clanHeat: Math.round(clan.members.reduce((s, id) => s + (usersDB.get(id)?.heat || 0), 0)) });
+});
+
+app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const clan = user.clanId && clansDB.get(user.clanId);
+    if (!clan || !clan.districtRaid) return res.json({ success: false, message: 'Автобуса немає' });
+    if (settleDistrictRaid(clan)) {
+        return res.json({ success: false, gone: true, message: 'Не встигли. Автобус поїхав, але не порожнім.' });
+    }
+    const r = clan.districtRaid;
+
+    // Той самий анти-чіт і та сама ціна енергії, що й у бою з інспектором.
+    const dt = Math.max(1, Math.min(5000, Number(req.body.dt) || ECONOMY.INSPECTOR_BATCH_MS));
+    let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS)));
+    if (!clicks) return res.json({ success: true, ...districtSnapshot(clan, user), energy: user.energy });
+
+    if (!hasSkill(user, 'marathon')) {
+        const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+        clicks = Math.min(clicks, affordable);
+        if (!clicks) return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...districtSnapshot(clan, user) });
+        user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+    }
+
+    const damage = clicks * Math.max(1, Number(user.clickVal) || 1);
+    r.hp -= damage;
+    r.contributions[user.id] = (r.contributions[user.id] || 0) + damage;
+
+    if (r.hp > 0) {
+        return res.json({ success: true, damage, energy: user.energy, ...districtSnapshot(clan, user) });
+    }
+
+    // Забили. Топ-1 за внеском отримує подвійну нагороду й трофей.
+    const ranked = Object.entries(r.contributions).sort((a, b) => b[1] - a[1]);
+    const topId = ranked.length ? ranked[0][0] : null;
+    clan.districtRaid = null;
+    const rewards = [];
+    for (const id of clan.members) {
+        const u = usersDB.get(id);
+        if (!u) continue;
+        const isTop = id === topId;
+        const tk = ECONOMY.DISTRICT_WIN_TK * (isTop ? 2 : 1);
+        u.balance += tk;
+        changeHeat(u, ECONOMY.DISTRICT_WIN_HEAT, 'Відбили облаву на район');
+        u.seasonPoints = (u.seasonPoints || 0) + ECONOMY.DISTRICT_WIN_SP;
+        u.pendingWarCrate = (u.pendingWarCrate || 0) + 1;
+        if (isTop && !u.trophies.includes('district_top')) u.trophies.push('district_top');
+        logOffline(u, 'good', `🚌 Автобус ТЦК відбито (+${tk.toLocaleString('uk-UA')} ТК)`);
+        if (id !== user.id) sendPush(id, '🚌 Автобус ТЦК відбито! Забери нагороду в грі.');
+        rewards.push({ name: u.name, tk, top: isTop });
+    }
+    res.json({
+        success: true, defeated: true, damage, rewards, topName: usersDB.get(topId)?.name || null,
+        balance: user.balance, energy: user.energy, trophies: user.trophies,
+        seasonPoints: user.seasonPoints, pendingWarCrate: user.pendingWarCrate,
     });
 });
 
@@ -3326,6 +3911,32 @@ app.get('/api/inspector', requireTelegramAuth, (req, res) => {
 // Тестовий виклик боса. Реєструється ТІЛЬКИ в dev-режимі — у проді цього роуту
 // просто не існує, інакше будь-хто міг би фармити інспекторів на вимогу.
 if (DEV_MODE_INSECURE) {
+    // Тижневі механіки інакше не перевірити, не чекаючи понеділка.
+    app.post('/api/dev/end-season', requireTelegramAuth, (req, res) => {
+        usersDB.forEach((u) => { u.seasonId = 'FORCED-OLD'; });
+        lastProcessedSeason = null;
+        const changed = rolloverSeasonIfNeeded();
+        res.json({ success: true, changed });
+    });
+    app.post('/api/dev/start-war', requireTelegramAuth, (req, res) => {
+        clansDB.forEach((c) => { c.warSeason = null; c.warSettled = null; });
+        res.json({ success: true, matched: matchmakeWarsIfNeeded() });
+    });
+    app.post('/api/dev/end-war', requireTelegramAuth, (req, res) => {
+        clansDB.forEach((c) => { if (c.war) c.war.endsAt = Date.now() - 1000; });
+        settleWarsIfNeeded();
+        res.json({ success: true });
+    });
+    app.post('/api/dev/spawn-district', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const clan = user.clanId && clansDB.get(user.clanId);
+        if (!clan) return res.json({ success: false, message: 'Немає чату' });
+        clan.districtRaid = null;
+        const hp = districtHpFor(clan);
+        clan.districtRaid = { hp, hpMax: hp, startedAt: Date.now(),
+            endsAt: Date.now() + ECONOMY.DISTRICT_WINDOW_H * 3600 * 1000, contributions: {} };
+        res.json({ success: true, ...districtSnapshot(clan, user) });
+    });
     app.post('/api/dev/spawn-inspector', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const insp = INSPECTOR_BY_ID[req.body.inspectorId];
@@ -3378,6 +3989,7 @@ app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
     // Переможений: нагорода, трофей і кулдаун до наступного візиту.
     user.inspector = null;
     user.inspectorStats.defeated[insp.id] = (user.inspectorStats.defeated[insp.id] || 0) + 1;
+    addWarPoints(user, ECONOMY.WAR_POINTS_INSPECTOR, 'спекався інспектора');
     user.inspectorLastSeen[insp.id] = Date.now();
     user.inspectorCooldownUntil = Date.now() + ECONOMY.INSPECTOR_COOLDOWN_H * 3600 * 1000;
     if (!user.trophies.includes('insp_' + insp.id)) user.trophies.push('insp_' + insp.id);
@@ -3581,7 +4193,10 @@ app.get('/api/profile', requireTelegramAuth, (req, res) => {
         me: profileCard(me), other: profileCard(other),
         snitch: {
             can: elig.ok, free: !!elig.free, reason: elig.reason || null,
-            costTk: ECONOMY.SNITCH_COST_TK, costRes: ECONOMY.SNITCH_COST_RES,
+            // Саме обчислена ціна: під час війни стук на ворога вдвічі дешевший,
+            // і кнопка має показувати це, а не базовий цінник.
+            costTk: typeof elig.costTk === 'number' ? elig.costTk : ECONOMY.SNITCH_COST_TK,
+            warTarget: !!elig.warTarget, costRes: ECONOMY.SNITCH_COST_RES,
             left: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (me.snitchesToday || 0)),
         },
     });
@@ -3602,7 +4217,7 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
     if (elig.free) {
         user.freeSnitchOn = user.freeSnitchOn.filter((id) => id !== target.id);
     } else {
-        user.balance -= ECONOMY.SNITCH_COST_TK;
+        user.balance -= elig.costTk;
         const res_ = ECONOMY.SNITCH_COST_RES;
         user.resources[res_] -= 1;
         if (user.resources[res_] <= 0) delete user.resources[res_];
@@ -3610,6 +4225,7 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
         user.lastSnitchTargets[target.id] = now;
     }
     user.snitchStats.sent += 1;
+    if (elig.warTarget) addWarPoints(user, ECONOMY.WAR_POINTS_SNITCH, 'здав ворога');
 
     // «Дві сімки»: у жертви свій номер, і дзвінок просто не проходить. Ресурси
     // стукач витратив, але про провал НЕ дізнається — інакше він би просто
@@ -3858,12 +4474,15 @@ app.post('/api/clan/donate', requireTelegramAuth, (req, res) => {
     user.balance -= amount;
     clan.treasury = (clan.treasury || 0) + amount;
     clan.contributions[user.id] = (clan.contributions[user.id] || 0) + amount;
+    // Внесок теж кує перемогу у війні, просто повільніше за стуки й босів.
+    const warPts = Math.floor(amount / ECONOMY.WAR_POINTS_PER_DONATION);
+    if (warPts > 0) addWarPoints(user, warPts, 'вніс у скарбницю');
     const after = clanLevel(clan);
     const unlocked = checkAchievements(user);
 
     res.json({
         success: true, balance: user.balance,
-        leveledUp: after > before, unlockedAchievements: unlocked, ...getClanInfo(user),
+        leveledUp: after > before, unlockedAchievements: unlocked, ...getClanInfo(user), ...warSnapshot(user),
     });
 });
 
@@ -4119,6 +4738,47 @@ function buildHtml(botUsername) {
         .npc-quest-prog.done { color: #39ff14; font-weight: 700; }
         .npc-perk { font-size: 11px; color: #cfe3f2; background: rgba(255,255,255,0.05); border-radius: 7px; padding: 7px 9px; margin-top: 7px; }
         .npc-perk.on { color: #ffd700; }
+
+        /* ===== Сезони, ліги, війни ===== */
+        #season-screen, #war-screen, #season-result { position: fixed; inset: 0; z-index: 1795; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .league-badge { text-align: center; font-size: 20px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
+        .league-sub { text-align: center; font-size: 12px; color: #9fb4c7; margin-bottom: 12px; }
+        .standing-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 7px 9px; border-radius: 7px; margin-bottom: 4px; background: rgba(255,255,255,0.03); }
+        .standing-row.me { background: rgba(255,215,0,0.13); border: 1px solid rgba(255,215,0,0.4); font-weight: 700; }
+        .standing-row.promote { border-left: 3px solid #39ff14; }
+        .standing-row.relegate { border-left: 3px solid #ff4d4d; }
+        .standing-rank { width: 22px; color: #9fb4c7; }
+        .standing-pts { margin-left: auto; color: var(--gold); font-weight: 700; }
+        .season-title-chip { display: inline-block; font-size: 10px; background: rgba(255,215,0,0.18); color: #ffd700; border-radius: 10px; padding: 1px 7px; margin-left: 5px; }
+        .war-scores { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .war-side { flex: 1; text-align: center; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 11px; }
+        .war-side.mine { border: 1px solid rgba(57,255,20,0.45); }
+        .war-side.theirs { border: 1px solid rgba(255,77,77,0.45); }
+        .war-side b { display: block; font-size: 22px; color: var(--gold); }
+        .war-side span { font-size: 11px; color: #9fb4c7; }
+        .enemy-row { display: flex; align-items: center; gap: 8px; font-size: 13px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+        .enemy-row button { width: auto; margin: 0 0 0 auto; padding: 5px 11px; font-size: 12px; }
+        #district-screen { position: fixed; inset: 0; z-index: 1900; background: radial-gradient(circle at 50% 30%, #2a1a0d 0%, #07070d 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; text-align: center; }
+        #district-bus { font-size: 76px; line-height: 1; }
+        #district-bus.hit { animation: inspShake .12s; }
+        .district-contrib { font-size: 12px; color: #cfe3f2; display: flex; gap: 8px; padding: 4px 0; }
+        .district-contrib b { margin-left: auto; color: var(--gold); }
+
+        /* ===== Довідка механік ===== */
+        #codex-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(4,4,10,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .codex-nav { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+        .codex-nav button { width: auto; flex: none; margin: 0; padding: 5px 10px; font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid #3a3a4d; color: #cfe3f2; }
+        .codex-nav button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
+        .codex-sec h3 { font-size: 16px; color: var(--gold); margin: 0 0 4px; }
+        .codex-lead { font-size: 12px; color: #9fb4c7; line-height: 1.55; margin: 0 0 12px; }
+        .codex-block { background: rgba(255,255,255,0.04); border: 1px solid #2f2f42; border-radius: 9px; padding: 10px 11px; margin-bottom: 9px; }
+        .codex-block h4 { font-size: 13px; margin: 0 0 5px; color: #fff; }
+        .codex-block p { font-size: 12px; color: #cfe3f2; line-height: 1.5; margin: 0 0 6px; }
+        .codex-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        .codex-table td { padding: 4px 5px; border-bottom: 1px solid rgba(255,255,255,0.07); color: #cfe3f2; vertical-align: top; }
+        .codex-table td:last-child { text-align: right; color: var(--gold); white-space: nowrap; font-weight: 600; }
+        .codex-tip { font-size: 11.5px; line-height: 1.5; color: #b9ffb0; background: rgba(57,255,20,0.08); border-left: 3px solid rgba(57,255,20,0.5); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
+        .codex-warn { font-size: 11.5px; line-height: 1.5; color: #ffc9c9; background: rgba(255,77,77,0.09); border-left: 3px solid rgba(255,77,77,0.55); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
 
         main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
         .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
@@ -4415,7 +5075,7 @@ function buildHtml(botUsername) {
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
         <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
-        <button class="help-btn" onclick="openHelp()" title="Як грати">?</button>
+        <button class="help-btn" onclick="openCodex()" title="Довідка механік">?</button>
         <button class="notices-btn" onclick="openNotices()" title="Повістки">📬</button>
         <div class="notices-badge hidden" id="notices-badge">0</div>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
@@ -4493,6 +5153,10 @@ function buildHtml(botUsername) {
     <div id="clan" class="panel">
         <img src="/images/clan-icon.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <div id="clan-mine"></div>
+        <div id="clan-war-buttons" class="hidden">
+            <button class="secondary" onclick="openWar()">⚔️ Війна ОСББ</button>
+            <button class="secondary" onclick="openDistrict()">🚌 Облава на район</button>
+        </div>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Створити чат ОСББ</h3>
         <input type="text" id="clan-name-input" placeholder="Назва чату" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
         <button onclick="createClan()">Створити (+${(ECONOMY.CLAN_PASSIVE_BONUS * 100).toFixed(0)}% пасиву всім)</button>
@@ -4597,6 +5261,12 @@ function buildHtml(botUsername) {
         <div id="stats-box"></div>
         <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🎯 Колекція</h3>
         <div id="collection-box"></div>
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🏅 Сезон</h3>
+        <p style="font-size:12px; color:#9fb4c7; margin:0 0 8px; line-height:1.5;">
+            Рейтинг за балансом — це «хто довше грає». Ліга обнуляється щотижня,
+            тому шанс має і новачок.
+        </p>
+        <button onclick="openSeason()">🏅 Моя ліга і сезонні очки</button>
         <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🏆 Рейтинг гравців</h3>
         <img src="/images/leaderboard-trophy.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <button onclick="loadTop()">🔄 Оновити рейтинг</button>
@@ -4626,6 +5296,7 @@ function buildHtml(botUsername) {
             <div class="help-step"><b>7. Друзі — теж механіка</b><br>Тап по гравцю в 🏆 ТОП відкриває порівняння профілів і кнопку <b>«здати»</b>. Здав — йому прилетить повістка. Здали тебе — маєш одне розслідування з трьох підозрюваних. Вгадаєш — забереш частину його балансу, помилишся — невинний образиться і отримає безкоштовний дзвінок на тебе.</div>
             <div class="help-step"><b>8. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
             <button onclick="closeHelp()">Зрозуміло</button>
+            <button class="secondary" onclick="closeHelp(); openCodex();">📖 Повна довідка механік</button>
         </div>
     </div>
 
@@ -4677,6 +5348,72 @@ function buildHtml(botUsername) {
             <div id="inspector-roster"></div>
             <button onclick="closeHeatCase()" style="margin-top:12px;">Закрити</button>
         </div>
+    </div>
+
+    <!-- Довідка механік: повний опис систем, зібраний із реальних даних гри. -->
+    <div id="codex-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeCodex()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">📖 Довідка механік</h2>
+            <p style="font-size:11px; color:#9fb4c7; text-align:center; margin: 0 0 12px;">
+                Усі цифри тут — справжні, вони читаються прямо з гри.
+            </p>
+            <div class="codex-nav" id="codex-nav"></div>
+            <div id="codex-body"></div>
+            <button onclick="closeCodex()" style="margin-top:10px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Сезон і ліга: щотижневий ладдер, який обнуляється. -->
+    <div id="season-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeSeason()">✕</button>
+            <div class="league-badge" id="league-badge"></div>
+            <div class="league-sub" id="league-sub"></div>
+            <div id="season-standings"></div>
+            <p style="font-size:11px; color:#9fb4c7; line-height:1.5; margin-top:12px;">
+                Топ-<span id="promote-n"></span> піднімаються лігою вище, останні
+                <span id="relegate-n"></span> — нижче. Очки обнуляються щопонеділка,
+                тому новачок має реальний шанс. Сезонну косметику й титул не купиш
+                за ⭐ ніколи — тільки виграти.
+            </p>
+            <button onclick="closeSeason()" style="margin-top:10px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Підсумки минулого сезону — показуємо один раз при вході. -->
+    <div id="season-result" class="hidden">
+        <div class="case-card">
+            <h2 style="margin: 0 0 10px; font-size: 20px; color: var(--gold); text-align: center;">🏆 Підсумки сезону</h2>
+            <div id="season-result-body"></div>
+            <button onclick="closeSeasonResult()" style="margin-top:12px;">Забрати</button>
+        </div>
+    </div>
+
+    <!-- Війна ОСББ: дві шкали і склад ворожого чату з кнопкою "здати". -->
+    <div id="war-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeWar()">✕</button>
+            <h2 style="margin: 0 0 12px; font-size: 19px; color: var(--gold); text-align: center;">⚔️ Війна ОСББ</h2>
+            <div id="war-body"></div>
+            <button onclick="closeWar()" style="margin-top:10px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Облава на район: кооп-бос зі спільною шкалою. -->
+    <div id="district-screen" class="hidden">
+        <div id="district-bus">🚌</div>
+        <div style="font-size:19px; font-weight:800; color:var(--gold); margin-top:4px;">Автобус ТЦК</div>
+        <div style="font-size:12px; color:#cfe3f2; font-style:italic; margin:6px 0 12px; max-width:320px;">
+            Заїхав у район на весь чат. Бʼємо разом — інакше не встигнемо.
+        </div>
+        <div class="insp-hptext" id="district-hptext"></div>
+        <div class="insp-hpbar"><div class="insp-hpfill" id="district-hpfill" style="width:100%"></div></div>
+        <div id="inspector-timer" style="display:none"></div>
+        <div id="district-timer" style="font-size:24px; font-weight:800; margin:10px 0 4px;"></div>
+        <div id="district-hitzone" style="width:180px;height:180px;border-radius:50%;border:3px solid var(--accent);background:radial-gradient(circle, rgba(255,170,0,0.3), rgba(255,170,0,0.06));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;cursor:pointer;user-select:none;-webkit-user-select:none;">ТИСНИ</div>
+        <div id="district-contribs" style="margin-top:14px; width:100%; max-width:340px;"></div>
+        <button onclick="closeDistrict()" style="max-width:340px; margin-top:12px;">Вийти (бос лишається)</button>
     </div>
 
     <!-- Репутація з районом: чотири NPC, щоденні квести, постійні перки на 100. -->
@@ -4908,6 +5645,15 @@ function buildHtml(botUsername) {
         const EXPEDITIONS = ${JSON.stringify(EXPEDITIONS)};
         const HEAT_TIERS = ${JSON.stringify(HEAT_TIERS)};
         const NOTICE_TYPES = ${JSON.stringify(NOTICE_TYPES)};
+        // Каталоги для довідки механік — щоб її цифри читались із реальних даних
+        // гри, а не дублювались текстом і не розходились із балансом.
+        const SYMPTOMS = ${JSON.stringify(SYMPTOMS)};
+        const INSPECTORS = ${JSON.stringify(INSPECTORS.map(({ id, emoji, name, hp, unlockHeat, window: w, weaknessHint, taunt }) => ({ id, emoji, name, hp, unlockHeat, window: w, weaknessHint, taunt })))};
+        const DEFERMENTS = ${JSON.stringify(DEFERMENTS)};
+        const CHECKPOINT_CHOICES = ${JSON.stringify(CHECKPOINT_CHOICES)};
+        const SKILL_BRANCHES = ${JSON.stringify(SKILL_BRANCHES)};
+        const REPUTATION_NPCS = ${JSON.stringify(REPUTATION_NPCS.map(({ id, emoji, name, about, perk }) => ({ id, emoji, name, about, perk })))};
+        const LEAGUES = ${JSON.stringify(LEAGUES)};
         const NOTICE_BY_ID = Object.fromEntries(NOTICE_TYPES.map(n => [n.id, n]));
 
         let user = tg.initDataUnsafe?.user || { id: 'guest_' + Math.floor(Math.random() * 100000), first_name: 'Гість' };
@@ -4937,6 +5683,7 @@ function buildHtml(botUsername) {
             deferUntil: 0, defermentId: null, deferments: [],
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
             reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
+            league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
         };
 
         const ui = {
@@ -5043,9 +5790,13 @@ function buildHtml(botUsername) {
             // Плашка активної відстрочки з живим таймером. Поки вона світиться —
             // повістки не приходять, але й розшук не росте.
             const deferLeft = (state.deferUntil || 0) - Date.now();
+            const grannyLeft = (state.grannyUntil || 0) - Date.now();
             const chip = document.getElementById('defer-chip');
-            chip.classList.toggle('on', deferLeft > 0);
-            if (deferLeft > 0) chip.innerText = '🎫 Відстрочка: ' + fmtCountdown(deferLeft);
+            chip.classList.toggle('on', deferLeft > 0 || grannyLeft > 0);
+            if (grannyLeft > 0) {
+                chip.innerText = '👵 Бабуся клікає: ' + fmtCountdown(grannyLeft);
+                startGranny();
+            } else if (deferLeft > 0) chip.innerText = '🎫 Відстрочка: ' + fmtCountdown(deferLeft);
             const deferCountdown = document.getElementById('defer-countdown');
             if (deferCountdown && deferLeft > 0) deferCountdown.innerText = fmtCountdown(deferLeft);
 
@@ -5263,6 +6014,460 @@ function buildHtml(botUsername) {
             if (mod10 === 1) return n + ' ' + one;
             if (mod10 >= 2 && mod10 <= 4) return n + ' ' + few;
             return n + ' ' + many;
+        }
+
+        // ===== Автоклікер «Бабуся клікає за тебе» =====
+        // Дроп із ящиків. Бабуся клікає за тими самими правилами, що й ти:
+        // витрачає твою енергію, тому це прискорення, а не безкоштовні гроші.
+        let grannyTimer = null;
+        function startGranny() {
+            if (grannyTimer) return;
+            grannyTimer = setInterval(() => {
+                if ((state.grannyUntil || 0) <= Date.now()) {
+                    clearInterval(grannyTimer);
+                    grannyTimer = null;
+                    return;
+                }
+                if (!state.isVip && state.energy < clickEnergyCost()) return;
+                const earned = state.clickVal * heatIncomeMult() * petMult('click') * (state.isVip ? 3 : 1)
+                    * (state.prestigeMultiplier || 1) * skillClickMult();
+                state.balance += earned;
+                state.totalClicks += 1;
+                if (!state.isVip) state.energy = Math.max(0, state.energy - clickEnergyCost());
+            }, Math.round(1000 / ECONOMY.GRANNY_CPS));
+        }
+
+        // ===== Довідка механік =====
+        // Тексти пояснюють ЛОГІКУ, а числа підставляються з реальних констант і
+        // масивів гри — тому довідка не може розійтись із балансом.
+        const CODEX = [
+            { id: 'basics', tab: '🎯 Основи', title: 'З чого все складається', build: () => {
+                return '<p class="codex-lead">Ти клікаєш, заробляєш ТК і ховаєшся. Усе інше — надбудова над цим.</p>' +
+                    block('Клік і енергія',
+                        'Кожен клік коштує ' + ECONOMY.ENERGY_PER_CLICK + ' енергії, яка відновлюється ~1 за секунду. ' +
+                        'Це головний обмежувач темпу: повний бак — це десятки кліків, а не нескінченний фарм. ' +
+                        'Навичка «Легка рука» здешевлює клік до 1, VIP знімає витрату зовсім.') +
+                    block('Пасивний дохід',
+                        'Апгрейди «Закрутка» і «Генератор» дають ТК щосекунди навіть коли гра закрита. ' +
+                        'Це те, що працює на тебе вночі.') +
+                    block('Апгрейди нескінченні',
+                        'Ціна рівня N = база × ' + ECONOMY.UPGRADE_GROWTH + '^N. Тому гру не можна «пройти» за вечір — ' +
+                        'завжди є куди вкладати. Перемикач ×1/×10/MAX купує пачками.') +
+                    block('👵 Бабуся клікає за тебе',
+                        'Випадає з дорогих ящиків. ' + ECONOMY.GRANNY_MINUTES + ' хвилин по ' + ECONOMY.GRANNY_CPS +
+                        ' кліки/сек — але енергію витрачає твою. Тобто це прискорення, а не безкоштовні гроші.') +
+                    tip('Порядок множників доходу: базовий × розшук × VIP × довідки престижу × навички × клан × репутація.');
+            }},
+
+            { id: 'heat', tab: '🔥 Розшук', title: 'Розшук — головний трейд-оф', build: () => {
+                // Нижню межу тіру беремо з попереднього: у самих даних є лише max.
+                const rows = HEAT_TIERS.map((t, i) =>
+                    row(t.emoji + ' ' + t.name + ' (' + (i ? HEAT_TIERS[i - 1].max + 1 : 0) + '–' + t.max + ')',
+                        '×' + t.incomeMult.toFixed(2) + ' дохід · ×' + t.raidMult.toFixed(1) + ' облави')).join('');
+                return '<p class="codex-lead">Другий ресурс, протилежний до ТК: чим ти багатший і активніший, тим більше тобою цікавляться. ' +
+                    'Розшук піднімає дохід — і разом із ним шанс облави. На якому рівні жити, вирішуєш сам.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    block('Що піднімає',
+                        'Кліки (+' + ECONOMY.HEAT_PER_100_CLICKS + ' за 100), вилазки, великі продажі на біржі, ' +
+                        'контрабандний контейнер, переїзд у новий схрон, протухла повістка, чужий стук.') +
+                    block('Що знижує',
+                        'Час: −1 за кожні ' + ECONOMY.HEAT_DECAY_MINUTES + ' хвилин, навіть коли гра закрита (не більше −' +
+                        ECONOMY.HEAT_DECAY_DAILY_CAP + ' за добу). Хабар −' + ECONOMY.HEAT_BRIBE_DISCOUNT +
+                        ', липова довідка −' + ECONOMY.HEAT_SPRAVKA_DISCOUNT + '. Компаньйонка «Сусідка» гасить приріст на 15%.') +
+                    warn('Під відстрочкою розшук НЕ РОСТЕ, але спадає. За два тижні він впаде до нуля разом із множником доходу. ' +
+                        'Це навмисно: поки ти невидимий, ти й заробляєш як невидимий.');
+            }},
+
+            { id: 'notices', tab: '📬 Повістки', title: 'Повістка — це вибір, а не штраф', build: () => {
+                const rows = NOTICE_TYPES.map(t =>
+                    row(t.emoji + ' ' + t.name, t.ttlH + ' год · +' + t.heatOnExpire + ' розшуку')).join('');
+                return '<p class="codex-lead">Приходить сама, раз на ' + ECONOMY.NOTICE_INTERVAL_MIN_H + '–' +
+                    ECONOMY.NOTICE_INTERVAL_MAX_H + ' годин (частіше при високому розшуку), максимум ' +
+                    ECONOMY.NOTICE_MAX_ACTIVE + ' активних. Таймер тікає, навіть коли гра закрита.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    block('П\\'ять способів відреагувати',
+                        '💵 <b>Вирішити питання</b> — гарантовано, коштує ТК і знижує розшук.<br>' +
+                        '📄 <b>Липова довідка</b> — витрачає активний щит від облав.<br>' +
+                        '🏥 <b>Медкомісія</b> — безкоштовна міні-гра, можна провалити.<br>' +
+                        '🏃 <b>Сховатись</b> — ' + Math.round(ECONOMY.NOTICE_HIDE_SUCCESS * 100) + '%, з\\'їдає всю енергію, ' +
+                        'провал = штраф ×' + ECONOMY.NOTICE_HIDE_FAIL_MULT + '.<br>' +
+                        '😐 <b>Ігнорувати</b> — таймер тікає далі.') +
+                    tip('Бот пришле повідомлення за ' + ECONOMY.NOTICE_PUSH_BEFORE_MIN + ' хвилин до протухання. Не проґав.');
+            }},
+
+            { id: 'medcom', tab: '🏥 Медкомісія', title: 'Збери діагноз із трьох карток', build: () => {
+                const rows = SYMPTOMS.slice().sort((a,b)=>b.power-a.power).map(s =>
+                    row(s.emoji + ' ' + s.name, s.power)).join('');
+                return '<p class="codex-lead">Сервер роздає ' + ECONOMY.MEDCOM_HAND_SIZE + ' карток, ти обираєш ' +
+                    ECONOMY.MEDCOM_PICK + '. Сума їхньої переконливості має перебити скептицизм комісії = ' +
+                    ECONOMY.MEDCOM_BASE_SKEPTICISM + ' + твій поточний розшук. Тобто чим ти помітніший, тим менше тобі вірять.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    block('Бонуси (витрачаються в будь-якому разі)',
+                        '🔏 Печатка +' + ECONOMY.MEDCOM_STAMP_BONUS + ' · 💊 Ліки ×' + ECONOMY.MEDCOM_MEDS_QTY +
+                        ' +' + ECONOMY.MEDCOM_MEDS_BONUS + ' · 🐈 Кіт-антистрес +' + ECONOMY.MEDCOM_CAT_BONUS +
+                        ' (не витрачається). Перекинути картки — ' + fmtNum(ECONOMY.MEDCOM_REROLL_COST) + ' ТК, максимум ' +
+                        ECONOMY.MEDCOM_REROLL_MAX + ' рази.') +
+                    warn('Та сама скарга двічі поспіль коштує −' + ECONOMY.MEDCOM_REPEAT_PENALTY +
+                        ' переконливості: «ви вже приходили з цим». Варіюй.') +
+                    tip('Успіх знімає повістку і дає відстрочку на ' + ECONOMY.MEDCOM_DEFER_H + ' годин.');
+            }},
+
+            { id: 'inspectors', tab: '👮 Інспектори', title: 'Боси приходять на високий розшук', build: () => {
+                const rows = INSPECTORS.map(i =>
+                    row(i.emoji + ' ' + i.name + '<br><span style="font-size:10px;color:#9fb4c7">' + i.weaknessHint + '</span>',
+                        fmtNum(i.hp) + ' · ' + i.window + 'с<br>з розшуку ' + i.unlockHeat)).join('');
+                return '<p class="codex-lead">Приходять самі, коли розшук достатньо високий — і завжди найсерйозніший із доступних. ' +
+                    'Бій: клікаєш у вікні, кожен клік коштує ' + ECONOMY.INSPECTOR_ENERGY_PER_CLICK + ' енергії. ' +
+                    'Спрацювала слабкість — урон ×' + ECONOMY.INSPECTOR_WEAKNESS_MULT + '.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    block('Наслідки',
+                        'Не встиг → бос іде, +' + ECONOMY.INSPECTOR_LOSE_HEAT + ' розшуку, кулдаун ' +
+                        ECONOMY.INSPECTOR_COOLDOWN_H + ' годин. Переміг → ТК, ресурси, сезонні очки і трофей у Колекцію.') +
+                    warn('Генерал Півник із його ' + fmtNum(250000) + ' терпіння за 45 секунд непрохідний, поки кліки їдять енергію. ' +
+                        'Він відкривається навичкою «Марафонець» із дерева престижу. Це не баг — це ендгейм.');
+            }},
+
+            { id: 'defer', tab: '🎫 Відстрочки', title: 'Паралельна дорога до спокою', build: () => {
+                const rows = DEFERMENTS.map(d => {
+                    let cost;
+                    if (d.cost.stars) cost = d.cost.stars + ' ⭐';
+                    else if (d.cost.tk) cost = fmtNum(d.cost.tk) + ' ТК';
+                    else if (d.cost.clanLevel) cost = 'ОСББ ' + d.cost.clanLevel + ' рівня';
+                    else cost = Object.entries(d.cost.res).map(([r,q]) => (RESOURCE_BY_ID[r]||{}).emoji + '×' + q).join(' ');
+                    const dur = d.hours >= 24 ? plural(Math.round(d.hours/24), 'доба','доби','діб') : d.hours + ' год';
+                    return row(d.emoji + ' ' + d.name + '<br><span style="font-size:10px;color:#9fb4c7">' + dur + '</span>', cost);
+                }).join('');
+                return '<p class="codex-lead">Одна активна за раз. Поки діє: повістки не приходять, чужі стуки не діють, ' +
+                    'блокпост проходиться автоматично.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    warn('Ціна безпеки: розшук не росте, тому за час відстрочки він спадає до нуля разом із множником доходу. ' +
+                        'Обережний заробляє в базовому темпі, ризиковий тримає розшук 90 і має подвійний дохід ціною облав.') +
+                    tip('«Бронь від підприємства» — головна причина будувати чат ОСББ до 5 рівня.');
+            }},
+
+            { id: 'checkpoint', tab: '🚧 Блокпост', title: 'Переїзд — це подія', build: () => {
+                const rows = CHECKPOINT_CHOICES.map(c =>
+                    row(c.emoji + ' ' + c.name + '<br><span style="font-size:10px;color:#ff8a8a">Провал: ' + c.failText + '</span>',
+                        Math.round(c.chance * 100) + '%')).join('');
+                return '<p class="codex-lead">Купівля нової локації — це переїзд, а переїзд помічають. Шанси показані відкрито, ' +
+                    'як і в ящиках. Локація купується в будь-якому разі: блокпост впливає лише на ціну переїзду.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    tip('Активна відстрочка → авто-успіх. Голуб-курʼєр → +' +
+                        Math.round(ECONOMY.CHECKPOINT_PIGEON_BONUS * 100) + '% до будь-якого варіанта. ' +
+                        'Репутація Баби Ніни понад 50 піднімає «Я до баби» до 75%.');
+            }},
+
+            { id: 'pvp', tab: '🐍 PvP', title: 'Здати сусіда', build: () => {
+                return '<p class="codex-lead">Єдине, що друзі можуть зробити один одному. Вхід — тап по гравцю в 🏆 ТОП.</p>' +
+                    block('Стук',
+                        'Коштує ' + fmtNum(ECONOMY.SNITCH_COST_TK) + ' ТК + 📱 ліва сімка. Жертві прилітає повістка ' +
+                        '«Вручення в руки» на 3 години і +' + ECONOMY.SNITCH_HEAT + ' розшуку.') +
+                    block('Запобіжники',
+                        'Максимум ' + ECONOMY.SNITCH_DAILY_LIMIT + ' стуки на добу · кулдаун ' +
+                        ECONOMY.SNITCH_SAME_TARGET_COOLDOWN_H + ' год на ту саму ціль · не можна на того, ' +
+                        'чий схрон на ' + ECONOMY.SNITCH_MIN_LEVEL_GAP + '+ рівні нижчий · не діє на Білий Квиток, ' +
+                        'активний щит і відстрочку.') +
+                    block('Розслідування',
+                        'Жертві показують трьох підозрюваних — справжнього стукача і двох із її оточення. Здогад один. ' +
+                        'Вгадала → забирає 30% балансу стукача, але не більше ' + fmtNum(ECONOMY.SNITCH_STEAL_CAP_PER_LEVEL) +
+                        ' × (рівень схрону + 1). Помилилась → невинний отримує безкоштовний дзвінок уже на неї.') +
+                    tip('Компаньйон «Щур-розвідник» дає ' + Math.round(ECONOMY.SNITCH_RAT_REVEAL_CHANCE * 100) +
+                        '% шанс одразу побачити стукача. Навичка «Дві сімки» дає ' +
+                        Math.round(ECONOMY.SKILL_SNITCH_FAIL_CHANCE * 100) + '% шанс, що чужий стук просто провалиться.') +
+                    warn('Хибне звинувачення навмисно не безкарне — саме з нього ростуть ланцюгові війни між друзями. ' +
+                        'Статистика «Здав / Здали тебе / Розкрив» публічна: хто зловживає, стає мішенню для всіх.');
+            }},
+
+            { id: 'season', tab: '🏅 Сезони', title: 'Ліги обнуляються щотижня', build: () => {
+                const rows = LEAGUES.map(l => row(l.emoji + ' ' + l.name, l.id === 0 ? 'старт' : 'ліга ' + l.id)).join('');
+                return '<p class="codex-lead">Рейтинг за балансом — це «хто довше грає». Сезонні очки обнуляються щопонеділка, ' +
+                    'тому шанс має і новачок.</p>' +
+                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
+                    block('Звідки очки',
+                        'Вижив в облаві +' + ECONOMY.SEASON_RAID_SP + ' · вилазка +' + ECONOMY.SEASON_EXPEDITION_SP +
+                        '×рівень · знята повістка +' + ECONOMY.NOTICE_SEASON_POINTS + ' · розкрив стукача +' +
+                        ECONOMY.SNITCH_CAUGHT_SEASON_POINTS + ' · переможений інспектор +10…50 · доба з розшуком понад ' +
+                        ECONOMY.SEASON_HEAT_THRESHOLD + ' +' + ECONOMY.SEASON_HEAT_DAILY_SP + ' · крафт тіру 3+ +' +
+                        ECONOMY.SEASON_CRAFT_SP + ' · легалізація +' + ECONOMY.SEASON_PRESTIGE_SP + '.') +
+                    tip('Верхня чверть ліги піднімається, нижня падає. Сезонну косметику й титул не купиш за ⭐ ніколи — ' +
+                        'тільки виграти. Це головна валюта статусу.');
+            }},
+
+            { id: 'clan', tab: '🏘 ОСББ', title: 'Чат, війна і автобус', build: () => {
+                return '<p class="codex-lead">Членство дає +' + Math.round(ECONOMY.CLAN_PASSIVE_BONUS * 100) +
+                    '% до пасиву, кожен рівень чату — ще +' + Math.round(ECONOMY.CLAN_BONUS_PER_LEVEL * 100) + '% ВСІМ. ' +
+                    'Тому внесок одного вигідний усім.</p>' +
+                    block('⚔️ Війна ОСББ',
+                        'Щопонеділка чати паруються за рівнем, війна триває до пʼятниці. Очки: виживаний рейд +' +
+                        ECONOMY.WAR_POINTS_RAID + ', вилазка +' + ECONOMY.WAR_POINTS_EXPEDITION +
+                        ', переможений інспектор +' + ECONOMY.WAR_POINTS_INSPECTOR + ', внесок ' +
+                        fmtNum(ECONOMY.WAR_POINTS_PER_DONATION) + ' ТК +1, а <b>стук на учасника ворожого чату +' +
+                        ECONOMY.WAR_POINTS_SNITCH + '</b> і коштує вдвічі дешевше.<br>' +
+                        'Перемога: скарбниця +' + Math.round(ECONOMY.WAR_TREASURY_PRIZE * 100) +
+                        '%, трофейний ящик кожному, +' + Math.round(ECONOMY.WAR_BUFF_PASSIVE * 100) +
+                        '% пасиву на тиждень. Поразка: нічого. Без штрафів — це гра для друзів.') +
+                    block('🚌 Облава на район',
+                        'Автобус ТЦК приїжджає сам, коли сумарний розшук чату перевищує ' + ECONOMY.DISTRICT_HEAT_TRIGGER +
+                        '. Вікно ' + ECONOMY.DISTRICT_WINDOW_H + ' годин, шкала спільна, видно внесок кожного. ' +
+                        'Забили → кожному ' + fmtNum(ECONOMY.DISTRICT_WIN_TK) + ' ТК, ящик, ' +
+                        ECONOMY.DISTRICT_WIN_HEAT + ' розшуку і +' + ECONOMY.DISTRICT_WIN_SP + ' очок (топ за внеском — подвійно). ' +
+                        'Не встигли → −' + Math.round(ECONOMY.DISTRICT_LOSE_BALANCE_PCT * 100) + '% балансу кожному.') +
+                    tip('Це єдина механіка, де треба зібратись у чаті в реальному часі. «Всі в гру, зараз» — саме про неї.');
+            }},
+
+            { id: 'prestige', tab: '🌳 Ендгейм', title: 'Легалізація і навички', build: () => {
+                const branches = SKILL_BRANCHES.map(b =>
+                    block(b.emoji + ' ' + b.name, b.skills.map((s, i) => (i+1) + '. <b>' + s.name + '</b> — ' + s.desc).join('<br>'))
+                ).join('');
+                return '<p class="codex-lead">З ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівня схрону можна легалізуватись: ' +
+                    'баланс, апгрейди, рівень схрону й розшук скидаються, але ти отримуєш довідки — ' +
+                    '+' + Math.round(ECONOMY.PRESTIGE_BONUS_PER_POINT * 100) + '% до доходу назавжди за кожну.</p>' +
+                    block('Що НЕ скидається',
+                        'Гардероб, кімната, компаньйони, кладовка з ресурсами, досягнення, трофеї, репутація, ' +
+                        'навички і Білий Квиток. Тому легалізація не боляча, а вигідна.') +
+                    block('Скільки довідок',
+                        'floor(√(сумарно зароблено / ' + fmtNum(ECONOMY.PRESTIGE_EARN_PER_POINT) + ')) мінус уже отримані. ' +
+                        'Кожна наступна дається відчутно важче.') +
+                    '<p class="codex-lead" style="margin-top:12px;">Кожна довідка = 1 очко навички. Довідки при цьому ' +
+                    'продовжують давати свій дохід — навички це бонус зверху. У гілці навички беруться послідовно.</p>' +
+                    branches;
+            }},
+
+            { id: 'district', tab: '🤝 Район', title: 'Люди навколо', build: () => {
+                const rows = REPUTATION_NPCS.map(n =>
+                    block(n.emoji + ' ' + n.name, '<i style="color:#9fb4c7">«' + n.about + '»</i><br>' +
+                        'На ' + ECONOMY.REP_MAX + ' репутації: <b style="color:var(--gold)">' + n.perk + '</b>')).join('');
+                return '<p class="codex-lead">У кожного щоденний квест. Квест дня однаковий для всіх і не міняється, ' +
+                    'скільки не перезаходь. Ресурсні квести — це саме віддати: ресурси списуються безповоротно.</p>' +
+                    rows +
+                    tip('Оксана тут не для галочки. Гра, де вигідно тільки ховатись, була б однобокою — ' +
+                        'тому персонаж, якому вигідно допомагати, дає один із найкорисніших постійних бонусів.');
+            }},
+        ];
+
+        function block(title, html) {
+            return '<div class="codex-block"><h4>' + title + '</h4><p>' + html + '</p></div>';
+        }
+        function row(left, right) {
+            return '<tr><td>' + left + '</td><td>' + right + '</td></tr>';
+        }
+        function tip(text) { return '<div class="codex-tip">💡 ' + text + '</div>'; }
+        function warn(text) { return '<div class="codex-warn">⚠️ ' + text + '</div>'; }
+
+        let codexTab = 'basics';
+        window.openCodex = (tabId) => {
+            codexTab = tabId || codexTab;
+            renderCodex();
+            document.getElementById('codex-screen').classList.remove('hidden');
+        };
+        window.closeCodex = () => document.getElementById('codex-screen').classList.add('hidden');
+        window.setCodexTab = (id) => { codexTab = id; renderCodex(); document.getElementById('codex-screen').scrollTop = 0; };
+
+        function renderCodex() {
+            document.getElementById('codex-nav').innerHTML = CODEX.map(s =>
+                '<button class="' + (s.id === codexTab ? 'active' : '') + '" onclick="setCodexTab(\\'' + s.id + '\\')">' +
+                s.tab + '</button>').join('');
+            const sec = CODEX.find(s => s.id === codexTab) || CODEX[0];
+            document.getElementById('codex-body').innerHTML =
+                '<div class="codex-sec"><h3>' + sec.title + '</h3>' + sec.build() + '</div>';
+        }
+
+        // ===== Сезон і ліга =====
+        window.openSeason = async () => {
+            try {
+                const data = await apiFetch('/api/season?id=' + user.id).then(r => r.json());
+                renderSeason(data);
+                document.getElementById('season-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити сезон'); }
+        };
+        window.closeSeason = () => document.getElementById('season-screen').classList.add('hidden');
+
+        function renderSeason(d) {
+            state.league = d.league;
+            state.seasonPoints = d.seasonPoints;
+            state.seasonTitle = d.seasonTitle;
+            document.getElementById('league-badge').innerText = d.league.emoji + ' ' + d.league.name;
+            const left = Math.max(0, d.seasonEndsAt - Date.now());
+            document.getElementById('league-sub').innerText =
+                'Ти ' + d.rank + '-й з ' + d.groupSize + ' · ' + fmtNum(d.seasonPoints) + ' СО · до кінця ' + fmtCountdown(left);
+            document.getElementById('promote-n').innerText = d.promoteAt;
+            document.getElementById('relegate-n').innerText = d.relegateAt;
+
+            document.getElementById('season-standings').innerHTML = d.standings.map(s => {
+                const zone = s.rank <= d.promoteAt ? ' promote'
+                    : (s.rank > d.groupSize - d.relegateAt ? ' relegate' : '');
+                return '<div class="standing-row' + (s.me ? ' me' : '') + zone + '">' +
+                    '<span class="standing-rank">' + s.rank + '</span>' +
+                    '<span>' + esc(s.name) + (s.title ? '<span class="season-title-chip">' + esc(s.title) + '</span>' : '') + '</span>' +
+                    '<span class="standing-pts">' + fmtNum(s.points) + '</span></div>';
+            }).join('') || '<div style="font-size:12px;color:#9fb4c7;text-align:center;padding:12px;">У цій лізі поки тихо.</div>';
+        }
+
+        function showSeasonResult(r) {
+            const lines = [];
+            lines.push('<div class="offline-line">' + r.leagueEmoji + ' ' + esc(r.leagueName) +
+                '<b>' + r.rank + ' місце з ' + r.total + '</b></div>');
+            if (r.tk) lines.push('<div class="offline-line">💰 Нагорода<b>+' + fmtNum(r.tk) + ' ТК</b></div>');
+            if (r.crates) lines.push('<div class="offline-line">📦 Ящики<b>×' + r.crates + '</b></div>');
+            if (r.cosmetic) {
+                const c = COSMETICS.find(x => x.id === r.cosmetic);
+                lines.push('<div class="offline-line">' + (c ? c.emoji + ' ' + esc(c.name) : 'Сезонна річ') + '<b>тільки за 1 місце</b></div>');
+            }
+            if (r.title) lines.push('<div class="offline-line">🏅 Титул<b>' + esc(r.title) + '</b></div>');
+            if (r.move > 0) lines.push('<div class="offline-line">⬆️ Підвищення<b>лігою вище</b></div>');
+            else if (r.move < 0) lines.push('<div class="offline-line bad">⬇️ Пониження<b>лігою нижче</b></div>');
+            document.getElementById('season-result-body').innerHTML = lines.join('');
+            document.getElementById('season-result').classList.remove('hidden');
+        }
+        window.closeSeasonResult = () => document.getElementById('season-result').classList.add('hidden');
+
+        // ===== Війна ОСББ =====
+        window.openWar = async () => {
+            try {
+                const data = await apiFetch('/api/war?id=' + user.id).then(r => r.json());
+                renderWar(data);
+                document.getElementById('war-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося відкрити війну'); }
+        };
+        window.closeWar = () => document.getElementById('war-screen').classList.add('hidden');
+
+        function renderWar(d) {
+            const box = document.getElementById('war-body');
+            state.pendingWarCrate = d.pendingWarCrate || 0;
+            let html = '';
+            if (d.pendingWarCrate > 0) {
+                html += '<button onclick="openWarCrate()" style="margin-bottom:12px;">🏆 Забрати трофейний ящик (×' +
+                    d.pendingWarCrate + ')</button>';
+            }
+            if (!d.war) {
+                html += '<p style="font-size:13px; color:#9fb4c7; text-align:center; padding:14px 0; line-height:1.5;">' +
+                    'Цього тижня твій чат ОСББ без пари. Пари складаються щопонеділка за рівнем чату.</p>';
+                box.innerHTML = html;
+                return;
+            }
+            const w = d.war;
+            const leading = w.myPoints >= w.theirPoints;
+            html += '<div class="war-scores">' +
+                '<div class="war-side mine"><b>' + fmtNum(w.myPoints) + '</b><span>наш чат</span></div>' +
+                '<div style="font-size:18px;">' + (leading ? '🏆' : '😬') + '</div>' +
+                '<div class="war-side theirs"><b>' + fmtNum(w.theirPoints) + '</b><span>' + esc(w.opponentName) + '</span></div>' +
+                '</div>';
+            html += '<div style="font-size:12px; color:#9fb4c7; text-align:center; margin-bottom:12px;">' +
+                (w.active ? 'До кінця війни: ' + fmtCountdown(Math.max(0, w.endsAt - Date.now())) : 'Війна завершена') +
+                ' · твій внесок: <b style="color:var(--gold)">' + fmtNum(w.myContribution) + '</b></div>';
+
+            if (w.enemies.length) {
+                html += '<h3 style="font-size:14px; color:var(--gold); margin:14px 0 6px;">Склад ворожого чату</h3>' +
+                    '<p style="font-size:11px; color:#9fb4c7; margin:0 0 8px;">Стук на ворога дає +' +
+                    ECONOMY.WAR_POINTS_SNITCH + ' очок війни і коштує вдвічі дешевше.</p>' +
+                    w.enemies.map(e =>
+                        '<div class="enemy-row"><span>🕴️</span><span>' + esc(e.name) + '</span>' +
+                        '<span style="font-size:11px;color:#9fb4c7;">схрон ' + e.level + '</span>' +
+                        '<button class="snitch-btn" onclick="openProfile(\\'' + e.pid + '\\')">🐍</button></div>'
+                    ).join('');
+            }
+            if ((w.log || []).length) {
+                html += '<h3 style="font-size:14px; color:var(--gold); margin:14px 0 6px;">Хроніка</h3>' +
+                    w.log.slice(0, 10).map(l =>
+                        '<div class="district-contrib"><span>' + esc(l.name) + ' — ' + esc(l.reason) + '</span><b>+' + l.points + '</b></div>'
+                    ).join('');
+            }
+            box.innerHTML = html;
+        }
+
+        window.openWarCrate = async () => {
+            const res = await apiFetch('/api/war/crate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            state.balance = data.balance;
+            if (data.resources) state.resources = data.resources;
+            state.pendingWarCrate = data.pendingWarCrate;
+            closeWar();
+            playCrateAnimation(data.reward, 'trophy');
+            renderStorage();
+            updateUI();
+        };
+
+        // ===== Облава на район (кооп-бос) =====
+        let districtState = null;
+        let districtClicks = 0;
+        let districtTimer = null;
+
+        window.openDistrict = async () => {
+            const d = await apiFetch('/api/district?id=' + user.id).then(r => r.json());
+            if (!d.districtRaid) {
+                return tg.showAlert('🚌 Автобуса зараз немає.\\nВін приїжджає, коли сумарний розшук чату перевищує ' +
+                    (d.heatTrigger || ECONOMY.DISTRICT_HEAT_TRIGGER) + ' (зараз ' + (d.clanHeat || 0) + ').');
+            }
+            districtState = d.districtRaid;
+            districtClicks = 0;
+            renderDistrict();
+            document.getElementById('district-screen').classList.remove('hidden');
+            if (districtTimer) clearInterval(districtTimer);
+            districtTimer = setInterval(flushDistrictClicks, ECONOMY.INSPECTOR_BATCH_MS);
+        };
+        window.closeDistrict = () => {
+            flushDistrictClicks();
+            document.getElementById('district-screen').classList.add('hidden');
+            if (districtTimer) { clearInterval(districtTimer); districtTimer = null; }
+            districtState = null;
+        };
+
+        function renderDistrict() {
+            if (!districtState) return;
+            const pct = Math.max(0, districtState.hp / districtState.hpMax * 100);
+            document.getElementById('district-hpfill').style.width = pct + '%';
+            document.getElementById('district-hptext').innerText =
+                'Терпіння автобуса: ' + fmtNum(districtState.hp) + ' / ' + fmtNum(districtState.hpMax);
+            document.getElementById('district-timer').innerText =
+                fmtCountdown(Math.max(0, districtState.endsAt - Date.now()));
+            document.getElementById('district-contribs').innerHTML =
+                (districtState.contributions || []).map(c =>
+                    '<div class="district-contrib"><span>' + esc(c.name) + '</span><b>' + fmtNum(c.damage) + '</b></div>'
+                ).join('');
+        }
+
+        document.getElementById('district-hitzone').addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (!districtState) return;
+            if (!hasSkill('marathon') && state.energy < ECONOMY.INSPECTOR_ENERGY_PER_CLICK) {
+                tg.HapticFeedback.notificationOccurred('warning');
+                return;
+            }
+            districtClicks++;
+            if (!hasSkill('marathon')) state.energy = Math.max(0, state.energy - ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+            const bus = document.getElementById('district-bus');
+            bus.classList.remove('hit'); void bus.offsetWidth; bus.classList.add('hit');
+            tg.HapticFeedback.impactOccurred('medium');
+        });
+
+        async function flushDistrictClicks() {
+            if (!districtState || !districtClicks) return;
+            const clicks = districtClicks;
+            districtClicks = 0;
+            const res = await apiFetch('/api/district/hit', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, clicks, dt: ECONOMY.INSPECTOR_BATCH_MS }),
+            });
+            const data = await res.json();
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            if (data.gone) { closeDistrict(); tg.showAlert('🚌 ' + data.message); return; }
+            if (data.defeated) {
+                closeDistrict();
+                state.balance = data.balance;
+                state.trophies = data.trophies || state.trophies;
+                state.pendingWarCrate = data.pendingWarCrate || 0;
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert('🚌 Автобус поїхав ні з чим!\\n\\n' +
+                    (data.rewards || []).map(r => (r.top ? '👑 ' : '') + r.name + ': +' + fmtNum(r.tk) + ' ТК').join('\\n') +
+                    '\\n\\nТрофейний ящик чекає у вкладці війни.');
+                updateUI();
+                return;
+            }
+            if (data.districtRaid) { districtState = data.districtRaid; renderDistrict(); }
         }
 
         // ===== Репутація з районом =====
@@ -5868,7 +7073,8 @@ function buildHtml(botUsername) {
             note.innerText = sn.can
                 ? (sn.free
                     ? 'Це твій безкоштовний дзвінок за хибне звинувачення.'
-                    : 'Коштує ' + fmtNum(sn.costTk) + ' ТК + 📱 ліва сімка. Лишилось дзвінків сьогодні: ' + sn.left + '.')
+                    : (sn.warTarget ? '⚔️ Ворог по війні ОСББ: удвічі дешевше і +' + ECONOMY.WAR_POINTS_SNITCH + ' очок війни.\\n' : '') +
+                  'Коштує ' + fmtNum(sn.costTk) + ' ТК + 📱 ліва сімка. Лишилось дзвінків сьогодні: ' + sn.left + '.')
                 : sn.reason;
         }
 
@@ -6091,6 +7297,11 @@ function buildHtml(botUsername) {
                 state.skillPoints = data.skillPoints || 0;
                 state.reputation = data.reputation || {};
                 state.mykolaCoverUsed = !!data.mykolaCoverUsed;
+                state.league = data.league || null;
+                state.seasonTitle = data.seasonTitle || null;
+                state.seasonEndsAt = data.seasonEndsAt || 0;
+                state.pendingWarCrate = data.pendingWarCrate || 0;
+                state.grannyUntil = data.grannyUntil || 0;
                 state.snitchStats = data.snitchStats || null;
                 state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
                 state.investigationPending = !!data.investigationPending;
@@ -6109,6 +7320,9 @@ function buildHtml(botUsername) {
                 if (data.lastPremiumReward) {
                     // Ящик за Stars розкривався на сервері — програємо анімацію одразу на вході.
                     playCrateAnimation(data.lastPremiumReward, data.lastPremiumReward.crateId || 'elite');
+                } else if (data.seasonResult) {
+                    // Підсумки сезону важливіші за офлайн-звіт: це разова подія тижня.
+                    showSeasonResult(data.seasonResult);
                 } else if (data.offlineReport) {
                     // Був довгий перерив і щось справді сталось — показуємо повний звіт
                     // замість самої лише цифри доходу.
@@ -6444,6 +7658,7 @@ function buildHtml(botUsername) {
             if (entry.type === 'nothing') return '🧦 Пусто';
             if (entry.type === 'coins') return '🪙 ' + entry.min.toLocaleString('uk-UA') + '–' + entry.max.toLocaleString('uk-UA') + ' ТК';
             if (entry.type === 'energy') return '🔋 Повна енергія';
+            if (entry.type === 'granny') return '👵 Бабуся клікає ' + ECONOMY.GRANNY_MINUTES + ' хв';
             if (entry.type === 'cosmetic') return '👕 Річ у гардероб';
             const meta = RESOURCE_BY_ID[entry.res];
             return meta.emoji + ' ' + meta.name + ' ' + entry.min + (entry.max > entry.min ? '–' + entry.max : '');
@@ -6452,7 +7667,9 @@ function buildHtml(botUsername) {
         function renderCrates() {
             const list = document.getElementById('crates-list');
             if (!list) return;
-            list.innerHTML = CRATES.map(c => {
+            // Трофейний ящик у магазині не показуємо: він не продається взагалі,
+            // а видається за перемогу у війні ОСББ чи відбиту облаву на район.
+            list.innerHTML = CRATES.filter(c => c.currency !== 'trophy').map(c => {
                 const totalWeight = c.loot.reduce((s, e) => s + e.weight, 0);
                 const odds = c.loot.map(e =>
                     '<div><span>' + lootLabel(e) + '</span><span>' + (100 * e.weight / totalWeight).toFixed(1) + '%</span></div>'
@@ -6594,6 +7811,7 @@ function buildHtml(botUsername) {
                 state.storageCapacity = data.capacity;
                 if (data.ownedCosmetics) state.ownedCosmetics = data.ownedCosmetics;
                 if (typeof data.energy === 'number') state.energy = data.energy;
+                if (typeof data.grannyUntil === 'number') state.grannyUntil = data.grannyUntil;
                 playCrateAnimation(data.reward, crate.id);
                 if (data.unlockedAchievements && data.unlockedAchievements.length) {
                     data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
@@ -6765,6 +7983,9 @@ function buildHtml(botUsername) {
                 ['🌳 Навичок вивчено', Object.values(state.skills || {}).filter(Boolean).length + ' / 18'],
                 ['🚧 Блокпостів пройдено', fmtNum((state.checkpointStats || {}).passed || 0) +
                     ' (спалився: ' + fmtNum((state.checkpointStats || {}).failed || 0) + ')'],
+                ['🏅 Сезонні очки', fmtNum(state.seasonPoints || 0) +
+                    (state.league ? ' — ' + state.league.emoji + ' ' + state.league.name : '')],
+                ['👑 Титул', state.seasonTitle || '—'],
             ];
             box.innerHTML = rows.map(([k, v]) =>
                 '<div class="stat-row"><span>' + k + '</span><b>' + v + '</b></div>'
@@ -7119,7 +8340,11 @@ function buildHtml(botUsername) {
             ['hat', 'face', 'neck', 'frame'].forEach(slot => {
                 const container = document.getElementById('wardrobe-' + slot);
                 if (!container) return;
-                container.innerHTML = COSMETICS.filter(c => c.slot === slot).map(c => {
+                // Сезонні речі показуємо в гардеробі, лише коли вони вже виграні:
+                // у магазині їм не місце, бо купити їх неможливо в принципі.
+                container.innerHTML = COSMETICS
+                    .filter(c => c.slot === slot && (!c.seasonOnly || state.ownedCosmetics.includes(c.id)))
+                    .map(c => {
                     const owned = state.ownedCosmetics.includes(c.id);
                     const equipped = state.equippedCosmetics[slot] === c.id;
                     let swatchBg = c.color;
@@ -7264,6 +8489,8 @@ function buildHtml(botUsername) {
         // ===== Клани =====
         function renderClanMine() {
             const el = document.getElementById('clan-mine');
+            // Війна і кооп-бос мають сенс лише всередині чату.
+            document.getElementById('clan-war-buttons').classList.toggle('hidden', !state.clanId);
             if (!state.clanId) {
                 el.innerHTML = '<p style="font-size:12px;color:#aaa;">Ти поки не в жодному чаті ОСББ.</p>';
                 return;
@@ -7557,7 +8784,9 @@ function buildHtml(botUsername) {
             // суперника, а не просто чужої цифри в списку.
             list.innerHTML = data.map((u) =>
                 '<li class="leader-row"' + (u.pid ? ' onclick="openProfile(\\'' + u.pid + '\\')"' : '') + '>' +
-                (u.isVip ? '👑 ' : '') + esc(u.name) + ' - <b style="color:var(--gold)">' + fmtNum(Math.floor(u.balance)) + '</b>' +
+                (u.isVip ? '👑 ' : '') + (u.league || '') + ' ' + esc(u.name) +
+                (u.seasonTitle ? '<span class="season-title-chip">' + esc(u.seasonTitle) + '</span>' : '') +
+                ' - <b style="color:var(--gold)">' + fmtNum(Math.floor(u.balance)) + '</b>' +
                 '<span style="font-size:10px; color:#9fb4c7;"> · 🐍' + ((u.snitch || {}).sent || 0) +
                 ' 🎯' + ((u.snitch || {}).received || 0) + '</span></li>'
             ).join('') || '<li>Поки що нікого немає</li>';
