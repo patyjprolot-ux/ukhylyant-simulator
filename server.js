@@ -1052,6 +1052,50 @@ const ACHIEVEMENTS = [
     { id: 'clan_donate_1', name: 'Скинувся на ОСББ', desc: 'Внеси щось у скарбницю чату', reward: 1000, check: (u) => clanContributionOf(u) > 0 },
     { id: 'clan_donate_100k', name: 'Голова правління', desc: 'Внеси 100 000 ТК у скарбницю чату', reward: 15000, check: (u) => clanContributionOf(u) >= 100000 },
     { id: 'clan_donate_1m', name: 'Спонсор кварталу', desc: 'Внеси 1 000 000 ТК у скарбницю чату', reward: 80000, check: (u) => clanContributionOf(u) >= 1000000 },
+    // --- Розшук ---
+    { id: 'heat_50', name: 'Помітна фігура', desc: 'Розігрій розшук до 50', reward: 3000, check: (u) => (u.heat || 0) >= 50 },
+    { id: 'heat_90', name: 'Легенда району', desc: 'Розігрій розшук до 90', reward: 20000, check: (u) => (u.heat || 0) >= 90 },
+    { id: 'heat_cold', name: 'Сірий кардинал', desc: 'Пережий облаву, маючи розшук нижче 10', reward: 5000,
+      check: (u) => (u.raidsSurvived || 0) >= 1 && (u.heat || 0) < 10 && (u.totalClicks || 0) >= 5000 },
+    // --- Повістки й медкомісія ---
+    { id: 'notice_1', name: 'Перший папірець', desc: 'Зніми свою першу повістку', reward: 800, check: (u) => (u.noticeStats?.resolved || 0) >= 1 },
+    { id: 'notice_25', name: 'Досвідчений отримувач', desc: 'Зніми 25 повісток', reward: 12000, check: (u) => (u.noticeStats?.resolved || 0) >= 25 },
+    { id: 'notice_clean', name: 'Жодного папірця не проґавив', desc: 'Зніми 10 повісток, не давши протухнути жодній', reward: 15000,
+      check: (u) => (u.noticeStats?.resolved || 0) >= 10 && (u.noticeStats?.expired || 0) === 0 },
+    { id: 'medcom_1', name: 'Непридатний', desc: 'Пройди медкомісію', reward: 1500, check: (u) => (u.medcomStats?.passed || 0) >= 1 },
+    { id: 'medcom_10', name: 'Хронічно хворий', desc: 'Пройди медкомісію 10 разів', reward: 15000, check: (u) => (u.medcomStats?.passed || 0) >= 10 },
+    { id: 'deceived_10', name: 'Майстер папірця', desc: 'Обмани систему липовою довідкою 10 разів', reward: 12000, check: (u) => (u.deceivedCount || 0) >= 10 },
+    // --- Інспектори ---
+    { id: 'insp_first', name: 'Спекався', desc: 'Здихайся першого інспектора', reward: 3000,
+      check: (u) => Object.values(u.inspectorStats?.defeated || {}).reduce((a, b) => a + b, 0) >= 1 },
+    { id: 'insp_lyuda', name: 'Молодой человек', desc: 'Здихайся Люди з паспортного', reward: 25000, check: (u) => (u.inspectorStats?.defeated?.lyuda || 0) >= 1 },
+    { id: 'insp_pivnyk', name: '30 років у системі', desc: 'Здихайся Генерала Півника', reward: 200000, check: (u) => (u.inspectorStats?.defeated?.pivnyk || 0) >= 1 },
+    { id: 'insp_all', name: 'Повний комплект', desc: 'Здихайся всіх чотирьох інспекторів', reward: 300000,
+      check: (u) => INSPECTORS.every((i) => (u.inspectorStats?.defeated?.[i.id] || 0) >= 1) },
+    // --- Відстрочки й блокпост ---
+    { id: 'defer_1', name: 'Папірець із печаткою', desc: 'Оформи першу відстрочку', reward: 2000, check: (u) => (u.defermentsTaken || 0) >= 1 },
+    { id: 'defer_10', name: 'Вічно зайнятий', desc: 'Оформи 10 відстрочок', reward: 25000, check: (u) => (u.defermentsTaken || 0) >= 10 },
+    { id: 'checkpoint_10', name: 'Знаю всі обʼїзні', desc: 'Пройди 10 блокпостів', reward: 8000, check: (u) => (u.checkpointStats?.passed || 0) >= 10 },
+    // --- PvP ---
+    { id: 'snitch_1', name: 'Анонімний доброзичливець', desc: 'Здай сусіда вперше', reward: 1000, check: (u) => (u.snitchStats?.sent || 0) >= 1 },
+    { id: 'snitch_25', name: 'Гарячий телефон', desc: 'Здай сусідів 25 разів', reward: 20000, check: (u) => (u.snitchStats?.sent || 0) >= 25 },
+    { id: 'caught_1', name: 'Вирахував', desc: 'Розкрий того, хто на тебе доніс', reward: 5000, check: (u) => (u.snitchStats?.caught || 0) >= 1 },
+    { id: 'caught_5', name: 'Приватний детектив', desc: 'Розкрий 5 стукачів', reward: 40000, check: (u) => (u.snitchStats?.caught || 0) >= 5 },
+    { id: 'snitch_clean', name: 'Чиста совість', desc: 'Досягни 5 рівня схрону, не здавши нікого', reward: 30000,
+      check: (u) => (u.level || 1) >= 5 && (u.snitchStats?.sent || 0) === 0 },
+    // --- Навички, репутація, сезони ---
+    { id: 'skills_6', name: 'Дещо вмію', desc: 'Вивчи 6 навичок', reward: 20000, check: (u) => Object.values(u.skills || {}).filter(Boolean).length >= 6 },
+    { id: 'skills_all', name: 'Академія ухиляння', desc: 'Вивчи всі 18 навичок', reward: 250000,
+      check: (u) => Object.values(u.skills || {}).filter(Boolean).length >= Object.keys(SKILL_BY_ID).length },
+    { id: 'rep_first', name: 'Свій у дворі', desc: 'Доведи репутацію з кимось до максимуму', reward: 15000,
+      check: (u) => REPUTATION_NPCS.some((n) => (u.reputation?.[n.id] || 0) >= ECONOMY.REP_MAX) },
+    { id: 'rep_oksana', name: 'Не такий вже й падлюка', desc: 'Доведи репутацію з Оксаною до максимуму', reward: 30000,
+      check: (u) => (u.reputation?.oksana || 0) >= ECONOMY.REP_MAX },
+    { id: 'rep_all', name: 'Депутат від району', desc: 'Доведи репутацію з усіма до максимуму', reward: 120000,
+      check: (u) => REPUTATION_NPCS.every((n) => (u.reputation?.[n.id] || 0) >= ECONOMY.REP_MAX) },
+    { id: 'season_title', name: 'Є що показати', desc: 'Заслужи сезонний титул', reward: 25000, check: (u) => !!u.seasonTitle },
+    { id: 'league_top', name: 'Ліга Бункера', desc: 'Піднімись у найвищу лігу', reward: 100000, check: (u) => (u.league || 0) >= LEAGUES.length - 1 },
+    { id: 'trophies_3', name: 'Полиця трофеїв', desc: 'Здобудь 3 трофеї', reward: 30000, check: (u) => (u.trophies || []).length >= 3 },
 ];
 const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id, name, desc, reward }));
 
@@ -2314,6 +2358,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
         mykolaCoverUsed: !!user.mykolaCoverUsed,
+        defermentsTaken: user.defermentsTaken || 0,
         ...defermentSnapshot(user),
         ...skillsSnapshot(user),
         ...reputationSnapshot(user),
@@ -2414,11 +2459,12 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // Усе, що гравець заробив і що має пережити скидання диска Render. Додаєш нове
 // поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
 // поверне гравця без нього.
-const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed'];
+const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed',
+    'defermentsTaken', 'league', 'pendingWarCrate'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
-const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats'];
+const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
@@ -2457,6 +2503,20 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
     // синхронізуємо бухгалтерію, не чіпаючи саме число: інакше applySkillLimits
     // нарахував би ці +25 удруге.
     user.skillEnergyBonus = hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0;
+    // Перемоги над інспекторами лежать вкладеним словником, тому окремо й лише
+    // за відомими id — щоб бекап не вигадав неіснуючого боса.
+    if (backup.inspectorStats && typeof backup.inspectorStats === 'object') {
+        const src = backup.inspectorStats.defeated;
+        if (src && typeof src === 'object') {
+            for (const insp of INSPECTORS) {
+                if (typeof src[insp.id] === 'number' && isFinite(src[insp.id])) {
+                    user.inspectorStats.defeated[insp.id] = Math.max(0, Math.floor(src[insp.id]));
+                }
+            }
+        }
+        if (typeof backup.inspectorStats.lost === 'number') user.inspectorStats.lost = backup.inspectorStats.lost;
+    }
+    if (typeof backup.seasonTitle === 'string') user.seasonTitle = backup.seasonTitle.slice(0, 60);
     if (typeof backup.defermentId === 'string' && DEFERMENT_BY_ID[backup.defermentId]) {
         user.defermentId = backup.defermentId;
     }
@@ -7213,10 +7273,12 @@ function buildHtml(botUsername) {
                 // Прогрес розширення 2.0 теж має пережити скидання диска Render.
                 heat: state.heat, seasonPoints: state.seasonPoints, deceivedCount: state.deceivedCount,
                 deferUntil: state.deferUntil, defermentId: state.defermentId,
-                skills: state.skills,
+                defermentsTaken: state.defermentsTaken, skills: state.skills,
                 reputation: state.reputation, trophies: state.trophies,
                 snitchStats: state.snitchStats, medcomStats: state.medcomStats,
-                checkpointStats: state.checkpointStats,
+                checkpointStats: state.checkpointStats, noticeStats: state.noticeStats,
+                inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
+                league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -7309,6 +7371,7 @@ function buildHtml(botUsername) {
                 state.medcomStats = data.medcomStats || null;
                 state.inspectorStats = data.inspectorStats || null;
                 state.checkpointStats = data.checkpointStats || null;
+                state.defermentsTaken = data.defermentsTaken || 0;
                 state.deferUntil = data.deferUntil || 0;
                 state.defermentId = data.defermentId || null;
                 state.deferments = data.deferments || [];
