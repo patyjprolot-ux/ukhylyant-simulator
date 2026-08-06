@@ -570,6 +570,9 @@ const RESOURCES = [
     { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
     { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
     { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
+    // Уламок пломби з донатного ящика. Випадає рідко зі звичайних ящиків і дає
+    // безкоштовний, але довгий шлях до платних ящиків: зібрав достатньо — склеїв.
+    { id: 'shard', name: 'Уламок пломби', emoji: '🧩', tier: 3, sell: 900 },
     { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
 ];
 const RESOURCE_BY_ID = byId(RESOURCES);
@@ -591,6 +594,7 @@ const CRATES = [
             { type: 'res', res: 'tape', min: 1, max: 2, weight: 12 },
             { type: 'coins', min: 300, max: 900, weight: 8 },
             { type: 'res', res: 'meds', min: 1, max: 1, weight: 2 },
+            { type: 'res', res: 'shard', min: 1, max: 1, weight: 1 },
         ],
     },
     {
@@ -608,6 +612,7 @@ const CRATES = [
             { type: 'res', res: 'sausage', min: 1, max: 3, weight: 7 },
             { type: 'energy', weight: 5 },
             { type: 'res', res: 'sim', min: 1, max: 1, weight: 2 },
+            { type: 'res', res: 'shard', min: 1, max: 1, weight: 2 },
         ],
     },
     {
@@ -625,6 +630,7 @@ const CRATES = [
             { type: 'granny', weight: 6 },
             { type: 'cosmetic', weight: 8 },
             { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
+            { type: 'res', res: 'shard', min: 1, max: 2, weight: 4 },
         ],
     },
     {
@@ -642,6 +648,7 @@ const CRATES = [
             // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
             // не взяти найдовшу відстрочку.
             { type: 'res', res: 'phone', min: 1, max: 1, weight: 3 },
+            { type: 'res', res: 'shard', min: 1, max: 3, weight: 6 },
             { type: 'granny', weight: 4 },
             { type: 'energy', weight: 3 },
         ],
@@ -797,6 +804,34 @@ const RECIPES = [
         cost: { ticket: 5, stamp: 15, cash: 25 },
         desc: 'ПОСТІЙНИЙ імунітет до облав. Фінальна ціль гри.',
         effect: { type: 'permanent_shield' },
+    },
+    // --- Склеювання донатних ящиків з уламків пломб ---
+    // Довгий безкоштовний шлях до платних ящиків. Ціни підібрані так, щоб це був
+    // саме шлях, а не заміна: уламки випадають рідко, і на легендарний схрон їх
+    // треба стільки, що швидше пограти, ніж накопичити.
+    {
+        id: 'glue_starter', name: 'Склеїти Стартовий пакет', emoji: '🥡',
+        cost: { shard: 10, tape: 5 },
+        desc: 'Стартовий пакет із уламків. Той самий вміст, що й за 25 ⭐.',
+        effect: { type: 'crate', crateId: 'starter' },
+    },
+    {
+        id: 'glue_elite', name: 'Склеїти Елітний контейнер', emoji: '💎',
+        cost: { shard: 25, tape: 10, cash: 3 },
+        desc: 'Елітний контейнер із уламків. Той самий вміст, що й за 75 ⭐.',
+        effect: { type: 'crate', crateId: 'elite' },
+    },
+    {
+        id: 'glue_fashion', name: 'Склеїти Модну валізу', emoji: '👗',
+        cost: { shard: 45, stamp: 3, cash: 6 },
+        desc: 'Модна валіза з уламків. Гарантована річ у гардероб.',
+        effect: { type: 'crate', crateId: 'fashion' },
+    },
+    {
+        id: 'glue_legendary', name: 'Склеїти Легендарний схрон', emoji: '🏆',
+        cost: { shard: 75, stamp: 8, cash: 15, phone: 1 },
+        desc: 'Легендарний схрон із уламків. Тільки топовий дроп.',
+        effect: { type: 'crate', crateId: 'legendary' },
     },
 ];
 const RECIPE_BY_ID = byId(RECIPES);
@@ -1165,6 +1200,20 @@ function saveData() {
 }
 
 loadData();
+
+// Знімок усієї бази для позаплатформного бекапу: диск Render не переживає
+// редеплой, тож перед кожним пушем варто стягнути актуальний стан гравців
+// і кланів собі локально. Захищено тим самим BOT_TOKEN, що й сам бот, —
+// секрету окремо заводити не треба, і тільки власник бота може його викликати.
+app.get('/api/admin/backup', (req, res) => {
+    if (!BOT_TOKEN || req.get('x-admin-token') !== BOT_TOKEN) {
+        return res.status(403).json({ error: 'forbidden' });
+    }
+    res.json({
+        users: Array.from(usersDB.values()), clans: Array.from(clansDB.values()),
+        exportedAt: Date.now(), playerCount: usersDB.size, clanCount: clansDB.size,
+    });
+});
 setInterval(saveData, 20000);
 
 function createFreshUser(id, name) {
@@ -3004,6 +3053,7 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
 
     const eff = recipe.effect;
     let message;
+    let crateReward = null, crateId = null;
     if (eff.type === 'energy') { user.energy = user.maxEnergy; message = 'Енергію відновлено!'; }
     else if (eff.type === 'click') { user.clickVal += eff.amount; message = `+${eff.amount} до сили кліку`; }
     else if (eff.type === 'passive') { user.passive += eff.amount; message = `+${eff.amount} до пасиву`; }
@@ -3016,10 +3066,20 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
         message = `Щит від облав на ${eff.hours} год`;
     }
     else if (eff.type === 'permanent_shield') { user.permanentShield = true; message = 'ПОСТІЙНИЙ імунітет до облав!'; }
+    else if (eff.type === 'crate') {
+        // Склеєний із уламків донатний ящик відкривається одразу — тією самою
+        // таблицею дропу, що й куплений за Stars. Анімацію програє клієнт.
+        const crate = CRATE_BY_ID[eff.crateId];
+        if (!crate) return res.json({ success: false, message: 'Невідомий ящик' });
+        crateReward = rollCrate(user, crate);
+        crateId = crate.id;
+        message = `${crate.name}: ${crateReward.title}`;
+    }
 
     const unlocked = checkAchievements(user);
     res.json({
         success: true, message, recipeId: recipe.id,
+        crateReward, crateId,
         balance: user.balance, clickVal: user.clickVal, passive: user.passive,
         energy: user.energy, maxEnergy: user.maxEnergy,
         shieldUntil: user.shieldUntil, permanentShield: user.permanentShield,
@@ -8392,7 +8452,6 @@ function buildHtml(botUsername) {
             state.shieldUntil = data.shieldUntil; state.permanentShield = data.permanentShield;
             state.craftedCount = data.craftedCount;
             tg.HapticFeedback.notificationOccurred('success');
-            tg.showAlert('🔨 ' + data.message);
             if (data.unlockedAchievements && data.unlockedAchievements.length) {
                 data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
                 renderAchievements();
@@ -8400,6 +8459,10 @@ function buildHtml(botUsername) {
             updateUI();
             renderStorage();
             renderRecipes();
+            // Склеєний ящик — та сама анімація відкривання, що й у купленого:
+            // гравець зібрав уламки саме заради цього моменту.
+            if (data.crateReward) playCrateAnimation(data.crateReward, data.crateId || 'starter');
+            else tg.showAlert('🔨 ' + data.message);
         };
 
         // ==========================================
