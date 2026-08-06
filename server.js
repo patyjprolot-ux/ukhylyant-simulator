@@ -942,6 +942,12 @@ const QUESTS = [
     { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 350, metric: 'dailyRaids' },
     { id: 'q_craft', name: 'Умілі руки', desc: 'Скрафти 1 предмет сьогодні', target: 1, reward: 600, metric: 'dailyCrafts' },
     { id: 'q_res', name: 'Мародер', desc: 'Назбирай 25 ресурсів сьогодні', target: 25, reward: 500, metric: 'dailyResources' },
+    // Квести під механіки розширення: без них нові системи не мали щоденної причини
+    // в них заходити, і гравець повертався б до тих самих кліків.
+    { id: 'q_notice', name: 'Паперова робота', desc: 'Зніми 2 повістки сьогодні', target: 2, reward: 900, metric: 'dailyNotices' },
+    { id: 'q_medcom', name: 'На прийом', desc: 'Пройди медкомісію сьогодні', target: 1, reward: 1200, metric: 'dailyMedcom' },
+    { id: 'q_inspector', name: 'Небажаний гість', desc: 'Здихайся інспектора сьогодні', target: 1, reward: 2500, metric: 'dailyInspectors' },
+    { id: 'q_expedition', name: 'Нічна зміна', desc: 'Заверши вилазку сьогодні', target: 1, reward: 800, metric: 'dailyExpeditions' },
 ];
 
 // Речі для декору кімнати — можна володіти й показувати одразу кількома (на відміну від
@@ -1248,6 +1254,10 @@ function createFreshUser(id, name) {
         dailyTradeVolume: 0,
         dailyBribes: 0,
         dailyDonated: 0,
+        dailyNotices: 0,
+        dailyMedcom: 0,
+        dailyInspectors: 0,
+        dailyExpeditions: 0,
         mykolaCoverUsed: false,     // "Прикриття" від дільничного — раз на добу
         lastBribeAt: 0,             // слабкість Валіка: чи "вирішував питання" нещодавно
         inspector: null,            // { id, hp, hpMax, endsAt } — активний бос
@@ -1358,6 +1368,9 @@ function migrateUser(user) {
     if (typeof user.dailyTradeVolume !== 'number') user.dailyTradeVolume = 0;
     if (typeof user.dailyBribes !== 'number') user.dailyBribes = 0;
     if (typeof user.dailyDonated !== 'number') user.dailyDonated = 0;
+    for (const k of ['dailyNotices', 'dailyMedcom', 'dailyInspectors', 'dailyExpeditions']) {
+        if (typeof user[k] !== 'number') user[k] = 0;
+    }
     if (typeof user.lastBribeAt !== 'number') user.lastBribeAt = 0;
     if (typeof user.lastSeenAt !== 'number') user.lastSeenAt = 0;
     if (!Array.isArray(user.offlineLog)) user.offlineLog = [];
@@ -1516,6 +1529,10 @@ function resetDailyIfNeeded(user) {
         user.dailyTradeVolume = 0;
         user.dailyBribes = 0;
         user.dailyDonated = 0;
+        user.dailyNotices = 0;
+        user.dailyMedcom = 0;
+        user.dailyInspectors = 0;
+        user.dailyExpeditions = 0;
         user.claimedRepQuests = [];
         user.mykolaCoverUsed = false;
     }
@@ -1675,6 +1692,7 @@ function finishNotice(user, idx, method, resolved) {
     user.noticeStats.byMethod[method] = (user.noticeStats.byMethod[method] || 0) + 1;
     if (resolved) {
         user.noticeStats.resolved += 1;
+        user.dailyNotices = (user.dailyNotices || 0) + 1;
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.NOTICE_SEASON_POINTS;
     } else {
         user.noticeStats.failed += 1;
@@ -2846,6 +2864,7 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
     const pet = PET_EXPEDITION[active.petId] || {};
     user.expeditions.splice(idx, 1);
     user.expeditionsDone = (user.expeditionsDone || 0) + 1;
+    user.dailyExpeditions = (user.dailyExpeditions || 0) + 1;
 
     // Щит від облав (Білий Квиток / липова довідка) прибирає ризик спалитись —
     // це робить крафт щитів осмисленим і для вилазок теж.
@@ -4049,6 +4068,7 @@ app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
     // Переможений: нагорода, трофей і кулдаун до наступного візиту.
     user.inspector = null;
     user.inspectorStats.defeated[insp.id] = (user.inspectorStats.defeated[insp.id] || 0) + 1;
+    user.dailyInspectors = (user.dailyInspectors || 0) + 1;
     addWarPoints(user, ECONOMY.WAR_POINTS_INSPECTOR, 'спекався інспектора');
     user.inspectorLastSeen[insp.id] = Date.now();
     user.inspectorCooldownUntil = Date.now() + ECONOMY.INSPECTOR_COOLDOWN_H * 3600 * 1000;
@@ -4200,6 +4220,7 @@ app.post('/api/medcom/submit', requireTelegramAuth, (req, res) => {
         user.deferUntil = Date.now() + ECONOMY.MEDCOM_DEFER_H * 3600 * 1000;
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.MEDCOM_SEASON_POINTS;
         user.medcomStats.passed += 1;
+        user.dailyMedcom = (user.dailyMedcom || 0) + 1;
         message = `«Непридатний. Наступний!» Відстрочка на ${ECONOMY.MEDCOM_DEFER_H} годин.`;
     } else {
         penalty = applyNoticePenalty(user, type, 1);
@@ -4412,6 +4433,8 @@ app.get('/api/quests', requireTelegramAuth, (req, res) => {
         dailyClicks: user.dailyClicks, dailyTrades: user.dailyTrades,
         dailyBoxes: user.dailyBoxes, dailyRaids: user.dailyRaids,
         dailyCrafts: user.dailyCrafts, dailyResources: user.dailyResources,
+        dailyNotices: user.dailyNotices || 0, dailyMedcom: user.dailyMedcom || 0,
+        dailyInspectors: user.dailyInspectors || 0, dailyExpeditions: user.dailyExpeditions || 0,
         claimedQuests: user.claimedQuests,
     });
 });
@@ -8451,8 +8474,12 @@ function buildHtml(botUsername) {
         window.loadQuests = async () => {
             const res = await apiFetch('/api/quests?id=' + user.id);
             const data = await res.json();
-            state.dailyClicks = data.dailyClicks; state.dailyTrades = data.dailyTrades;
-            state.dailyBoxes = data.dailyBoxes; state.dailyRaids = data.dailyRaids;
+            // Забираємо метрики за списком самих квестів, а не руками по одній:
+            // раніше dailyCrafts і dailyResources просто забули, і ті два квести
+            // завжди показували нульовий прогрес, хоч на сервері він був.
+            for (const q of QUESTS) {
+                if (typeof data[q.metric] === 'number') state[q.metric] = data[q.metric];
+            }
             state.claimedQuests = data.claimedQuests;
             renderQuests();
         };
