@@ -1471,7 +1471,10 @@ function clanNextLevelCost(clan) {
 }
 
 function getClanInfo(user) {
-    if (!user.clanId || !clansDB.has(user.clanId)) return { clanId: null, clanName: null, memberCount: 0, bonus: 1 };
+    // Клан зник разом із диском, а бекап його не повернув — знімаємо мертве
+    // посилання, інакше гравець вважається «вже в чаті» і не може вступити в новий.
+    if (user.clanId && !clansDB.has(user.clanId)) user.clanId = null;
+    if (!user.clanId) return { clanId: null, clanName: null, memberCount: 0, bonus: 1 };
     const clan = clansDB.get(user.clanId);
     const lvl = clanLevel(clan);
     // «Кум у сільраді» множить саму НАДБАВКУ, а не підсумковий множник — інакше
@@ -2564,6 +2567,24 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
         if (typeof backup.inspectorStats.lost === 'number') user.inspectorStats.lost = backup.inspectorStats.lost;
     }
     if (typeof backup.seasonTitle === 'string') user.seasonTitle = backup.seasonTitle.slice(0, 60);
+
+    // Чати ОСББ живуть лише на диску Render, а він не переживає редеплой: гравець
+    // повертався з CloudStorage зі своїм clanId, але самого чату вже не існувало —
+    // і чат «пропадав» разом із бонусом до пасиву. Відновлюємо його з бекапу
+    // учасника: скарбницю не врятувати, але сам чат і склад — так. Ідемпотентно,
+    // тому кілька учасників, що заходять один за одним, зберуться в той самий чат.
+    const bId = typeof backup.clanId === 'string' ? backup.clanId.slice(0, 40) : null;
+    const bName = typeof backup.clanName === 'string' ? backup.clanName.trim().slice(0, 30) : null;
+    if (bId && bName) {
+        let clan = clansDB.get(bId);
+        if (!clan) {
+            clan = { id: bId, name: bName, ownerId: user.id, members: [], treasury: 0, contributions: {}, restored: true };
+            clansDB.set(bId, clan);
+            console.log(`🏘 Відновлено чат ОСББ «${bName}» з резервної копії гравця.`);
+        }
+        if (!clan.members.includes(user.id)) clan.members.push(user.id);
+        user.clanId = bId;
+    }
     if (typeof backup.defermentId === 'string' && DEFERMENT_BY_ID[backup.defermentId]) {
         user.defermentId = backup.defermentId;
     }
@@ -7332,6 +7353,9 @@ function buildHtml(botUsername) {
                 ownedCosmetics: state.ownedCosmetics, equippedCosmetics: state.equippedCosmetics,
                 ownedRoomItems: state.ownedRoomItems, equippedRoomItems: state.equippedRoomItems,
                 portfolio: state.portfolio,
+                // Чат ОСББ теж у бекап: інакше після редеплою гравець повертається
+                // з clanId, якого вже немає на сервері, і чат просто зникає.
+                clanId: state.clanId, clanName: state.clanName,
                 resources: state.resources, storageLevel: state.storageLevel,
                 upgrades: state.upgrades, craftedCount: state.craftedCount,
                 shieldUntil: state.shieldUntil, permanentShield: state.permanentShield,
@@ -7487,10 +7511,14 @@ function buildHtml(botUsername) {
 
         function saveState() {
             saveToCloud();
+            // Запам'ятовуємо, ЩО САМЕ ми відправили: якщо сервер відхилить баланс,
+            // усе наклікане після цього моменту треба буде перенести на його цифру,
+            // а не викинути.
+            const sentBalance = state.balance;
             apiFetch('/api/save', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: user.id, name: user.first_name, balance: state.balance,
+                    id: user.id, name: user.first_name, balance: sentBalance,
                     balanceRev: state.balanceRev,
                     clickVal: state.clickVal, passive: state.passive, level: state.level,
                     energy: state.energy, maxEnergy: state.maxEnergy,
@@ -7517,10 +7545,15 @@ function buildHtml(botUsername) {
                     state.balance = data.balance;
                     showRobbery(data.robbery);
                 }
-                // Сервер відхилив наш баланс — значить він змінював його сам (ящик/крафт/апгрейд),
-                // поки ми не встигли синхронізуватись. Беремо його значення як авторитетне.
+                // Сервер відхилив наш баланс — значить він змінював його сам (ящик,
+                // крафт, апгрейд, досягнення), поки ми не встигли синхронізуватись.
+                // Просто взяти його цифру НЕ МОЖНА: усе, що гравець наклікав за ці
+                // 5 секунд, зникло б — саме через це прогрес «іноді не зараховувався».
+                // Тому переносимо свій приріст (те, що набігло після відправки) на
+                // авторитетний баланс сервера.
                 if (data.balanceRejected && typeof data.balance === 'number') {
-                    state.balance = data.balance;
+                    const earnedSinceSend = Math.max(0, state.balance - sentBalance);
+                    state.balance = data.balance + earnedSinceSend;
                     updateUI();
                 }
                 if (typeof data.balanceRev === 'number') state.balanceRev = data.balanceRev;
@@ -7545,7 +7578,10 @@ function buildHtml(botUsername) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
-            if (state.energy <= 0 && !state.isVip) {
+            // Саме < вартості кліку, а не <= 0: клік коштує 2, а енергія тіче назад
+            // по 0.1 за тік, тому рівно нуля вона майже ніколи не має. З перевіркою
+            // на нуль можна було тапати з повним доходом на порожньому баку.
+            if (!state.isVip && state.energy < clickEnergyCost()) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
