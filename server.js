@@ -57,7 +57,7 @@ const ECONOMY = {
     // --- Апгрейди магазину: тепер БАГАТОРІВНЕВІ (купуються нескінченно) ---
     // Ціна рівня N = base * UPGRADE_GROWTH^N. Ціни стартово низькі, але ростуть швидко —
     // це головний нескінченний сток валюти, щоб гра не проходилась за вечір.
-    UPGRADE_GROWTH: 1.55,
+    UPGRADE_GROWTH: 1.58,
     HAT_PRICE: 40, HAT_CLICK_BONUS: 1,
     JAM_PRICE: 150, JAM_PASSIVE_BONUS: 1,
     THERMOS_PRICE: 900, THERMOS_CLICK_BONUS: 3,
@@ -82,7 +82,7 @@ const ECONOMY = {
     STORAGE_BASE_CAPACITY: 60,
     STORAGE_CAPACITY_PER_LEVEL: 40,
     STORAGE_UPGRADE_BASE: 800,
-    STORAGE_UPGRADE_GROWTH: 1.6,
+    STORAGE_UPGRADE_GROWTH: 1.68,
     STORAGE_MAX_LEVEL: 20,
 
     // --- Престиж ("Легалізація") ---
@@ -145,7 +145,7 @@ const ECONOMY = {
     HEAT_MEDCOM_FAIL: 15,
     HEAT_NEIGHBOR_MULT: 0.85,     // компаньйон "Сусідка-пліткарка" гасить приріст
     HEAT_DECAY_MINUTES: 12,       // -1 heat за кожні 12 хв реального часу
-    HEAT_DECAY_DAILY_CAP: 60,     // але не більше -60 за добу, щоб "просто не грати" не було стратегією
+    HEAT_DECAY_DAILY_CAP: 42,     // але не більше -42 за добу, щоб "просто не грати" не було стратегією
     HEAT_BRIBE_DISCOUNT: 20,
     HEAT_SPRAVKA_DISCOUNT: 35,
     HEAT_LOG_SIZE: 20,
@@ -569,10 +569,16 @@ const RESOURCES = [
     { id: 'battery', name: 'Батарейки', emoji: '🔋', img: '/images/gacha-powerbank.webp', tier: 1, sell: 30 },
     { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 20 },
     { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 35 },
+    // Будматеріали. Тір 1-2, зараз ідуть на крафт міцніших щитів/бонусів; коли
+    // прийде окрема карта території — ті самі ресурси стануть валютою будівництва
+    // (вежа спостереження/схованка/тайник), без міграції даних.
+    { id: 'wood', name: 'Деревина', emoji: '🪵', tier: 1, sell: 28 },
     { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 130 },
     { id: 'sausage', name: 'Домашня ковбаса', emoji: '🌭', img: '/images/gacha-premium-sausage.webp', tier: 2, sell: 145 },
     { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 160 },
     { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
+    { id: 'scrap', name: 'Металобрухт', emoji: '⚙️', tier: 2, sell: 175 },
+    { id: 'brick', name: 'Цегла', emoji: '🧱', tier: 2, sell: 150 },
     { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
     { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
     { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
@@ -598,6 +604,7 @@ const CRATES = [
             { type: 'res', res: 'cans', min: 1, max: 3, weight: 20 },
             { type: 'res', res: 'battery', min: 1, max: 3, weight: 18 },
             { type: 'res', res: 'tape', min: 1, max: 2, weight: 12 },
+            { type: 'res', res: 'wood', min: 1, max: 3, weight: 14 },
             { type: 'coins', min: 300, max: 900, weight: 8 },
             { type: 'res', res: 'meds', min: 1, max: 1, weight: 2 },
             { type: 'res', res: 'shard', min: 1, max: 1, weight: 1 },
@@ -614,6 +621,7 @@ const CRATES = [
             { type: 'res', res: 'tape', min: 2, max: 5, weight: 14 },
             { type: 'res', res: 'meds', min: 1, max: 3, weight: 15 },
             { type: 'res', res: 'fuel', min: 1, max: 2, weight: 10 },
+            { type: 'res', res: 'wood', min: 2, max: 5, weight: 12 },
             { type: 'coins', min: 1500, max: 4000, weight: 8 },
             { type: 'res', res: 'sausage', min: 1, max: 3, weight: 7 },
             { type: 'energy', weight: 5 },
@@ -633,6 +641,8 @@ const CRATES = [
             { type: 'res', res: 'cans', min: 8, max: 15, weight: 12 },
             { type: 'coins', min: 6000, max: 15000, weight: 12 },
             { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
+            { type: 'res', res: 'scrap', min: 2, max: 5, weight: 9 },
+            { type: 'res', res: 'brick', min: 2, max: 5, weight: 9 },
             { type: 'granny', weight: 6 },
             { type: 'cosmetic', weight: 8 },
             { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
@@ -649,6 +659,8 @@ const CRATES = [
             { type: 'res', res: 'fuel', min: 6, max: 14, weight: 16 },
             { type: 'coins', min: 25000, max: 60000, weight: 14 },
             { type: 'res', res: 'stamp', min: 1, max: 3, weight: 12 },
+            { type: 'res', res: 'scrap', min: 4, max: 10, weight: 8 },
+            { type: 'res', res: 'brick', min: 4, max: 10, weight: 8 },
             { type: 'cosmetic', weight: 10 },
             { type: 'res', res: 'ticket', min: 1, max: 1, weight: 5 },
             // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
@@ -805,6 +817,27 @@ const RECIPES = [
         desc: '+15 до сили кліку та +20 до пасиву (назавжди)',
         effect: { type: 'combo', click: 15, passive: 20 },
     },
+    // --- Будматеріали (wood/scrap/brick): середній тір крафту, споживає ресурси
+    // з нової вилазки "Розбір руїн" і оновлених ящиків. Ті самі три ресурси пізніше
+    // стануть валютою будівництва на карті території. ---
+    {
+        id: 'reinforced_hideout', name: 'Зміцнена криївка', emoji: '🪜',
+        cost: { wood: 20, brick: 10, scrap: 5 },
+        desc: '+35 до максимальної енергії (назавжди)',
+        effect: { type: 'maxEnergy', amount: 35 },
+    },
+    {
+        id: 'scrap_generator', name: 'Генератор з металобрухту', emoji: '⚙️',
+        cost: { scrap: 15, wood: 10 },
+        desc: '+8 до пасивного доходу (назавжди)',
+        effect: { type: 'passive', amount: 8 },
+    },
+    {
+        id: 'brick_wall', name: 'Цегляна стіна', emoji: '🧱',
+        cost: { brick: 20, scrap: 8 },
+        desc: 'Щит від облав на 5 годин',
+        effect: { type: 'shield', hours: 5 },
+    },
     {
         id: 'white_ticket', name: 'Справжній Білий Квиток', emoji: '🎫',
         cost: { ticket: 5, stamp: 15, cash: 25 },
@@ -855,6 +888,11 @@ const EXPEDITIONS = [
         id: 'market', name: 'Вилазка на ринок', emoji: '🏪', minutes: 120, minLevel: 2, risk: 0.18,
         desc: 'Треба показатись людям. Ризик, що впізнають.',
         loot: [{ res: 'cans', min: 8, max: 18 }, { res: 'battery', min: 5, max: 12 }, { res: 'meds', min: 2, max: 5 }],
+    },
+    {
+        id: 'ruins', name: 'Розбір руїн', emoji: '🪚', minutes: 180, minLevel: 2, risk: 0.20,
+        desc: 'Розібраний будинок на околиці. Довше ринку, зате несеш будматеріали, а не барахло.',
+        loot: [{ res: 'wood', min: 6, max: 14 }, { res: 'brick', min: 3, max: 8 }, { res: 'scrap', min: 2, max: 5 }],
     },
     {
         id: 'warehouse', name: 'Нічний склад', emoji: '🏭', minutes: 480, minLevel: 3, risk: 0.25,
