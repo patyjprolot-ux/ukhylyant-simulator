@@ -43,6 +43,16 @@ let HTML_CONTENT = ''; // формується після старту (щоб �
 // 2. ЕКОНОМІКА ТА КОНФІГ ГРИ
 // (єдине джерело правди для цін/нагород — і бек, і фронт орієнтуються на ці числа)
 // ==========================================
+// Довідник "id -> запис" із порожнім прототипом. Це принципово: id приходять
+// прямо з тіла запиту, і на звичайному об'єкті CATALOG['constructor'] повернув
+// би функцію з Object.prototype — далі код читав би в неї .quests/.cost і падав
+// у 500. З null-прототипом невідомий ключ завжди undefined.
+function byId(list) {
+    const map = Object.create(null);
+    for (const item of list) map[item.id] = item;
+    return map;
+}
+
 const ECONOMY = {
     // --- Апгрейди магазину: тепер БАГАТОРІВНЕВІ (купуються нескінченно) ---
     // Ціна рівня N = base * UPGRADE_GROWTH^N. Ціни стартово низькі, але ростуть швидко —
@@ -283,7 +293,7 @@ const SYMPTOMS = [
     { id: 'ruka', name: 'Рука не піднімається (принципово)', emoji: '🤲', power: 44, weight: 11 },
     { id: 'spravzhnye', name: 'Справжня медична карта', emoji: '📋', power: 90, weight: 1 },
 ];
-const SYMPTOM_BY_ID = Object.fromEntries(SYMPTOMS.map((s) => [s.id, s]));
+const SYMPTOM_BY_ID = byId(SYMPTOMS);
 
 // Інспектори ТЦК — іменовані боси, що приходять на високому розшуку. Кожен смішний
 // характером, а не тим, що він "ворог": об'єкт жарту — абсурд бюрократії.
@@ -323,7 +333,7 @@ const INSPECTORS = [
         taunt: '«Я 30 років у системі. Ти — 30 хвилин у бункері»',
     },
 ];
-const INSPECTOR_BY_ID = Object.fromEntries(INSPECTORS.map((i) => [i.id, i]));
+const INSPECTOR_BY_ID = byId(INSPECTORS);
 
 // Відстрочки — паралельна прогресія до Білого Квитка. Одна активна за раз.
 // Поки діє: повістки не приходять, розшук не росте, стуки не діють, блокпост
@@ -365,7 +375,7 @@ const DEFERMENTS = [
         flavor: 'Помічник помічника помічника. На громадських засадах',
     },
 ];
-const DEFERMENT_BY_ID = Object.fromEntries(DEFERMENTS.map((d) => [d.id, d]));
+const DEFERMENT_BY_ID = byId(DEFERMENTS);
 
 // Блокпост: переїзд у новий схрон більше не просто транзакція. Шанси показані
 // гравцю відкрито — той самий чесний підхід, що й у ящиках.
@@ -385,7 +395,7 @@ const CHECKPOINT_CHOICES = [
         bonusWithNinaRep: 0.75, ninaRepRequired: 50,
     },
 ];
-const CHECKPOINT_BY_ID = Object.fromEntries(CHECKPOINT_CHOICES.map((c) => [c.id, c]));
+const CHECKPOINT_BY_ID = byId(CHECKPOINT_CHOICES);
 
 // Дерево навичок ухилянта. Кожна довідка з легалізації = 1 очко. Довідки
 // ПРОДОВЖУЮТЬ давати свій +10% доходу — навички це бонус зверху, не заміна.
@@ -476,7 +486,7 @@ const REPUTATION_NPCS = [
         perk: 'Титул «Не такий вже й падлюка» і постійні −20% до приросту розшуку',
     },
 ];
-const NPC_BY_ID = Object.fromEntries(REPUTATION_NPCS.map((n) => [n.id, n]));
+const NPC_BY_ID = byId(REPUTATION_NPCS);
 
 // Ліги. Лідерборд за балансом — це «хто довше грає»; ліги ж щотижня обнуляються,
 // тому новачок має реальний шанс, а сезонний титул не купиш за ⭐ ніколи.
@@ -497,7 +507,7 @@ const SEASON_COSMETICS = [
     { id: 'season_cape', slot: 'neck', name: 'Мантія непіймання', emoji: '🧥', seasonOnly: true, price: 0 },
 ];
 
-const SKILL_BY_ID = {};
+const SKILL_BY_ID = Object.create(null);
 for (const br of SKILL_BRANCHES) {
     br.skills.forEach((s, i) => { SKILL_BY_ID[s.id] = { ...s, branchId: br.id, index: i }; });
 }
@@ -538,7 +548,7 @@ const NOTICE_TYPES = [
         flavor: 'Зупинили, переписали, вручили. Дуже ввічливо.', wLow: 2, wHigh: 28,
     },
 ];
-const NOTICE_BY_ID = Object.fromEntries(NOTICE_TYPES.map((n) => [n.id, n]));
+const NOTICE_BY_ID = byId(NOTICE_TYPES);
 
 // ==========================================
 // 2.1 РЕСУРСИ ТА КЛАДОВКА
@@ -562,7 +572,7 @@ const RESOURCES = [
     { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
     { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
 ];
-const RESOURCE_BY_ID = Object.fromEntries(RESOURCES.map((r) => [r.id, r]));
+const RESOURCE_BY_ID = byId(RESOURCES);
 
 // Ящики. `loot` — таблиця дропу з вагами (шанс = вага / сума ваг). Шанси показуються
 // гравцю у грі: чесний гача без прихованих ймовірностей.
@@ -705,7 +715,7 @@ const CRATES = [
         ],
     },
 ];
-const CRATE_BY_ID = Object.fromEntries(CRATES.map((c) => [c.id, c]));
+const CRATE_BY_ID = byId(CRATES);
 
 // Щоденна акція: один ящик за ігрову валюту дешевший на DAILY_DEAL_OFF.
 // Вибір детермінований від дати, тому в усіх гравців акція однакова і її не можна
@@ -789,7 +799,7 @@ const RECIPES = [
         effect: { type: 'permanent_shield' },
     },
 ];
-const RECIPE_BY_ID = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
+const RECIPE_BY_ID = byId(RECIPES);
 
 // Вилазки — офлайн-механіка: відправив персонажа й чекаєш реальний час. Дає ресурси
 // без кліків, але з ризиком спалитись (тоді здобич втрачено). Довші вилазки — більше
@@ -826,7 +836,7 @@ const EXPEDITIONS = [
         loot: [{ res: 'stamp', min: 4, max: 10 }, { res: 'ticket', min: 1, max: 2 }, { res: 'cash', min: 5, max: 12 }],
     },
 ];
-const EXPEDITION_BY_ID = Object.fromEntries(EXPEDITIONS.map((e) => [e.id, e]));
+const EXPEDITION_BY_ID = byId(EXPEDITIONS);
 
 // 4 етапи еволюції схованки. `img` — квадратна картинка для головної кнопки-клікера
 // (персонаж по центру). `roomImg` — окрема широка картинка для екрана "Кімната"
@@ -1912,7 +1922,7 @@ function maybeSpawnInspector(user, now = Date.now()) {
     if (!candidates.length) return false;
     const insp = candidates[candidates.length - 1];
 
-    user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, endsAt: now + insp.window * 1000 };
+    user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, startedAt: now, endsAt: now + insp.window * 1000 };
     user.inspectorLastSeen[insp.id] = now;
     sendPush(user.id, `${insp.emoji} ${insp.name} стоїть під дверима. ${insp.taunt}\nУ тебе ${insp.window} секунд, щоб його спекатись.`);
     return true;
@@ -2441,8 +2451,17 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     const balanceAccepted = Number.isFinite(clientRev) && clientRev === user.balanceRev;
     if (balanceAccepted && typeof balance === 'number') user.balance = balance;
 
-    if (typeof clickVal === 'number') user.clickVal = clickVal;
-    if (typeof passive === 'number') user.passive = passive;
+    // Сила кліку й пасив ростуть ТІЛЬКИ через серверні роути (апгрейди, крафт,
+    // престиж, відновлення з бекапу), тому серверне значення повне й авторитетне.
+    // Клієнтське приймаємо лише якщо воно не БІЛЬШЕ за серверне: інакше підроблений
+    // clickVal у /api/save давав би миттєву перемогу над Генералом Півником разом
+    // із Білим Квитком, а роздутий passive — нескінченний офлайн-дохід.
+    if (typeof clickVal === 'number' && isFinite(clickVal)) {
+        user.clickVal = Math.max(1, Math.min(clickVal, user.clickVal));
+    }
+    if (typeof passive === 'number' && isFinite(passive)) {
+        user.passive = Math.max(0, Math.min(passive, user.passive));
+    }
     if (typeof level === 'number') user.level = level;
     if (typeof energy === 'number') user.energy = energy;
     if (typeof maxEnergy === 'number') user.maxEnergy = maxEnergy;
@@ -2462,6 +2481,9 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     res.json({
         ok: true, balance: user.balance, balanceRev: user.balanceRev,
         balanceRejected: !balanceAccepted, unlockedAchievements: unlocked,
+        // Віддаємо авторитетні clickVal/passive: якщо клієнт надіслав більше,
+        // ніж сервер колись видав, він має підхопити правильні значення.
+        clickVal: user.clickVal, passive: user.passive,
         robbery, snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         deferUntil: user.deferUntil || 0,
@@ -3493,7 +3515,12 @@ app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
     const r = clan.districtRaid;
 
     // Той самий анти-чіт і та сама ціна енергії, що й у бою з інспектором.
-    const dt = Math.max(1, Math.min(5000, Number(req.body.dt) || ECONOMY.INSPECTOR_BATCH_MS));
+    // Вікно рахує сервер; у кооп-босі воно ще й окреме для кожного учасника,
+    // інакше швидкий гравець з'їдав би ліміт повільних.
+    r.lastHitAt = r.lastHitAt || {};
+    const holder = { startedAt: r.startedAt, lastHitAt: r.lastHitAt[user.id] };
+    const dt = serverBatchWindow(holder);
+    r.lastHitAt[user.id] = holder.lastHitAt;
     let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS)));
     if (!clicks) return res.json({ success: true, ...districtSnapshot(clan, user), energy: user.energy });
 
@@ -3970,6 +3997,16 @@ function inspectorRoster(user) {
     });
 }
 
+// Скільки часу реально минуло з попереднього удару по цій цілі. Верхня межа —
+// щоб пауза в грі не перетворилась на один нищівний батч, нижня — щоб перший
+// удар після появи боса теж мав нормальне вікно.
+function serverBatchWindow(target) {
+    const now = Date.now();
+    const prev = target.lastHitAt || target.startedAt || now - ECONOMY.INSPECTOR_BATCH_MS;
+    target.lastHitAt = now;
+    return Math.max(1, Math.min(5000, now - prev || ECONOMY.INSPECTOR_BATCH_MS));
+}
+
 // Бос пішов, бо гравець не встиг у вікно.
 function inspectorTimeout(user) {
     if (!user.inspector || Date.now() < user.inspector.endsAt) return false;
@@ -4020,7 +4057,7 @@ if (DEV_MODE_INSECURE) {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const insp = INSPECTOR_BY_ID[req.body.inspectorId];
         if (!insp) return res.json({ success: false, message: 'Невідомий інспектор' });
-        user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, endsAt: Date.now() + insp.window * 1000 };
+        user.inspector = { id: insp.id, hp: insp.hp, hpMax: insp.hp, startedAt: Date.now(), endsAt: Date.now() + insp.window * 1000 };
         user.inspectorLastSeen[insp.id] = Date.now();
         res.json({ success: true, ...inspectorSnapshot(user) });
     });
@@ -4035,8 +4072,9 @@ app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
     }
     const insp = INSPECTOR_BY_ID[user.inspector.id];
 
-    // Анти-чіт: обмежуємо і кількістю кліків у батчі, і фізично можливим темпом.
-    const dt = Math.max(1, Math.min(5000, Number(req.body.dt) || ECONOMY.INSPECTOR_BATCH_MS));
+    // Анти-чіт рахує вікно за ВЛАСНИМ годинником сервера, а не за dt із тіла
+    // запиту: інакше можна слати dt=5000 кожні 500мс і бити вдесятеро частіше.
+    const dt = serverBatchWindow(user.inspector);
     const maxClicks = Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS);
     let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), maxClicks));
     if (!clicks) return res.json({ success: true, ...inspectorSnapshot(user), energy: user.energy });
@@ -7462,6 +7500,9 @@ function buildHtml(botUsername) {
                 if (typeof data.snitchesLeft === 'number') state.snitchesLeft = data.snitchesLeft;
                 if (typeof data.investigationPending === 'boolean') state.investigationPending = data.investigationPending;
                 if (typeof data.deferUntil === 'number') state.deferUntil = data.deferUntil;
+                // Сервер міг обрізати силу кліку/пасив до того, що реально видав.
+                if (typeof data.clickVal === 'number') state.clickVal = data.clickVal;
+                if (typeof data.passive === 'number') state.passive = data.passive;
                 absorbInspector(data);
                 // Крадіжку сервер віддає рівно один раз — інакше гравець побачив би
                 // лише тихий відкат балансу і вирішив, що це баг.
