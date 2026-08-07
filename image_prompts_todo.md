@@ -724,7 +724,109 @@ lighting, slightly absurd comedic tone, no text, no watermark, centered composit
 
 ---
 
-## Кімнати анфас, яких бракує — Човен і Бункер (16:9, ПРІОРИТЕТ)
+## Переробка v2 (2026-08-07) — окремий прозорий персонаж + чисті фони, ВСІ 6
+
+⚠️ Замінює підхід нижче ("персонаж вбудований у кожен фон"). Рішення
+користувача: замість малювання персонажа в кожній з 6 картинок (ризик
+неоднакової пози/розміру між локаціями — саме через це гардероб "не лягав
+нормально"), генеруємо ОДИН прозорий PNG персонажа і кладемо його кодом
+поверх чистих фонів (без персонажа) на всіх 6 локаціях. Це вимагає
+перемалювати і 4 вже готові локації (диван/підвал/балкани/закордон) —
+прибрати з них персонажа, лишити тільки інтер'єр.
+
+Після генерації 7 картинок (1 персонаж + 6 фонів): конвертую у WebP,
+`server.js` отримає окремий `<img id="room-character">` шар у `.room-scene`,
+позиція/розмір гардеробу (`#room-cosmetic-hat/face/neck`) тоді прив'язується
+до цього персонажа (однаково для всіх локацій, а не гадається по кожному фону
+окремо).
+
+**Персонаж (прозорий фон)**
+```
+Full-body cartoon young man, standing straight, facing camera directly, arms relaxed at
+his sides, neutral slightly worried-but-defiant expression, flat vector game-icon
+illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
+mobile-clicker art style similar to Hamster Kombat, subtle crimson red and gold rim
+lighting along the silhouette edges only, slightly absurd comedic tone, isolated
+character on a fully transparent background, no ground shadow, no scenery, no props,
+plenty of empty space above his head for hats, full body visible head to feet, no text,
+no watermark, centered composition
+```
+
+**room-1-couch (Бабусин Диван) — чистий фон**
+```
+Wide 16:9 empty interior illustration, a floral-patterned couch pushed against the left
+wall of a cluttered grandma's living room, warm cozy lamp lighting, no person, no
+character anywhere in the image, completely empty room with nobody in it, the right
+third of the frame is left open bare floor space (a character will be composited in
+later, do not draw anyone there), flat vector game-icon illustration, thick clean black
+outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to
+Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**room-2-basement (Вологий Підвал) — чистий фон**
+```
+Wide 16:9 empty interior illustration, damp concrete basement with a single bare
+lightbulb hanging above and water-stained walls with pipes overhead, no person, no
+character anywhere in the image, completely empty room with nobody in it, the right
+third of the frame is left open bare floor space (a character will be composited in
+later, do not draw anyone there), flat vector game-icon illustration, thick clean black
+outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to
+Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**room-3-balkan (Балканська хатинка) — чистий фон**
+```
+Wide 16:9 empty interior illustration, rustic Balkan mountain hut interior with wooden
+shutters and dried peppers hanging on the left wall, misty hills visible through a small
+window, no person, no character anywhere in the image, completely empty room with nobody
+in it, the right third of the frame is left open bare floor space (a character will be
+composited in later, do not draw anyone there), flat vector game-icon illustration, thick
+clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style
+similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting,
+slightly absurd comedic tone, no text, no watermark
+```
+
+**room-4-boat (Човен на Тисі) — чистий фон**
+```
+Wide 16:9 empty scene illustration, the deck of a small wooden boat, foggy river and a
+dark forest silhouette in the background, moonlight on the water, no person, no character
+anywhere in the image, completely empty deck with nobody on it, the right third of the
+frame is left open bare deck space (a character will be composited in later, do not draw
+anyone there), flat vector game-icon illustration, thick clean black outlines, cel-shaded
+flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark
+charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no
+text, no watermark
+```
+
+**room-5-abroad (Закордон) — чистий фон**
+```
+Wide 16:9 empty scene illustration, a border checkpoint at dawn with a striped barrier
+gate in the background, soft golden sunrise lighting, no person, no character anywhere in
+the image, completely empty ground with nobody there, the right third of the frame is
+left open bare ground space (a character will be composited in later, do not draw anyone
+there), flat vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal
+background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no
+watermark
+```
+
+**room-6-bunker (Президентський бункер) — чистий фон**
+```
+Wide 16:9 empty interior illustration, plush underground bunker room with a giant round
+security door and retro control panels on the left wall, warm lamp lighting, no person,
+no character anywhere in the image, completely empty room with nobody in it, the right
+third of the frame is left open bare floor space (a character will be composited in
+later, do not draw anyone there), flat vector game-icon illustration, thick clean black
+outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to
+Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+---
+
+## Кімнати анфас, яких бракує — Човен і Бункер (16:9, ПРІОРИТЕТ) — ⚠️ ЗАСТАРІЛО, див. розділ вище
 
 ⚠️ **Виправлено (2026-08-07):** старий чернетковий розділ тут мав дві помилки —
 "1024×1024" (насправді контейнер `.room-scene` в коді `aspect-ratio:16/9`) і
