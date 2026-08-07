@@ -8048,6 +8048,7 @@ function buildHtml(botUsername) {
                 state.balance = data.balance;
                 state.trophies = data.trophies;
                 if (data.resources) state.resources = data.resources;
+                syncLevel(data);
                 tg.HapticFeedback.notificationOccurred('success');
                 const loot = (data.reward.res || []).map(r => r.emoji + ' ' + r.name + ' ×' + r.added).join(', ');
                 tg.showAlert('🏆 Спекався!\\n\\n+' + fmtNum(data.reward.tk) + ' ТК' +
@@ -8300,6 +8301,7 @@ function buildHtml(botUsername) {
                 mapPlacements: state.mapPlacements,
                 upgTiersUnlocked: state.upgTiersUnlocked,
                 nickname: state.nickname,
+                xp: state.xp, playerLevel: state.playerLevel, ukhyr: state.ukhyr,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
