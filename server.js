@@ -244,6 +244,10 @@ const ECONOMY = {
     SKILL_REGEN_BONUS: 0.40,         // Друге дихання
     SKILL_CLICK_BONUS: 0.30,         // Мозоль
     SKILL_PENALTY_CUT: 0.50,         // Незламний
+    // Аудит балансу (2026-08-07): раніше клік коштував 1 енергії замість 2 (повне
+    // подвоєння кліків на баку) — надто сильно для 3-ї з 6 навичок гілки. 1.5
+    // лишає відчутний, але не ламаючий баланс ефект (+33% кліків замість +100%).
+    SKILL_LIGHTHAND_ENERGY_COST: 1.5, // Легка рука
 
     // --- Офлайн-звіт ---
     OFFLINE_REPORT_MIN_MS: 15 * 60 * 1000, // показуємо, лише якщо не було 15+ хвилин
@@ -449,7 +453,7 @@ const SKILL_BRANCHES = [
         skills: [
             { id: 'hardened', name: 'Загартований', desc: '+25 до максимальної енергії' },
             { id: 'secondwind', name: 'Друге дихання', desc: 'Відновлення енергії +40%' },
-            { id: 'lighthand', name: 'Легка рука', desc: 'Клік коштує 1 енергії замість 2' },
+            { id: 'lighthand', name: 'Легка рука', desc: 'Клік коштує 1.5 енергії замість 2' },
             { id: 'callus', name: 'Мозоль', desc: '+30% до сили кліку' },
             // Ця навичка — навмисний ключ до Генерала Півника: без неї 250k терпіння
             // за 45 секунд фізично не зняти.
@@ -7462,7 +7466,7 @@ function buildHtml(botUsername) {
         // Клієнтські ефекти навичок. Економічні рішення (дроп, ціни, урон) рахує
         // сервер — тут лише те, що впливає на відчуття від кліку в реальному часі.
         function hasSkill(id) { return !!(state.skills || {})[id]; }
-        function clickEnergyCost() { return hasSkill('lighthand') ? 1 : ECONOMY.ENERGY_PER_CLICK; }
+        function clickEnergyCost() { return hasSkill('lighthand') ? ECONOMY.SKILL_LIGHTHAND_ENERGY_COST : ECONOMY.ENERGY_PER_CLICK; }
         function skillClickMult() { return hasSkill('callus') ? 1 + ECONOMY.SKILL_CLICK_BONUS : 1; }
         function skillRegenMult() { return hasSkill('secondwind') ? 1 + ECONOMY.SKILL_REGEN_BONUS : 1; }
 
@@ -7849,14 +7853,16 @@ function buildHtml(botUsername) {
         document.getElementById('inspector-hitzone').addEventListener('pointerdown', (e) => {
             e.preventDefault();
             if (!inspectorState) return;
-            if (state.energy < ECONOMY.INSPECTOR_ENERGY_PER_CLICK) {
+            if (!hasSkill('marathon') && state.energy < ECONOMY.INSPECTOR_ENERGY_PER_CLICK) {
                 tg.HapticFeedback.notificationOccurred('warning');
                 return;
             }
             inspectorClicks++;
             // Оптимістично малюємо витрату енергії й трясемо боса, авторитетні
-            // цифри прилетять з відповіді на батч.
-            state.energy = Math.max(0, state.energy - ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
+            // цифри прилетять з відповіді на батч. «Марафонець» знімає витрату
+            // повністю (той самий чек, що вже був на боєвці з районом) — раніше
+            // тут його не було, і клієнт хибно "з'їдав" енергію в UI марафонцям.
+            if (!hasSkill('marathon')) state.energy = Math.max(0, state.energy - ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
             const face = document.getElementById('inspector-face');
             face.classList.remove('hit');
             void face.offsetWidth;
