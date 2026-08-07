@@ -5840,9 +5840,9 @@ function buildHtml(botUsername) {
         .room-character-wrap { position: absolute; top: 4%; right: 3%; height: 92%; aspect-ratio: 414 / 1058; container-type: inline-size; }
         .room-character-wrap img#room-character-img { width: 100%; height: 100%; object-fit: contain; display: block; }
         #room-cosmetic-hat, #room-cosmetic-face, #room-cosmetic-neck { line-height: 1; }
-        #room-cosmetic-hat { top: -5%; left: 50%; width: 46%; height: 20%; font-size: 26cqw; }
-        #room-cosmetic-face { top: 15%; left: 50%; width: 32%; height: 13%; font-size: 20cqw; }
-        #room-cosmetic-neck { top: 26%; left: 50%; width: 32%; height: 12%; font-size: 20cqw; }
+        #room-cosmetic-hat { top: -2%; left: 48%; width: 38%; height: 15%; font-size: 22cqw; }
+        #room-cosmetic-face { top: 11%; left: 48%; width: 26%; height: 11%; font-size: 16cqw; }
+        #room-cosmetic-neck { top: 24%; left: 48%; width: 28%; height: 10%; font-size: 16cqw; }
         .room-item { position: absolute; font-size: 34px; z-index: 6; pointer-events: none; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); }
         .room-item img { width: 44px; height: 44px; object-fit: contain; }
         /* Сітка 3×3 в лівих ~60% кадру (кімната) — права зона зайнята персонажем,
