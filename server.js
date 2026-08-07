@@ -37,6 +37,10 @@ const app = express();
 app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
+// API завжди повертає живі дані (баланс/лідерборд/нік і т.д.) — без цього Telegram
+// WebView міг закешувати GET-відповідь (напр. лідерборд) і показувати застарілий
+// нік/цифри навіть після того, як гравець щось змінив.
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); next(); });
 
 let BOT_USERNAME = 'YourBot';
 let HTML_CONTENT = ''; // формується після старту (щоб зашити username бота в реферальні посилання)
@@ -990,7 +994,7 @@ const LOCATIONS = [
     { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.webp', roomImg: '/images/room-3-balkan.webp', maxEnergy: 220 },
     { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.webp', maxEnergy: 300 },
     { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.webp', roomImg: '/images/room-5-abroad.webp', maxEnergy: 400 },
-    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.webp', maxEnergy: 500 },
+    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.webp', roomImg: '/images/room-6-bunker.webp', maxEnergy: 500 },
 ];
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
@@ -1430,6 +1434,7 @@ function createFreshUser(id, name) {
         adConsent: null,            // null — ще не питали, true/false — відповів
         redeemedPromos: [],         // одноразові промокоди (once:true), щоб не активувати вдруге
         mapBuildings: { tower: 0, hideout: 0, cache: 0 }, // карта території: рівень 0 = не збудовано
+        mapPlacements: { tower: null, hideout: null, cache: null }, // {x,y} у % — де гравець поставив іконку на карті (null = ще не розміщено)
         trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
         // --- Медкомісія та інспектори ---
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
@@ -2795,6 +2800,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         trophies: user.trophies || [],
         mapBuildings: user.mapBuildings,
+        mapPlacements: user.mapPlacements || { tower: null, hideout: null, cache: null },
         nickname: user.nickname,
         nextStep: nextStep(user),
         medcomStats: user.medcomStats,
@@ -2986,6 +2992,18 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
     if (typeof backup.nickname === 'string' && backup.nickname && !user.nickname) {
         const candidate = backup.nickname.trim();
         if (!validateNickname(candidate, user.id)) user.nickname = candidate;
+    }
+    // Позиції іконок на карті — {x,y} об'єкти, не число/bool, тому окремо від
+    // RESTORE_MAP_FIELDS, і лише за відомими ключами будівель.
+    if (backup.mapPlacements && typeof backup.mapPlacements === 'object') {
+        if (!user.mapPlacements) user.mapPlacements = { tower: null, hideout: null, cache: null };
+        for (const key of Object.keys(user.mapPlacements)) {
+            const p = backup.mapPlacements[key];
+            if (p && typeof p === 'object' && typeof p.x === 'number' && typeof p.y === 'number'
+                && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100) {
+                user.mapPlacements[key] = { x: p.x, y: p.y };
+            }
+        }
     }
 
     // Чати ОСББ живуть лише на диску Render, а він не переживає редеплой: гравець
@@ -3550,6 +3568,25 @@ app.post('/api/map/build', requireTelegramAuth, (req, res) => {
         buildingId: building.id, mapBuildings: user.mapBuildings,
         ...storageSnapshot(user),
     });
+});
+
+// Вільне розміщення іконки збудованої споруди на фоні карти — суто візуальне
+// (не впливає на ефекти, ті йдуть від рівня в mapBuildings). Одна позиція на
+// тип будівлі, гравець може перетягнути/переставити будь-коли безкоштовно.
+app.post('/api/map/place', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const building = MAP_BUILDING_BY_ID[req.body.buildingId];
+    if (!building) return res.status(400).json({ error: 'Невідома будівля' });
+    if (!mapBuildingLevel(user, building.id)) {
+        return res.json({ success: false, message: 'Спочатку побудуй споруду' });
+    }
+    const x = Number(req.body.x), y = Number(req.body.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 100 || y < 0 || y > 100) {
+        return res.status(400).json({ error: 'Невірні координати' });
+    }
+    if (!user.mapPlacements) user.mapPlacements = { tower: null, hideout: null, cache: null };
+    user.mapPlacements[building.id] = { x, y };
+    res.json({ success: true, mapPlacements: user.mapPlacements });
 });
 
 // ---- Багаторівневі апгрейди магазину (ціна росте з кожним рівнем) ----
@@ -5408,6 +5445,10 @@ function buildHtml(botUsername) {
         .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         .map-img-wrap img { width: 100%; display: block; }
         .map-hotspot { position: absolute; width: auto; margin-bottom: 0; transform: translate(-50%, -50%); background: rgba(10,8,5,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
+        /* Іконки поставлених гравцем споруд — background-image, не <img>, щоб не
+           зачепити правило ".map-img-wrap img { width:100% }" вище (те для фону карти). */
+        .map-marker { position: absolute; width: 13%; aspect-ratio: 1; transform: translate(-50%, -50%); background-size: contain; background-repeat: no-repeat; background-position: center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); z-index: 4; }
+        .map-img-wrap.placing { cursor: crosshair; outline: 2px dashed var(--gold); outline-offset: 2px; }
         .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
         .defer-card.locked { opacity: 0.55; }
         .defer-head { display: flex; align-items: center; gap: 9px; }
@@ -6277,13 +6318,15 @@ function buildHtml(botUsername) {
                 Орієнтири на карті ведуть до вилазок. Будуй споруди за деревину/металобрухт/цеглу —
                 вони реально знижують ризики.
             </p>
-            <div class="map-img-wrap">
+            <div id="map-place-hint" class="hidden" style="text-align:center; font-size:12px; color:var(--gold); margin-bottom:8px;">📍 Тапни по карті, щоб поставити споруду</div>
+            <div class="map-img-wrap" id="map-img-wrap" onclick="onMapImgClick(event)">
                 <img src="/images/map-city-bg.webp" alt="">
                 <button class="map-hotspot" style="top:28%; left:60%;" onclick="jumpToExpedition('market')">🏪 Ринок</button>
                 <button class="map-hotspot" style="top:45%; left:20%;" onclick="jumpToExpedition('warehouse')">🏭 Склад</button>
                 <button class="map-hotspot" style="top:72%; left:30%;" onclick="jumpToExpedition('ruins')">🪚 Руїни</button>
                 <button class="map-hotspot" style="top:55%; left:85%;" onclick="jumpToExpedition('tcc_office')">🏢 ТЦК</button>
                 <button class="map-hotspot" style="top:92%; left:45%;" onclick="jumpToExpedition('border')">🌲 Кордон</button>
+                <div id="map-markers"></div>
             </div>
             <div id="map-buildings-list"></div>
         </div>
@@ -6513,6 +6556,7 @@ function buildHtml(botUsername) {
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
             reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
             mapBuildings: { tower: 0, hideout: 0, cache: 0 },
+            mapPlacements: { tower: null, hideout: null, cache: null },
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
             adAirdropMult: 1, adConsentCount: 0,
         };
@@ -8069,6 +8113,7 @@ function buildHtml(botUsername) {
                 inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
                 mapBuildings: state.mapBuildings,
+                mapPlacements: state.mapPlacements,
                 upgTiersUnlocked: state.upgTiersUnlocked,
                 nickname: state.nickname,
             };
@@ -8165,6 +8210,7 @@ function buildHtml(botUsername) {
                 state.investigationPending = !!data.investigationPending;
                 state.trophies = data.trophies || [];
                 state.mapBuildings = data.mapBuildings || { tower: 0, hideout: 0, cache: 0 };
+                state.mapPlacements = data.mapPlacements || { tower: null, hideout: null, cache: null };
                 state.nickname = data.nickname || null;
                 document.getElementById('username').innerText = state.nickname || user.first_name;
                 if (data.nextStep) renderNextStep(data.nextStep);
@@ -8594,10 +8640,54 @@ function buildHtml(botUsername) {
         window.openMap = () => {
             document.getElementById('map-screen').classList.remove('hidden');
             renderMapBuildings();
+            renderMapMarkers();
         };
         window.closeMap = () => {
             document.getElementById('map-screen').classList.add('hidden');
+            placingBuildingId = null;
+            document.getElementById('map-img-wrap').classList.remove('placing');
+            document.getElementById('map-place-hint').classList.add('hidden');
         };
+
+        // Вільне розміщення: гравець сам обирає, де на карті стоїть іконка вже
+        // збудованої споруди. Одна позиція на тип будівлі, суто візуально — ефекти
+        // йдуть від рівня в mapBuildings, не від координат.
+        let placingBuildingId = null;
+        window.startPlacingBuilding = (buildingId) => {
+            placingBuildingId = buildingId;
+            document.getElementById('map-img-wrap').classList.add('placing');
+            document.getElementById('map-place-hint').classList.remove('hidden');
+        };
+        window.onMapImgClick = async (evt) => {
+            if (!placingBuildingId) return;
+            const wrap = document.getElementById('map-img-wrap');
+            const rect = wrap.getBoundingClientRect();
+            const x = Math.max(0, Math.min(100, ((evt.clientX - rect.left) / rect.width) * 100));
+            const y = Math.max(0, Math.min(100, ((evt.clientY - rect.top) / rect.height) * 100));
+            const buildingId = placingBuildingId;
+            placingBuildingId = null;
+            wrap.classList.remove('placing');
+            document.getElementById('map-place-hint').classList.add('hidden');
+            const res = await apiFetch('/api/map/place', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, buildingId, x, y })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.mapPlacements = data.mapPlacements;
+            tg.HapticFeedback.notificationOccurred('success');
+            renderMapMarkers();
+        };
+        function renderMapMarkers() {
+            const box = document.getElementById('map-markers');
+            if (!box) return;
+            box.innerHTML = MAP_BUILDINGS.map(b => {
+                const p = state.mapPlacements && state.mapPlacements[b.id];
+                const level = (state.mapBuildings && state.mapBuildings[b.id]) || 0;
+                if (!p || !level) return '';
+                return '<div class="map-marker" style="top:' + p.y + '%; left:' + p.x + '%; background-image:url(\\'' + b.img + '\\');" title="' + esc(b.name) + '"></div>';
+            }).join('');
+        }
 
         // Орієнтир на карті веде прямо до відповідної вилазки — це і є прив'язка
         // карти до вилазок, яку просив користувач.
@@ -8628,6 +8718,7 @@ function buildHtml(botUsername) {
                         ? '<div class="recipe-cost"><span class="recipe-ing ok">Максимальний рівень</span></div>'
                         : '<div class="recipe-cost"><span class="recipe-ing">' + costStr + '</span></div>' +
                           '<button onclick="buildMapBuilding(\\'' + b.id + '\\')">🔨 ' + (level > 0 ? 'Покращити' : 'Побудувати') + '</button>') +
+                    (level > 0 ? '<button onclick="startPlacingBuilding(\\'' + b.id + '\\')">📍 Розмістити на карті</button>' : '') +
                     '</div>';
             }).join('');
         }
@@ -8644,6 +8735,7 @@ function buildHtml(botUsername) {
             state.storageUsed = data.used;
             tg.HapticFeedback.notificationOccurred('success');
             renderMapBuildings();
+            renderMapMarkers();
         };
 
         // ==========================================
