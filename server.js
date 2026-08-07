@@ -4986,7 +4986,8 @@ function buildHtml(botUsername) {
     <style>
         :root { --bg: #171310; --panel-bg: #221c15; --text: #f5ead6; --accent: #e8622c; --accent2: #f4b942; --btn: #2a2118; --gold: #ffd447; }
         html { background: var(--bg); min-height: 100%; }
-        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; min-height: 100vh; box-sizing: border-box; }
+        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
+        header, .tabs-container { flex-shrink: 0; }
 
         header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(244,185,66,0.35); box-shadow: 0 0 18px rgba(244,185,66,0.15), inset 0 0 25px rgba(232,98,44,0.05); }
         header h2 { font-size: 19px; margin: 2px 0 6px; }
@@ -5226,8 +5227,10 @@ function buildHtml(botUsername) {
         .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(244,185,66,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #9fb4c7; }
         .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(232,98,44,0.6), 0 0 20px rgba(244,185,66,0.4); }
 
-        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; max-height: 50vh; overflow-y: auto; border: 1px solid rgba(244,185,66,0.2); }
-        .panel.active { display: block; }
+        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(244,185,66,0.2); box-sizing: border-box; }
+        /* Верхньорівневі панелі розтягуються на весь простір, що лишився під шапкою й
+           вкладками (замість фіксованих 50vh, через які знизу лишалось порожнє місце). */
+        .panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
         button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(244,185,66,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
         button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(244,185,66,0.5); }
@@ -5471,7 +5474,18 @@ function buildHtml(botUsername) {
         .help-step b { color: var(--text); }
 
         #room-screen { position: fixed; inset: 0; z-index: 1500; background: var(--bg); overflow-y: auto; padding: 15px; box-sizing: border-box; }
-        .room-close { position: absolute; top: 10px; right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
+
+        /* Повноекранні оверлеї (fixed, inset:0) не успадковують safe-area відступ body —
+           кнопка ✕, прибита до top:10px САМОГО оверлею, ховалась під вирізом/статус-баром
+           телефону і оверлей ставав неможливо закрити. Піднімаємо top-padding для ВСІХ. */
+        #heat-case-overlay, #notices-screen, #profile-overlay, #investigation-screen,
+        #medcom-screen, #inspector-screen, #deferment-screen, #checkpoint-screen, #map-screen,
+        #skills-screen, #offline-report, #reputation-screen, #season-screen, #war-screen,
+        #season-result, #district-screen, #codex-screen, #crate-overlay, #help-overlay,
+        #room-screen {
+            padding-top: max(16px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px));
+        }
+        .room-close { position: absolute; top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
         /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
            анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
            квадратна img (тоді композиція буде не ідеальною, це очікувано до заміни картинки). */
