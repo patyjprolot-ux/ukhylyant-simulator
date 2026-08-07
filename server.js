@@ -5450,10 +5450,11 @@ function buildHtml(botUsername) {
         .clickable .emoji-fallback { font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
         .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(224,165,46,0.6); margin-bottom: 6px; }
 
-        .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
-        .tabs-container::-webkit-scrollbar { height: 4px; }
-        .tabs-container::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(224,165,46,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #c2ab86; }
+        /* Плитка замість горизонтальної стрічки-скролу — 12 вкладок верхнього рівня
+           не влазили без гортання вбік. flex-wrap показує все одразу, дрібнішим
+           шрифтом/паддінгом. */
+        .tabs-container { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .tab { padding: 7px 9px; background: var(--btn); border: 1px solid rgba(224,165,46,0.15); text-align: center; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 11px; color: #c2ab86; white-space: nowrap; }
         .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(156,83,48,0.6), 0 0 20px rgba(224,165,46,0.4); }
 
         .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(224,165,46,0.2); box-sizing: border-box; }
