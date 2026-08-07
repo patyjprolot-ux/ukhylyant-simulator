@@ -104,6 +104,7 @@ const ECONOMY = {
     REVENGE_REWARD_MIN: 80,
     REVENGE_REWARD_MAX: 220,
     VIP_PRICE_STARS: 500,
+    NICKNAME_CHANGE_PRICE_STARS: 1000, // перша зміна ніка безкоштовна, кожна наступна — за ⭐
     DONATE_AMOUNTS: [50, 100, 250, 500], // Stars — чиста підтримка розробників, без ігрових бонусів
     DAILY_REWARDS: [400, 550, 700, 900, 1200, 1600, 4000], // індекс = поточний день серії - 1, індекс 6 = День 7 (джекпот)
     REFERRAL_REWARD: 1500,
@@ -1343,6 +1344,7 @@ function createFreshUser(id, name) {
         id,
         name: name || 'Ухилянт',
         nickname: null, // публічний унікальний нік — не показуємо справжнє ім'я з Telegram у топі/профілях
+        pendingNickname: null, // бажаний нік на платній зміні, чекає successful_payment
         balance: 0,
         clickVal: 1,
         passive: 0,
@@ -2602,6 +2604,18 @@ bot.on('successful_payment', (ctx) => {
         }
     } else if (type === 'donate') {
         ctx.reply('❤️ Дякуємо за підтримку розробників! Жодних ігрових бонусів це не дає — просто дуже приємно. Ти найкращий.');
+    } else if (type === 'nickchange') {
+        // Ще раз звіряємо унікальність саме в момент оплати — хтось міг зайняти
+        // бажаний нік, поки йшла оплата.
+        const pending = user.pendingNickname;
+        if (pending && !nicknameTaken(pending, user.id)) {
+            user.nickname = pending;
+            user.pendingNickname = null;
+            ctx.reply(`🎉 Оплата успішна! Новий нік: ${pending}`);
+        } else {
+            ctx.reply('⚠️ Оплата пройшла, але цей нік щойно зайняли. Напиши розробнику — компенсуємо або підберемо інший нік без повторної оплати.');
+            user.pendingNickname = null;
+        }
     } else {
         ctx.reply('🎉 Оплата успішна!');
     }
@@ -2649,6 +2663,15 @@ app.post('/api/invoice', requireTelegramAuth, async (req, res) => {
             description = 'Щиро дякуємо! Це не дає ігрових бонусів — просто підтримка проєкту.';
             amount = requested;
             payloadPrefix = 'donate';
+        } else if (type === 'nickname_change') {
+            const requester = getUser(id, req.telegramUser.first_name);
+            if (!requester.pendingNickname) {
+                return res.status(400).json({ error: 'Спочатку введи новий нік' });
+            }
+            title = 'Зміна ніка';
+            description = `Новий нік: ${requester.pendingNickname}`;
+            amount = ECONOMY.NICKNAME_CHANGE_PRICE_STARS;
+            payloadPrefix = 'nickchange';
         } else {
             return res.status(400).json({ error: 'Невідомий тип покупки' });
         }
@@ -3081,20 +3104,37 @@ app.get('/api/leaderboard', (req, res) => {
 
 // Нік — публічне ім'я замість справжнього з Telegram. Унікальний (без урахування
 // регістру), 3-16 символів, літери (укр/англ)/цифри/підкреслення/пробіл.
+function validateNickname(raw, userId) {
+    if (raw.length < 3 || raw.length > 16) return 'Нік має бути від 3 до 16 символів';
+    if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ ]+$/.test(raw)) return 'Тільки літери, цифри, підкреслення й пробіл';
+    if (nicknameTaken(raw, userId)) return 'Цей нік уже зайнято';
+    return null;
+}
+
+// Перша установка ніка — безкоштовно. Якщо вже стоїть — треба платити ⭐
+// (окремий флоу через /api/nickname/requestChange + інвойс).
 app.post('/api/nickname/set', requireTelegramAuth, (req, res) => {
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (user.nickname) {
+        return res.json({ success: false, paid: true, message: `Нік уже встановлено. Зміна коштує ${ECONOMY.NICKNAME_CHANGE_PRICE_STARS} ⭐` });
+    }
     const raw = String(req.body.nickname || '').trim();
-    if (raw.length < 3 || raw.length > 16) {
-        return res.json({ success: false, message: 'Нік має бути від 3 до 16 символів' });
-    }
-    if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ ]+$/.test(raw)) {
-        return res.json({ success: false, message: 'Тільки літери, цифри, підкреслення й пробіл' });
-    }
-    if (nicknameTaken(raw, user.id)) {
-        return res.json({ success: false, message: 'Цей нік уже зайнято' });
-    }
+    const err = validateNickname(raw, user.id);
+    if (err) return res.json({ success: false, message: err });
     user.nickname = raw;
     res.json({ success: true, nickname: user.nickname });
+});
+
+// Платна зміна: спершу валідуємо й резервуємо бажаний нік (pendingNickname),
+// оплата підтверджується окремо через /api/invoice (type: nickname_change) +
+// successful_payment. Нік застосовується тільки ПІСЛЯ оплати.
+app.post('/api/nickname/requestChange', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const raw = String(req.body.nickname || '').trim();
+    const err = validateNickname(raw, user.id);
+    if (err) return res.json({ success: false, message: err });
+    user.pendingNickname = raw;
+    res.json({ success: true, price: ECONOMY.NICKNAME_CHANGE_PRICE_STARS });
 });
 
 // ---- Компаньйони ----
@@ -6184,7 +6224,7 @@ function buildHtml(botUsername) {
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">✏️ Твій нік</h2>
             <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 12px; line-height:1.5;">
                 У топі й профілях інші гравці бачать саме цей нік, не справжнє ім'я з Telegram.
-                3-16 символів, має бути унікальним.
+                3-16 символів, має бути унікальним. <b>Перший раз — безкоштовно, зміна далі — 1000 ⭐.</b>
             </p>
             <input type="text" id="nickname-input" maxlength="16" placeholder="Наприклад: ТінявийКабанчик"
                 style="width:100%; padding:10px; background:var(--btn); color:var(--text); border:1px solid rgba(224,165,46,0.3); border-radius:8px; margin-bottom:10px; box-sizing:border-box; font-family:inherit; font-size:14px;">
@@ -8211,16 +8251,46 @@ function buildHtml(botUsername) {
         window.saveNickname = async () => {
             const nickname = document.getElementById('nickname-input').value.trim();
             const errEl = document.getElementById('nickname-error');
+            // Перший нік — безкоштовно. Якщо вже стоїть — сервер відмовить із paid:true,
+            // і йдемо платним флоу (той самий інвойс-патерн, що донат/VIP/ящики за ⭐).
             const res = await apiFetch('/api/nickname/set', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: user.id, nickname })
             });
             const data = await res.json();
-            if (!data.success) { errEl.innerText = data.message || 'Помилка'; return; }
-            state.nickname = data.nickname;
-            document.getElementById('username').innerText = state.nickname;
-            closeNicknameEditor();
-            tg.HapticFeedback.notificationOccurred('success');
+            if (data.success) {
+                state.nickname = data.nickname;
+                document.getElementById('username').innerText = state.nickname;
+                closeNicknameEditor();
+                tg.HapticFeedback.notificationOccurred('success');
+                return;
+            }
+            if (!data.paid) { errEl.innerText = data.message || 'Помилка'; return; }
+            // Платна зміна: спершу резервуємо бажаний нік, тоді відкриваємо інвойс.
+            const reqRes = await apiFetch('/api/nickname/requestChange', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, nickname })
+            });
+            const reqData = await reqRes.json();
+            if (!reqData.success) { errEl.innerText = reqData.message || 'Помилка'; return; }
+            errEl.style.color = '#c2ab86';
+            errEl.innerText = 'Відкриваю оплату (' + reqData.price + ' ⭐)...';
+            try {
+                const invRes = await apiFetch('/api/invoice', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, type: 'nickname_change' })
+                });
+                const invData = await invRes.json();
+                if (!invData.link) { errEl.innerText = 'Не вдалося створити оплату'; return; }
+                tg.openInvoice(invData.link, (status) => {
+                    if (status === 'paid') {
+                        state.nickname = nickname;
+                        document.getElementById('username').innerText = nickname;
+                        closeNicknameEditor();
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                });
+            } catch (e) { errEl.innerText = 'Помилка оплати'; }
         };
 
         window.goNextStep = () => {
@@ -8848,11 +8918,10 @@ function buildHtml(botUsername) {
             try { seen = localStorage.getItem(HELP_SEEN_KEY) === '1'; } catch (e) {}
             if (!seen) setTimeout(openHelp, 1200); // після сплеш-екрана
         }
+        // На прохання користувача — дисклеймер про сатиру показується ЩОРАЗУ при
+        // вході в гру (не один раз), довідка "Як грати" лишається одноразовою.
         function maybeShowDisclaimerOnFirstRun() {
-            let seen = false;
-            try { seen = localStorage.getItem(DISCLAIMER_SEEN_KEY) === '1'; } catch (e) {}
-            if (!seen) { setTimeout(() => document.getElementById('disclaimer-overlay').classList.remove('hidden'), 800); return; }
-            maybeShowHelpOnFirstRun();
+            setTimeout(() => document.getElementById('disclaimer-overlay').classList.remove('hidden'), 800);
         }
 
         // ===== Статистика та колекція =====
