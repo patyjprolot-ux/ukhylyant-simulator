@@ -5289,7 +5289,9 @@ function buildHtml(botUsername) {
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
         .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(224,165,46,0.5); }
 
-        .energy-bar { width: 100%; height: 12px; background: #1a150e; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2b2318; }
+        .energy-wrap { margin-top: 10px; }
+        .energy-label { font-size: 12px; color: var(--text); opacity: 0.85; margin-bottom: 3px; text-align: left; }
+        .energy-bar { width: 100%; height: 12px; background: #1a150e; border-radius: 6px; overflow: hidden; border: 1px solid #2b2318; }
         .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #e0a52e, #39ff14); box-shadow: 0 0 10px rgba(224,165,46,0.8); transition: width 0.2s; }
 
         /* ===== Розшук (heat) ===== */
@@ -5860,7 +5862,10 @@ function buildHtml(botUsername) {
             <div id="cosmetic-face" class="cosmetic-face hidden"></div>
             <div id="cosmetic-neck" class="cosmetic-neck hidden"></div>
         </div>
-        <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
+        <div class="energy-wrap">
+            <div class="energy-label">⚡ Енергія: <span id="energy-value">100</span>/<span id="energy-max">100</span></div>
+            <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
+        </div>
         <div class="heat-wrap" id="heat-wrap" onclick="openHeatCase()">
             <div class="heat-label">
                 <span id="heat-tier-label">😴 Ніхто тебе не знає</span>
@@ -6505,6 +6510,7 @@ function buildHtml(botUsername) {
         const ui = {
             bal: document.getElementById('balance'), pas: document.getElementById('passive'),
             enr: document.getElementById('energy-fill'), lvl: document.getElementById('level-display'),
+            enrVal: document.getElementById('energy-value'), enrMax: document.getElementById('energy-max'),
             loc: document.getElementById('location-name'), clk: document.getElementById('clicker'),
             clkImg: document.getElementById('clicker-img'), clkEmoji: document.getElementById('clicker-emoji'),
             str: document.getElementById('stars-count'), vip: document.getElementById('vip-badge'),
@@ -6592,6 +6598,8 @@ function buildHtml(botUsername) {
             let enPercent = (state.energy / state.maxEnergy) * 100;
             ui.enr.style.width = enPercent + '%';
             ui.enr.style.background = enPercent < 20 ? '#f44336' : (enPercent < 50 ? '#ff9800' : 'linear-gradient(90deg, #4caf50, #8bc34a)');
+            ui.enrVal.innerText = Math.floor(state.energy);
+            ui.enrMax.innerText = Math.floor(state.maxEnergy);
             applyLocation();
             if (state.clanName) {
                 ui.clanLine.classList.remove('hidden');
