@@ -1363,6 +1363,11 @@ function createFreshUser(id, name) {
         name: name || 'Ухилянт',
         nickname: null, // публічний унікальний нік — не показуємо справжнє ім'я з Telegram у топі/профілях
         pendingNickname: null, // бажаний нік на платній зміні, чекає successful_payment
+        // --- Рівень ухилянта (v2.1): суто onboarding-гейт для UI, не економічний.
+        // Ширший за "рівень схрону" (user.level, той лишається як є). ---
+        xp: 0,
+        playerLevel: 1,
+        ukhyr: 0, // "Ухирація" — рейтингова метрика для лідерборду, не валюта
         balance: 0,
         clickVal: 1,
         passive: 0,
@@ -1529,9 +1534,24 @@ function nicknameTaken(nickname, exceptUserId) {
 }
 
 function migrateUser(user) {
+    const isPreLevelUser = user.playerLevel === undefined; // до появи v2.1 (рівень ухилянта)
     const fresh = createFreshUser(user.id, user.name);
     for (const key of Object.keys(fresh)) {
         if (user[key] === undefined) user[key] = fresh[key];
+    }
+    // Живим гравцям з ДО v2.1 рахуємо рівень заднім числом з наявних лічильників —
+    // інакше досвідчений гравець раптом побачив би заблокованими вкладки, якими
+    // вже давно користується (levelGate ховає їх на клієнті нижче потрібного рівня).
+    if (isPreLevelUser) {
+        const backfillXP = Math.floor((user.totalClicks || 0) / 100) * 5
+            + (user.craftedCount || 0) * 15
+            + (user.expeditionsDone || 0) * 60
+            + Object.values(user.inspectorStats?.defeated || {}).reduce((a, b) => a + b, 0) * 200
+            + (user.raidsSurvived || 0) * 25
+            + Math.max(0, (user.level || 1) - 1) * 150
+            + (user.prestigeCount || 0) * 500;
+        user.xp = backfillXP;
+        user.playerLevel = playerLevelForXP(backfillXP);
     }
     if (typeof user.resources !== 'object' || user.resources === null) user.resources = {};
     if (typeof user.cratesOpened !== 'object' || user.cratesOpened === null) user.cratesOpened = {};
@@ -1941,6 +1961,53 @@ function hasActiveShield(user) {
 }
 
 // ==========================================
+// РІВЕНЬ УХИЛЯНТА (v2.1) — onboarding-гейт, НЕ економічна система.
+// Ширший за user.level ("рівень схрону", лишається як є). Керує лише тим,
+// які вкладки/кнопки клієнт показує — нічого з відкритого раніше не дає
+// безкоштовної переваги (усе й так платні механіки), тому сервер тут не
+// захищає економіку, тільки рахує цифру.
+// ==========================================
+// Скільки XP треба НАКОПИЧИТИ (кумулятивно з нуля), щоб дійти рівня l.
+function xpForLevel(l) { return Math.round(40 * Math.pow(l, 1.5)); }
+// Який рівень відповідає сумарному XP (лінійний пошук — рівнів мало, до ~50).
+function playerLevelForXP(xp) {
+    let level = 1;
+    while (xpForLevel(level + 1) <= xp) level++;
+    return level;
+}
+// Єдина точка нарахування XP — піднімає user.playerLevel, повертає скільки
+// рівнів здобуто за раз (0, якщо просто додалось XP без переходу).
+function addXP(user, amount) {
+    if (!amount) return 0;
+    user.xp = (user.xp || 0) + amount;
+    const newLevel = playerLevelForXP(user.xp);
+    const gained = Math.max(0, newLevel - (user.playerLevel || 1));
+    if (gained > 0) user.playerLevel = newLevel;
+    return gained;
+}
+// Ухирація — суто рейтингова метрика для лідерборду (не валюта, нічого не купує).
+function addUkhyr(user, amount) {
+    if (!amount) return;
+    user.ukhyr = (user.ukhyr || 0) + amount;
+}
+const UKHYR_RANKS = [
+    { threshold: 0, title: 'Щойно розпочав' },
+    { threshold: 500, title: 'Ухилянт початкового рівня' },
+    { threshold: 1500, title: 'В тіні закону' },
+    { threshold: 4000, title: 'Легенда двору' },
+    { threshold: 9000, title: 'Майстер конспірації' },
+    { threshold: 18000, title: 'Легенда району' },
+    { threshold: 35000, title: 'Привид ТЦК' },
+    { threshold: 60000, title: 'Фантом кліків' },
+    { threshold: 100000, title: 'Міф ХХІ століття' },
+];
+function ukhyrRank(points) {
+    let rank = UKHYR_RANKS[0];
+    for (const r of UKHYR_RANKS) { if ((points || 0) >= r.threshold) rank = r; }
+    return rank.title;
+}
+
+// ==========================================
 // РОЗШУК (HEAT) ТА ПОВІСТКИ
 // ==========================================
 function heatTierOf(heat) {
@@ -2235,6 +2302,10 @@ function maybeSpawnInspector(user, now = Date.now()) {
         inspectorTimeout(user);
         return false;
     }
+    // Рівень ухилянта (v2.1): інспектори — єдина механіка, яку не можна сховати
+    // просто вкладкою (спавняться самі, тиком сервера), тому гейт тут, а не тільки
+    // на клієнті.
+    if ((user.playerLevel || 1) < 10) return false;
     if (now < (user.inspectorCooldownUntil || 0)) return false;
     if (Math.random() >= ECONOMY.INSPECTOR_SPAWN_CHANCE) return false;
 
@@ -2825,6 +2896,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         mapBuildings: user.mapBuildings,
         mapPlacements: user.mapPlacements || { tower: null, hideout: null, cache: null },
         nickname: user.nickname,
+        xp: user.xp || 0, playerLevel: user.playerLevel || 1, ukhyr: user.ukhyr || 0,
         nextStep: nextStep(user),
         medcomStats: user.medcomStats,
         inspectorStats: user.inspectorStats,
@@ -2866,11 +2938,14 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     if (typeof boxesOpened === 'number') user.dailyBoxes += Math.max(0, boxesOpened - user.boxesOpened);
     // Облави відбиваються на клієнті (QTE), тому сезонні й воєнні очки за них
     // нараховуємо тут, за приростом лічильника.
+    let levelsGained = 0;
     const raidDelta = typeof raidsSurvived === 'number' ? Math.max(0, raidsSurvived - user.raidsSurvived) : 0;
     if (raidDelta > 0) {
         user.dailyRaids += raidDelta;
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_RAID_SP * raidDelta;
         addWarPoints(user, ECONOMY.WAR_POINTS_RAID * raidDelta, 'пережив облаву');
+        levelsGained += addXP(user, 25 * raidDelta);
+        addUkhyr(user, 10 * raidDelta);
     }
 
     // Розшук росте від самої активності. Рахуємо сотнями кліків, залишок носимо в
@@ -2881,12 +2956,15 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
         if (hundreds > 0) {
             user.clickHeatCarry -= hundreds * 100;
             changeHeat(user, hundreds * ECONOMY.HEAT_PER_100_CLICKS, `Активність (${hundreds * 100} кліків)`);
+            levelsGained += addXP(user, hundreds * 5);
         }
     }
     // Переїзд у новий схрон помічають сусіди. Ловимо тут, бо покупку локації робить
     // клієнт (window.buy) і окремого серверного роуту для неї немає.
     if (typeof level === 'number' && level > user.level) {
         changeHeat(user, ECONOMY.HEAT_NEW_LOCATION * (level - user.level), 'Переїзд у новий схрон');
+        levelsGained += addXP(user, 150 * (level - user.level));
+        addUkhyr(user, 50 * (level - user.level));
     }
 
     // Баланс приймаємо лише якщо клієнт бачив актуальну серверну ревізію. Інакше його
@@ -2939,6 +3017,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
         robbery, snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         deferUntil: user.deferUntil || 0,
+        xp: user.xp || 0, playerLevel: user.playerLevel || 1, levelsGained, ukhyr: user.ukhyr || 0,
         ...inspectorSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user), nextStep: nextStep(user),
     });
 });
@@ -2952,7 +3031,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
 // поверне гравця без нього.
 const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed',
-    'defermentsTaken', 'league', 'pendingWarCrate'];
+    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
@@ -3154,7 +3233,8 @@ app.get('/api/leaderboard', (req, res) => {
         // по гравцю й порівняти профілі. Telegram id тут не світимо.
         .map((u) => ({ pid: u.pid, name: displayName(u), balance: u.balance, isVip: u.isVip, level: u.level,
             snitch: publicSnitchStats(u), seasonTitle: u.seasonTitle || null,
-            league: LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, u.league || 0))].emoji }));
+            league: LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, u.league || 0))].emoji,
+            playerLevel: u.playerLevel || 1, ukhyr: u.ukhyr || 0, ukhyrRank: ukhyrRank(u.ukhyr || 0) }));
     res.json(top);
 });
 
@@ -3369,6 +3449,9 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
     user.energyLockUntil = 0;
 
     const unlocked = checkAchievements(user);
+    // Рівень ухилянта й XP — колекційні (як навички/репутація), престиж їх НЕ скидає.
+    const levelsGained = addXP(user, 500);
+    addUkhyr(user, 1000);
     res.json({
         success: true, gained: gain,
         points: user.prestigePoints, multiplier: prestigeMultiplier(user),
@@ -3376,6 +3459,7 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
         clickVal: user.clickVal, passive: user.passive, level: user.level,
         energy: user.energy, maxEnergy: user.maxEnergy, upgrades: user.upgrades,
         unlockedAchievements: unlocked, ...heatSnapshot(user, true), ...noticeSnapshot(user),
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
     });
 });
 
@@ -3464,10 +3548,16 @@ app.post('/api/expedition/claim', requireTelegramAuth, (req, res) => {
         if (added > 0 || lost > 0) gained.push({ emoji: meta.emoji, name: meta.name, added, lost });
     }
     const unlocked = checkAchievements(user);
+    // XP лінійно між 30 (найкоротша вилазка, 30 хв) і 120 (найдовша, 720 хв) —
+    // довші/ризикованіші дії винагороджують більше, як і за ТК/ресурси.
+    const xpForExpedition = Math.round(30 + Math.min(1, Math.max(0, (exp.minutes - 30) / (720 - 30))) * 90);
+    const levelsGained = addXP(user, xpForExpedition);
+    addUkhyr(user, 5);
     res.json({
         success: true, caught: false, gained, shielded,
         unlockedAchievements: unlocked, ...storageSnapshot(user), ...expeditionSnapshot(user),
         balance: user.balance, ...heatSnapshot(user),
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
     });
 });
 
@@ -3540,7 +3630,7 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
         user.shieldUntil = base + eff.hours * 3600 * 1000;
         message = `Щит від облав на ${eff.hours} год`;
     }
-    else if (eff.type === 'permanent_shield') { user.permanentShield = true; message = 'ПОСТІЙНИЙ імунітет до облав!'; }
+    else if (eff.type === 'permanent_shield') { user.permanentShield = true; message = 'ПОСТІЙНИЙ імунітет до облав!'; addUkhyr(user, 200); }
     else if (eff.type === 'crate') {
         // Склеєний із уламків донатний ящик відкривається одразу — тією самою
         // таблицею дропу, що й куплений за Stars. Анімацію програє клієнт.
@@ -3552,6 +3642,7 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
     }
 
     const unlocked = checkAchievements(user);
+    const levelsGained = addXP(user, 15);
     res.json({
         success: true, message, recipeId: recipe.id,
         crateReward, crateId,
@@ -3559,6 +3650,7 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
         energy: user.energy, maxEnergy: user.maxEnergy,
         shieldUntil: user.shieldUntil, permanentShield: user.permanentShield,
         craftedCount: user.craftedCount, unlockedAchievements: unlocked,
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
         ...storageSnapshot(user),
     });
 });
@@ -3641,10 +3733,12 @@ app.post('/api/upgrade/buy', requireTelegramAuth, (req, res) => {
     if (key === 'hat' || key === 'thermos') user.clickVal += effectSum;
     else user.passive += effectSum;
     const unlocked = checkAchievements(user);
+    const levelsGained = addXP(user, 8 * plan.levels);
     res.json({
         success: true, balance: user.balance, clickVal: user.clickVal, passive: user.passive,
         upgrades: user.upgrades, nextCost: upgradeCost(user, key), nextGate: upgradeGateInfo(user, key),
         unlockedAchievements: unlocked, levelsBought: plan.levels, spent: plan.cost, effectGained: effectSum,
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained,
     });
 });
 
@@ -3667,9 +3761,11 @@ app.post('/api/upgrade/breakTier', requireTelegramAuth, (req, res) => {
     }
     if (!user.upgTiersUnlocked) user.upgTiersUnlocked = { hat: 0, jam: 0, thermos: 0, generator: 0 };
     user.upgTiersUnlocked[key] = gate.tier;
+    const levelsGained = addXP(user, 60);
     res.json({
         success: true, tier: gate.tier, upgTiersUnlocked: user.upgTiersUnlocked,
         nextCost: upgradeCost(user, key), nextGate: upgradeGateInfo(user, key),
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained,
         ...storageSnapshot(user),
     });
 });
@@ -4769,11 +4865,14 @@ app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
         gotRes.push({ id: resId, name: RESOURCE_BY_ID[resId].name, emoji: RESOURCE_BY_ID[resId].emoji, added, lost });
     }
     const unlocked = checkAchievements(user);
+    const levelsGained = addXP(user, 200);
+    addUkhyr(user, 15);
     res.json({
         success: true, defeated: true, damage, weak, energy: user.energy,
         reward: { tk, res: gotRes, sp: insp.reward.sp || 0 },
         balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
         stats: user.inspectorStats, unlockedAchievements: unlocked, ...storageSnapshot(user),
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
     });
 });
 
@@ -5136,7 +5235,12 @@ app.post('/api/quests/claim', requireTelegramAuth, (req, res) => {
     if ((user[quest.metric] || 0) < quest.target) return res.json({ success: false, message: 'Квест ще не виконано' });
     user.claimedQuests.push(quest.id);
     user.balance += quest.reward;
-    res.json({ success: true, balance: user.balance, claimedQuests: user.claimedQuests });
+    const levelsGained = addXP(user, 40);
+    addUkhyr(user, 3);
+    res.json({
+        success: true, balance: user.balance, claimedQuests: user.claimedQuests,
+        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
+    });
 });
 
 // ---- Тіньова біржа ----
@@ -5895,7 +5999,10 @@ function buildHtml(botUsername) {
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div class="header-line" onclick="openNicknameEditor()" style="cursor:pointer;">
-            <span id="username">Ухилянт</span> ✏️<span id="vip-badge" class="vip-badge hidden">VIP</span> | Lvl: <span id="level-display">1</span>
+            <span id="username">Ухилянт</span> ✏️<span id="vip-badge" class="vip-badge hidden">VIP</span> | Схрон: <span id="level-display">1</span>
+        </div>
+        <div class="header-line" style="font-size:11px; opacity:0.8;" title="Рівень ухилянта — росте від будь-якої активності, відкриває нові вкладки">
+            🎖️ Рівень <span id="player-level-display">1</span> <span id="player-xp-display" style="opacity:0.7;"></span>
         </div>
         <h2><span id="balance">0</span> 🪙 ТК</h2>
         <div id="next-step" class="next-step hidden" onclick="goNextStep()"></div>
@@ -6582,11 +6689,13 @@ function buildHtml(botUsername) {
             mapPlacements: { tower: null, hideout: null, cache: null },
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
             adAirdropMult: 1, adConsentCount: 0,
+            xp: 0, playerLevel: 1, ukhyr: 0,
         };
 
         const ui = {
             bal: document.getElementById('balance'), pas: document.getElementById('passive'),
             enr: document.getElementById('energy-fill'), lvl: document.getElementById('level-display'),
+            plvl: document.getElementById('player-level-display'), pxp: document.getElementById('player-xp-display'),
             enrVal: document.getElementById('energy-value'), enrMax: document.getElementById('energy-max'),
             loc: document.getElementById('location-name'), clk: document.getElementById('clicker'),
             clkImg: document.getElementById('clicker-img'), clkEmoji: document.getElementById('clicker-emoji'),
@@ -6670,6 +6779,13 @@ function buildHtml(botUsername) {
             ui.pas.innerText = state.passive;
             ui.str.innerText = 0;
             ui.lvl.innerText = state.level;
+            ui.plvl.innerText = state.playerLevel || 1;
+            // xpForLevel(1) ніколи не використовується як поріг (рівень 1 — стартовий,
+            // 0 XP), тому базу для прогрес-бару рахуємо як 0 саме на 1-му рівні.
+            const lvl = state.playerLevel || 1;
+            const curLevelXP = lvl <= 1 ? 0 : xpForLevel(lvl);
+            const nextLevelXP = xpForLevel(lvl + 1);
+            ui.pxp.innerText = '(' + fmtNum((state.xp || 0) - curLevelXP) + '/' + fmtNum(nextLevelXP - curLevelXP) + ' XP)';
             ui.refCount.innerText = state.refCount;
             ui.vip.classList.toggle('hidden', !state.isVip);
             let enPercent = (state.energy / state.maxEnergy) * 100;
@@ -8236,6 +8352,10 @@ function buildHtml(botUsername) {
                 state.trophies = data.trophies || [];
                 state.mapBuildings = data.mapBuildings || { tower: 0, hideout: 0, cache: 0 };
                 state.mapPlacements = data.mapPlacements || { tower: null, hideout: null, cache: null };
+                state.xp = data.xp || 0;
+                state.playerLevel = data.playerLevel || 1;
+                state.ukhyr = data.ukhyr || 0;
+                applyLevelGates();
                 state.nickname = data.nickname || null;
                 document.getElementById('username').innerText = state.nickname || user.first_name;
                 if (data.nextStep) renderNextStep(data.nextStep);
@@ -8344,6 +8464,7 @@ function buildHtml(botUsername) {
                     updateUI();
                 }
                 if (data.nextStep) renderNextStep(data.nextStep);
+                syncLevel(data);
             }).catch(() => {});
         }
 
@@ -8500,6 +8621,43 @@ function buildHtml(botUsername) {
             // свіжий список, щоб картка не висіла з нулем на таймері.
             if (expired) openNotices();
         }, 1000);
+
+        // ===== Рівень ухилянта (v2.1) — onboarding-гейт, лише ховає/показує вже
+        // готові вкладки/кнопки. Нічого не блокує економічно (все й так платне) —
+        // мета тільки в тому, щоб новачок не бачив одразу ВСІ механіки одразу. =====
+        // Дзеркало серверної xpForLevel() — тільки для показу прогрес-бару XP, самі
+        // рівні завжди рахує сервер.
+        function xpForLevel(l) { return Math.round(40 * Math.pow(l, 1.5)); }
+        const LEVEL_UNLOCKS = [
+            { level: 2, selector: '.tab[onclick*="\\'quests\\'"]', name: '📋 Щоденні квести' },
+            { level: 4, selector: '.tab[onclick*="storage-exp"]', name: '🌙 Вилазки' },
+            { level: 6, selector: '.tab[onclick*="\\'market\\'"]', name: '📈 Біржа' },
+            { level: 7, selector: '.tab[onclick*="\\'gacha\\'"]', name: '📦 Ящики' },
+            { level: 8, selector: '.tab[onclick*="openSkills"]', name: '🌳 Навички' },
+            { level: 12, selector: '.action-tile[onclick*="openMap"]', name: '🗺️ Карта території' },
+            { level: 14, selector: '.tab[onclick*="\\'clan\\'"]', name: '🏘 Клани' },
+        ];
+        function applyLevelGates() {
+            for (const u of LEVEL_UNLOCKS) {
+                document.querySelectorAll(u.selector).forEach((el) => {
+                    el.classList.toggle('hidden', (state.playerLevel || 1) < u.level);
+                });
+            }
+        }
+        // Спільна точка синхронізації xp/playerLevel/ukhyr із будь-якої відповіді
+        // сервера, де вони є, + тост при підвищенні рівня (як unlockedAchievements).
+        function syncLevel(data) {
+            if (typeof data.xp === 'number') state.xp = data.xp;
+            if (typeof data.ukhyr === 'number') state.ukhyr = data.ukhyr;
+            if (typeof data.playerLevel !== 'number') return;
+            const prevLevel = state.playerLevel;
+            state.playerLevel = data.playerLevel;
+            if (!data.levelsGained) return;
+            applyLevelGates();
+            const opened = LEVEL_UNLOCKS.filter((u) => u.level > prevLevel && u.level <= state.playerLevel);
+            const openedText = opened.length ? ('\\nВідкрито: ' + opened.map((u) => u.name).join(', ')) : '';
+            tg.showAlert('🎉 Рівень ' + state.playerLevel + '!' + openedText);
+        }
 
         // ===== Навігація =====
         window.switchTab = (evt, tabId) => {
@@ -9213,6 +9371,7 @@ function buildHtml(botUsername) {
                 });
                 const data = await res.json();
                 if (!data.success) return tg.showAlert(data.message || 'Помилка');
+                syncLevel(data);
                 tg.HapticFeedback.notificationOccurred('success');
                 tg.showAlert('📜 Легалізовано! +' + data.gained + ' довідок. Твій множник тепер x' + data.multiplier.toFixed(2));
                 await init();
@@ -9306,6 +9465,7 @@ function buildHtml(botUsername) {
             absorbExpeditions(data);
             state.resources = data.resources;
             state.storageUsed = data.used;
+            syncLevel(data);
             if (data.caught) {
                 tg.HapticFeedback.notificationOccurred('error');
                 tg.showAlert('🚨 ' + data.message);
@@ -9370,6 +9530,7 @@ function buildHtml(botUsername) {
             state.resources = data.resources; state.storageUsed = data.used;
             state.shieldUntil = data.shieldUntil; state.permanentShield = data.permanentShield;
             state.craftedCount = data.craftedCount;
+            syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
             if (data.unlockedAchievements && data.unlockedAchievements.length) {
                 data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
@@ -9457,6 +9618,7 @@ function buildHtml(botUsername) {
             state.upgrades = data.upgrades;
             state.upgradeCosts[key] = data.nextCost;
             state.upgradeGates[key] = data.nextGate;
+            syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
             if (data.levelsBought > 1) {
                 tg.showAlert('⬆️ +' + data.levelsBought + ' рівнів за ' + fmtNum(data.spent) + ' ТК');
@@ -9481,6 +9643,7 @@ function buildHtml(botUsername) {
             state.upgradeGates[key] = data.nextGate;
             state.resources = data.resources;
             state.storageUsed = data.used;
+            syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
             tg.showAlert('🔓 Ешелон ' + data.tier + ' пробито!');
             renderUpgrades();
@@ -9612,6 +9775,7 @@ function buildHtml(botUsername) {
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
             state.balance = data.balance; state.claimedQuests = data.claimedQuests;
+            syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
             renderQuests();
@@ -9988,7 +10152,9 @@ function buildHtml(botUsername) {
                 (u.seasonTitle ? '<span class="season-title-chip">' + esc(u.seasonTitle) + '</span>' : '') +
                 ' - <b style="color:var(--gold)">' + fmtNum(Math.floor(u.balance)) + '</b>' +
                 '<span style="font-size:10px; color:#c2ab86;"> · 🐍' + ((u.snitch || {}).sent || 0) +
-                ' 🎯' + ((u.snitch || {}).received || 0) + '</span></li>'
+                ' 🎯' + ((u.snitch || {}).received || 0) +
+                ' · 🎖️' + (u.ukhyr || 0) + ' (' + esc(u.ukhyrRank || '') + ')' +
+                '</span></li>'
             ).join('') || '<li>Поки що нікого немає</li>';
         }
 
