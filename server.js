@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
+const compression = require('compression');
 
 // ==========================================
 // 1. НАЛАШТУВАННЯ БОТА ТА СЕРВЕРА
@@ -33,6 +34,7 @@ if (DEV_MODE_INSECURE) {
 
 const bot = new Telegraf(BOT_TOKEN);
 const app = express();
+app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
@@ -2604,17 +2606,19 @@ bot.on('successful_payment', (ctx) => {
         }
     } else if (type === 'donate') {
         ctx.reply('❤️ Дякуємо за підтримку розробників! Жодних ігрових бонусів це не дає — просто дуже приємно. Ти найкращий.');
-    } else if (type === 'nickchange') {
-        // Ще раз звіряємо унікальність саме в момент оплати — хтось міг зайняти
-        // бажаний нік, поки йшла оплата.
-        const pending = user.pendingNickname;
+    } else if (type.startsWith('nickchange-')) {
+        // Нік декодуємо з САМОГО payload (те, за що реально заплачено), а не з
+        // мінливого user.pendingNickname — інакше друге requestChange до оплати
+        // першого інвойсу застосувало б не той нік, що показувався при оплаті.
+        // Унікальність звіряємо ще раз: хтось міг зайняти цей нік, поки йшла оплата.
+        let pending = null;
+        try { pending = Buffer.from(type.slice('nickchange-'.length), 'base64').toString('utf8'); } catch (e) { /* зіпсований payload */ }
         if (pending && !nicknameTaken(pending, user.id)) {
             user.nickname = pending;
-            user.pendingNickname = null;
+            if (user.pendingNickname === pending) user.pendingNickname = null;
             ctx.reply(`🎉 Оплата успішна! Новий нік: ${pending}`);
         } else {
             ctx.reply('⚠️ Оплата пройшла, але цей нік щойно зайняли. Напиши розробнику — компенсуємо або підберемо інший нік без повторної оплати.');
-            user.pendingNickname = null;
         }
     } else {
         ctx.reply('🎉 Оплата успішна!');
@@ -2671,7 +2675,11 @@ app.post('/api/invoice', requireTelegramAuth, async (req, res) => {
             title = 'Зміна ніка';
             description = `Новий нік: ${requester.pendingNickname}`;
             amount = ECONOMY.NICKNAME_CHANGE_PRICE_STARS;
-            payloadPrefix = 'nickchange';
+            // Нік вшитий прямо в payload (base64, без підкреслень — не ламає розбір
+            // "type_userId_ts" по "_"), а не читається з мінливого pendingNickname:
+            // інакше друге requestChange (нова бажана назва) ДО оплати першого
+            // інвойсу підмінило б нік, який застосується після оплати старого.
+            payloadPrefix = 'nickchange-' + Buffer.from(requester.pendingNickname, 'utf8').toString('base64');
         } else {
             return res.status(400).json({ error: 'Невідомий тип покупки' });
         }
@@ -2972,6 +2980,13 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
         if (typeof backup.inspectorStats.lost === 'number') user.inspectorStats.lost = backup.inspectorStats.lost;
     }
     if (typeof backup.seasonTitle === 'string') user.seasonTitle = backup.seasonTitle.slice(0, 60);
+    // Нік можна купити за реальні Stars — без відновлення редеплой Render (диск не
+    // переживає) стирав би оплачений нік назавжди. Перевіряємо унікальність ще раз:
+    // після скидання диска хтось інший міг устигнути зайняти той самий нік.
+    if (typeof backup.nickname === 'string' && backup.nickname && !user.nickname) {
+        const candidate = backup.nickname.trim();
+        if (!validateNickname(candidate, user.id)) user.nickname = candidate;
+    }
 
     // Чати ОСББ живуть лише на диску Render, а він не переживає редеплой: гравець
     // повертався з CloudStorage зі своїм clanId, але самого чату вже не існувало —
@@ -4059,7 +4074,7 @@ function districtSnapshot(clan, user) {
             hp: Math.max(0, Math.round(r.hp)), hpMax: r.hpMax, endsAt: r.endsAt,
             myDamage: (r.contributions || {})[user.id] || 0,
             contributions: Object.entries(r.contributions || {})
-                .map(([id, dmg]) => ({ name: usersDB.get(id)?.name || '???', damage: Math.round(dmg) }))
+                .map(([id, dmg]) => { const u = usersDB.get(id); return { name: u ? displayName(u) : '???', damage: Math.round(dmg) }; })
                 .sort((a, b) => b.damage - a.damage),
         },
         districtPenaltyUntil: clan.districtPenaltyUntil || 0,
@@ -4129,7 +4144,7 @@ app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
         rewards.push({ name: displayName(u), tk, top: isTop });
     }
     res.json({
-        success: true, defeated: true, damage, rewards, topName: usersDB.get(topId)?.name || null,
+        success: true, defeated: true, damage, rewards, topName: (() => { const t = usersDB.get(topId); return t ? displayName(t) : null; })(),
         balance: user.balance, energy: user.energy, trophies: user.trophies,
         seasonPoints: user.seasonPoints, pendingWarCrate: user.pendingWarCrate,
     });
@@ -4946,7 +4961,7 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
     target.snitchedBy.unshift({ byId: user.id, byName: displayName(user), at: now, investigated: false, revealed, suspects: null });
     if (target.snitchedBy.length > ECONOMY.SNITCH_HISTORY_SIZE) target.snitchedBy.length = ECONOMY.SNITCH_HISTORY_SIZE;
 
-    logOffline(target, 'bad', revealed ? `🐍 Тебе здав ${user.name}` : '🐍 Тебе хтось здав');
+    logOffline(target, 'bad', revealed ? `🐍 Тебе здав ${displayName(user)}` : '🐍 Тебе хтось здав');
     sendPush(target.id, revealed
         ? `🐀 Щур-розвідник підслухав розмову: тебе здав ${user.name}. Ти йому цього не забудеш.`
         : '🐍 Хтось про тебе розповів. Ти йому цього не забудеш.');
@@ -5009,17 +5024,17 @@ app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
             user.balance += steal;
         }
         suspect.pendingRobbery = { byName: displayName(user), amount: steal, at: Date.now() };
-        logOffline(suspect, 'bad', `🕵️ ${user.name} тебе вирахував (−${steal.toLocaleString('uk-UA')} ТК)`);
+        logOffline(suspect, 'bad', `🕵️ ${displayName(user)} тебе вирахував (−${steal.toLocaleString('uk-UA')} ТК)`);
         suspect.snitchStats.robbed += steal;
         user.snitchStats.caught += 1;
         user.snitchStats.stolen += steal;
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SNITCH_CAUGHT_SEASON_POINTS;
         if (!user.trophies.includes('detective')) user.trophies.push('detective');
 
-        sendPush(suspect.id, `🕵️ ${user.name} тебе вирахував. Моральна компенсація: −${steal.toLocaleString('uk-UA')} ТК.`);
+        sendPush(suspect.id, `🕵️ ${displayName(user)} тебе вирахував. Моральна компенсація: −${steal.toLocaleString('uk-UA')} ТК.`);
         const unlocked = checkAchievements(user);
         return res.json({
-            success: true, correct: true, snitchName: suspect.name, stolen: steal,
+            success: true, correct: true, snitchName: displayName(suspect), stolen: steal,
             balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
             snitchStats: publicSnitchStats(user), unlockedAchievements: unlocked,
         });
@@ -5029,9 +5044,9 @@ app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
     // безкоштовний дзвінок саме на тебе. Саме звідси беруться ланцюгові війни.
     if (!suspect.freeSnitchOn.includes(user.id)) suspect.freeSnitchOn.push(user.id);
     suspect.snitchStats.falselyAccused += 1;
-    sendPush(suspect.id, `😐 ${user.name} підозрював у стукацтві саме тебе. Ти образився — тепер у тебе є один безкоштовний дзвінок на нього.`);
+    sendPush(suspect.id, `😐 ${displayName(user)} підозрював у стукацтві саме тебе. Ти образився — тепер у тебе є один безкоштовний дзвінок на нього.`);
     res.json({
-        success: true, correct: false, accusedName: suspect.name,
+        success: true, correct: false, accusedName: displayName(suspect),
         message: 'Не вгадав. Справжній стукач лишився невідомим, а невинний образився.',
         snitchStats: publicSnitchStats(user),
     });
@@ -5144,6 +5159,13 @@ app.post('/api/clan/create', requireTelegramAuth, (req, res) => {
     if (user.clanId && clansDB.has(user.clanId)) return res.json({ success: false, message: 'Ти вже в чаті ОСББ. Спочатку вийди.' });
     const name = String(req.body.name || '').trim().slice(0, 30);
     if (!name) return res.json({ success: false, message: 'Вкажи назву чату' });
+    // Назва клану рендериться клієнтом через innerHTML (renderClanMine/loadClanList/
+    // loadClanLeaderboard) — без білого списку символів це був stored XSS: будь-хто
+    // міг вставити <script>/onerror у назву й виконати код у WebView усіх, хто відкриє
+    // список кланів. Той самий патерн, що вже стоїть на нікнеймах.
+    if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ .,!?'-]+$/.test(name)) {
+        return res.json({ success: false, message: 'Тільки літери, цифри та звичайна пунктуація' });
+    }
     const clan = { id: makeClanId(), name, ownerId: user.id, members: [user.id], treasury: 0, contributions: {} };
     clansDB.set(clan.id, clan);
     user.clanId = clan.id;
@@ -8029,6 +8051,7 @@ function buildHtml(botUsername) {
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
                 mapBuildings: state.mapBuildings,
                 upgTiersUnlocked: state.upgTiersUnlocked,
+                nickname: state.nickname,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -9542,7 +9565,7 @@ function buildHtml(botUsername) {
             el.innerHTML =
                 '<div class="clan-card" style="display:block;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
-                        '<div><b>🏘 ' + state.clanName + '</b> <span style="color:var(--gold)">Ур. ' + lvl + '</span><br>' +
+                        '<div><b>🏘 ' + esc(state.clanName) + '</b> <span style="color:var(--gold)">Ур. ' + lvl + '</span><br>' +
                         '<span style="font-size:11px;color:#b8a888;">+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву всім учасникам</span></div>' +
                         '<button onclick="leaveClan()" style="width:auto;margin:0;padding:6px 12px;font-size:12px;">Вийти</button>' +
                     '</div>' +
@@ -9619,7 +9642,7 @@ function buildHtml(botUsername) {
             const res = await fetch('/api/clan/list');
             const data = await res.json();
             list.innerHTML = data.map(c =>
-                '<div class="clan-card"><span>🏘 ' + c.name +
+                '<div class="clan-card"><span>🏘 ' + esc(c.name) +
                 ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
                 ' <span style="font-size:11px;color:#c2ab86;">(' + c.members + ' уч.)</span></span>' +
                 '<button onclick="joinClan(\\'' + c.id + '\\')">Приєднатись</button></div>'
@@ -9632,7 +9655,7 @@ function buildHtml(botUsername) {
             const res = await fetch('/api/clan/leaderboard');
             const data = await res.json();
             list.innerHTML = data.map((c, i) =>
-                '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + c.name +
+                '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + esc(c.name) +
                 ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
                 '<br><span style="font-size:11px;color:#c2ab86;">' + c.members + ' уч.</span></span>' +
                 '<b style="color:var(--gold)">' + (c.treasury || 0).toLocaleString('uk-UA') + ' 🪙<br>' +
