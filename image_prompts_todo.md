@@ -6,6 +6,107 @@
 
 ---
 
+## Карта міста / району (майбутня механіка, поки НЕ реалізована в коді)
+
+**Статус активів (2026-08-07): усі 5 готові й збережені в `public/images/`**
+(`map-city-bg.webp`, `map-tower.webp`, `map-hideout.webp`, `map-cache.webp`,
+`map-empty-plot.webp`) — прозорий фон на всіх іконках будівель, фон карти
+затверджений. Саму grid-механіку (код) ще не реалізовано — це наступний
+окремий захід, активи просто готові наперед.
+
+Заздалегідь підготовлені промпти для наступної сесії, коли дійде до самої
+grid-механіки. **Концепція узгоджена з користувачем (2026-08-07):** це не
+маленька задня ділянка, а справжня КАРТА МІСТА — гібрид:
+- Загальний вигляд — вулична сітка кварталів (справжнє відчуття міста).
+- На ній — поіменовані точки-орієнтири, ті самі, що вже є як вилазки (ринок,
+  склад, руїни, кордон/ліс, ТЦК) — саме через них карта прив'язана до вилазок.
+- Між орієнтирами — вільні клітинки кварталів під забудову гравцем (вежа
+  спостереження / схованка / тайник).
+- **Карта особиста** (кожен гравець бачить і забудовує тільки свою — не
+  спільна база клану).
+
+Фон — широкий, під нього ляжуть building-іконки через CSS (так само, як декор
+кімнати зараз кладеться на `roomImg`).
+
+**Фон карти міста** — ✅ ЗАТВЕРДЖЕНО (2026-08-07), третя спроба вдала.
+
+⚠️ Перші дві спроби (задня ділянка з органічними клумбами, потім чиста сітка
+6×6 без орієнтирів без стилю) не підійшли. Третя спроба вийшла в детальному
+ізометричному рендері (об'єм, тіні, глибина блоків) — це ВІДРІЗНЯЄТЬСЯ від
+плоского cel-shaded стилю з товстим чорним контуром, яким намальована решта
+гри (персонаж/кімнати/іконки). **Рішення користувача: лишити як окремий,
+навмисно інший стиль саме екрана карти** — не перегенеровувати під flat-стиль.
+Тобто карта міста візуально — власний піджанр у грі, іконки будівель на ній
+(нижче) теж намальовані під цей ізометричний деталізований стиль, а не під
+загальний flat-стиль решти іконок.
+
+```
+Wide top-down illustration of a small stylized city district, laid out as a grid of street
+blocks (roughly 6 by 6 blocks) separated by straight intersecting roads, most blocks are
+plain empty rectangular plots of bare ground or patchy grass ready for construction (leave
+these completely empty, no buildings drawn on them — they will get building icons added
+later), but five specific blocks are already occupied by small recognizable landmark
+buildings scattered across the grid: a cluttered open-air street market with striped awnings
+and crates, a rusty corrugated-metal warehouse with a sliding door, a crumbling bombed-out
+ruined building with exposed rebar, a striped border-crossing checkpoint barrier at the edge
+of the grid next to a dark treeline, and a grim official government office building with
+flagpoles (no real emblems or text on it), each landmark clearly distinct and spaced apart
+across the grid, thin roads connecting all blocks, detailed isometric mobile city-builder
+game art style with soft volumetric shading and depth (similar to Clash of Clans / Township
+style base-building maps), weathered worn-out materials, dark satirical tone, dark charcoal
+background, warm ambient lighting, slightly absurd comedic tone, no text, no watermark,
+isometric top-down perspective
+```
+
+Іконки будівель нижче — під ІЗОМЕТРИЧНИЙ стиль карти (не під flat-стиль решти
+гри, див. примітку вище). Ставити квадратно на клітинку кварталу зверху фону.
+
+**🗼 Вежа спостереження** (квадратна, під розмір одного кварталу карти)
+```
+Isometric icon of a rickety makeshift wooden lookout tower cobbled together from mismatched
+planks and scrap corrugated-metal sheets, a small lookout platform on top with a pair of
+binoculars hanging off a nail, standing alone on a single empty grid block, detailed isometric
+mobile city-builder game art style with soft volumetric shading and depth (similar to Clash
+of Clans / Township style base-building buildings), weathered worn-out materials, dark
+satirical tone, transparent background, warm ambient lighting, slightly absurd comedic tone,
+no text, no watermark, isometric top-down perspective, centered composition
+```
+
+**🕳️ Схованка** (квадратна, під розмір одного кварталу карти)
+```
+Isometric icon of a hidden underground hatch built into a grid plot of ground, a round rusty
+metal manhole-style cover slightly ajar with a dark opening beneath, disguised with patches
+of grass and loose dirt piled on top, standing alone on a single empty grid block, detailed
+isometric mobile city-builder game art style with soft volumetric shading and depth (similar
+to Clash of Clans / Township style base-building buildings), weathered worn-out materials,
+dark satirical tone, transparent background, warm ambient lighting, slightly absurd comedic
+tone, no text, no watermark, isometric top-down perspective, centered composition
+```
+
+**📦 Тайник** (квадратна, під розмір одного кварталу карти)
+```
+Isometric icon of a wooden supply crate half-buried in a shallow dug-out pit within a grid
+plot of ground, its lid propped slightly open, a shovel stuck in the dirt beside it, standing
+alone on a single empty grid block, detailed isometric mobile city-builder game art style
+with soft volumetric shading and depth (similar to Clash of Clans / Township style
+base-building buildings), weathered worn-out materials, dark satirical tone, transparent
+background, warm ambient lighting, slightly absurd comedic tone, no text, no watermark,
+isometric top-down perspective, centered composition
+```
+
+**Порожня ділянка** (маркер вільного слота на карті, квадратна)
+```
+Isometric icon of an empty bare grid plot of dirt marked out with four small wooden stakes
+and string at the corners, ready for construction, no structure built yet, matching the same
+grid block size and ground texture as the empty plots in the city map background, detailed
+isometric mobile city-builder game art style with soft volumetric shading and depth (similar
+to Clash of Clans / Township style base-building maps), weathered worn-out materials, dark
+satirical tone, transparent background, warm ambient lighting, slightly absurd comedic tone,
+no text, no watermark, isometric top-down perspective, centered composition
+```
+
+---
+
 ## Кімнати (нова механіка, 1600×900, широкий формат) — ПРІОРИТЕТ
 
 Нова система: персонаж стоїть анфас у правій третині кадру в однаковій позі в усіх

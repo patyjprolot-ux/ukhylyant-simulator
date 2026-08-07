@@ -875,6 +875,55 @@ const RECIPES = [
 ];
 const RECIPE_BY_ID = byId(RECIPES);
 
+// Карта території: захисні споруди за будматеріали (wood/scrap/brick), 3 рівні
+// кожна, будуються незалежно від конкретної клітинки на карті (сама сітка на фоні —
+// візуальний контекст + орієнтири-посилання на вилазки, не окрема система координат).
+const MAP_BUILDINGS = [
+    {
+        id: 'tower', name: 'Вежа спостереження', emoji: '🗼', img: '/images/map-tower.webp',
+        desc: 'Знижує шанс облави',
+        levels: [
+            { cost: { wood: 15, scrap: 5 }, raidCut: 0.10 },
+            { cost: { wood: 30, scrap: 12, brick: 5 }, raidCut: 0.20 },
+            { cost: { wood: 50, scrap: 25, brick: 15 }, raidCut: 0.30 },
+        ],
+    },
+    {
+        id: 'hideout', name: 'Схованка', emoji: '🕳️', img: '/images/map-hideout.webp',
+        desc: 'Ріже грошовий штраф за протухлою повісткою',
+        levels: [
+            { cost: { brick: 15, scrap: 5 }, penaltyCut: 0.10 },
+            { cost: { brick: 30, scrap: 12, wood: 5 }, penaltyCut: 0.20 },
+            { cost: { brick: 50, scrap: 25, wood: 15 }, penaltyCut: 0.30 },
+        ],
+    },
+    {
+        id: 'cache', name: 'Тайник', emoji: '📦', img: '/images/map-cache.webp',
+        desc: 'Захищає частину ресурсів від блокпоста й крадіжки',
+        levels: [
+            { cost: { wood: 10, brick: 10, scrap: 5 }, protectPct: 0.15 },
+            { cost: { wood: 20, brick: 20, scrap: 12 }, protectPct: 0.30 },
+            { cost: { wood: 35, brick: 35, scrap: 25 }, protectPct: 0.45 },
+        ],
+    },
+];
+const MAP_BUILDING_BY_ID = byId(MAP_BUILDINGS);
+function mapBuildingLevel(user, buildingId) { return (user.mapBuildings && user.mapBuildings[buildingId]) || 0; }
+function mapBuildingEffect(user, buildingId) {
+    const level = mapBuildingLevel(user, buildingId);
+    if (level <= 0) return null;
+    return MAP_BUILDING_BY_ID[buildingId].levels[level - 1];
+}
+// Той самий підхід, що heatRaidMult/petMult: множник шансу облави.
+function mapRaidMult(user) {
+    const eff = mapBuildingEffect(user, 'tower');
+    return eff ? (1 - eff.raidCut) : 1;
+}
+function mapProtectPct(user) {
+    const eff = mapBuildingEffect(user, 'cache');
+    return eff ? eff.protectPct : 0;
+}
+
 // Вилазки — офлайн-механіка: відправив персонажа й чекаєш реальний час. Дає ресурси
 // без кліків, але з ризиком спалитись (тоді здобич втрачено). Довші вилазки — більше
 // здобичі й більший ризик. Одночасно може бути тільки одна.
@@ -1364,6 +1413,7 @@ function createFreshUser(id, name) {
         grannyUntil: 0,             // автоклікер «Бабуся клікає за тебе»
         adConsent: null,            // null — ще не питали, true/false — відповів
         redeemedPromos: [],         // одноразові промокоди (once:true), щоб не активувати вдруге
+        mapBuildings: { tower: 0, hideout: 0, cache: 0 }, // карта території: рівень 0 = не збудовано
         trophies: [],               // 🕵️ за розкритого стукача + по одному за кожного боса
         // --- Медкомісія та інспектори ---
         medcomSession: null,        // { noticeId, cards, rerolls } — активна роздача карток
@@ -1870,6 +1920,9 @@ function applyNoticePenalty(user, type, mult = 1) {
     const result = { coins: 0, resources: 0, energyLocked: false };
     // «Незламний» ріже саме грошову частину штрафу вдвічі.
     if (hasSkill(user, 'unbroken')) mult *= (1 - ECONOMY.SKILL_PENALTY_CUT);
+    // Схованка з карти території ріже штраф так само, стакається з навичкою множенням.
+    const hideoutEff = mapBuildingEffect(user, 'hideout');
+    if (hideoutEff) mult *= (1 - hideoutEff.penaltyCut);
     const pct = (type.balancePct || 0) * mult;
     if (pct > 0) {
         const fine = Math.floor(Math.max(0, user.balance) * pct);
@@ -2537,6 +2590,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         freeSnitchCount: (user.freeSnitchOn || []).length,
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         trophies: user.trophies || [],
+        mapBuildings: user.mapBuildings,
         medcomStats: user.medcomStats,
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
@@ -2667,7 +2721,7 @@ const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energ
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
-const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats'];
+const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats', 'mapBuildings'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
@@ -3215,6 +3269,36 @@ app.post('/api/craft', requireTelegramAuth, (req, res) => {
         energy: user.energy, maxEnergy: user.maxEnergy,
         shieldUntil: user.shieldUntil, permanentShield: user.permanentShield,
         craftedCount: user.craftedCount, unlockedAchievements: unlocked,
+        ...storageSnapshot(user),
+    });
+});
+
+// ---- Карта території: будівництво/покращення захисних споруд ----
+app.post('/api/map/build', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const building = MAP_BUILDING_BY_ID[req.body.buildingId];
+    if (!building) return res.status(400).json({ error: 'Невідома будівля' });
+    if (!user.mapBuildings) user.mapBuildings = { tower: 0, hideout: 0, cache: 0 };
+
+    const level = user.mapBuildings[building.id] || 0;
+    if (level >= building.levels.length) {
+        return res.json({ success: false, message: 'Максимальний рівень' });
+    }
+    const next = building.levels[level];
+    for (const [resId, need] of Object.entries(next.cost)) {
+        if ((user.resources[resId] || 0) < need) {
+            return res.json({ success: false, message: `Не вистачає: ${RESOURCE_BY_ID[resId].name}` });
+        }
+    }
+    for (const [resId, need] of Object.entries(next.cost)) {
+        user.resources[resId] -= need;
+        if (user.resources[resId] <= 0) delete user.resources[resId];
+    }
+    user.mapBuildings[building.id] = level + 1;
+
+    res.json({
+        success: true, message: `${building.name}: рівень ${level + 1}`,
+        buildingId: building.id, mapBuildings: user.mapBuildings,
         ...storageSnapshot(user),
     });
 });
@@ -4133,7 +4217,9 @@ app.post('/api/checkpoint/pass', requireTelegramAuth, (req, res) => {
             }
             consequence = { heat: ECONOMY.CHECKPOINT_HEAT_DOCS, notice: issued };
         } else if (choice.fail === 'resources') {
-            const lost = loseRandomResources(user, Math.ceil(storageUsed(user) * ECONOMY.CHECKPOINT_RESOURCE_LOSS));
+            // Тайник ховає частину запасів від конфіскації на блокпості.
+            const lossCount = Math.ceil(storageUsed(user) * ECONOMY.CHECKPOINT_RESOURCE_LOSS * (1 - mapProtectPct(user)));
+            const lost = loseRandomResources(user, lossCount);
             consequence = { resourcesLost: lost };
         } else {
             changeHeat(user, ECONOMY.CHECKPOINT_HEAT_BABA, 'Не повірили на блокпосту');
@@ -4648,7 +4734,9 @@ app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
         // тож balanceRev інкрементується сам і її клієнтське автозбереження вже не
         // "поверне" вкрадене; pendingRobbery показує їй, куди поділись гроші.
         const cap = ECONOMY.SNITCH_STEAL_CAP_PER_LEVEL * ((suspect.level || 1) + 1);
-        const steal = Math.max(0, Math.min(Math.floor(Math.max(0, suspect.balance) * ECONOMY.SNITCH_STEAL_PCT), cap));
+        // Тайник ЖЕРТВИ ховає частину грошей від крадіжки.
+        const stealPct = ECONOMY.SNITCH_STEAL_PCT * (1 - mapProtectPct(suspect));
+        const steal = Math.max(0, Math.min(Math.floor(Math.max(0, suspect.balance) * stealPct), cap));
         if (steal > 0) {
             suspect.balance -= steal;
             user.balance += steal;
@@ -5018,7 +5106,11 @@ function buildHtml(botUsername) {
         .insp-roster-meta { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
 
         /* ===== Відстрочки та блокпост ===== */
-        #deferment-screen, #checkpoint-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(4,4,10,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #deferment-screen, #checkpoint-screen, #map-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(4,4,10,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        .map-wrap { max-width: 640px; margin: 0 auto; }
+        .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+        .map-img-wrap img { width: 100%; display: block; }
+        .map-hotspot { position: absolute; transform: translate(-50%, -50%); background: rgba(4,4,10,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
         .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
         .defer-card.locked { opacity: 0.55; }
         .defer-head { display: flex; align-items: center; gap: 9px; }
@@ -5415,6 +5507,7 @@ function buildHtml(botUsername) {
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
         <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
+        <button class="summons-btn" onclick="openMap()" title="Карта території">🗺️</button>
         <button class="help-btn" onclick="openCodex()" title="Довідка механік">?</button>
         <button class="notices-btn" onclick="openNotices()" title="Повістки">📬</button>
         <div class="notices-badge hidden" id="notices-badge">0</div>
@@ -5810,6 +5903,27 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Карта території: захисні споруди за будматеріали + орієнтири-посилання на вилазки. -->
+    <div id="map-screen" class="hidden">
+        <div class="map-wrap">
+            <button class="room-close" onclick="closeMap()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🗺️ Карта території</h2>
+            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px; line-height:1.5;">
+                Орієнтири на карті ведуть до вилазок. Будуй споруди за деревину/металобрухт/цеглу —
+                вони реально знижують ризики.
+            </p>
+            <div class="map-img-wrap">
+                <img src="/images/map-city-bg.webp" alt="">
+                <button class="map-hotspot" style="top:28%; left:60%;" onclick="jumpToExpedition('market')">🏪 Ринок</button>
+                <button class="map-hotspot" style="top:45%; left:20%;" onclick="jumpToExpedition('warehouse')">🏭 Склад</button>
+                <button class="map-hotspot" style="top:72%; left:30%;" onclick="jumpToExpedition('ruins')">🪚 Руїни</button>
+                <button class="map-hotspot" style="top:55%; left:85%;" onclick="jumpToExpedition('tcc_office')">🏢 ТЦК</button>
+                <button class="map-hotspot" style="top:92%; left:45%;" onclick="jumpToExpedition('border')">🌲 Кордон</button>
+            </div>
+            <div id="map-buildings-list"></div>
+        </div>
+    </div>
+
     <!-- Блокпост: переїзд у новий схрон. Шанси показані відкрито. -->
     <div id="checkpoint-screen" class="hidden">
         <div class="case-card">
@@ -5983,6 +6097,7 @@ function buildHtml(botUsername) {
         const CRATES = ${JSON.stringify(CRATES)};
         const RECIPES = ${JSON.stringify(RECIPES)};
         const EXPEDITIONS = ${JSON.stringify(EXPEDITIONS)};
+        const MAP_BUILDINGS = ${JSON.stringify(MAP_BUILDINGS)};
         const HEAT_TIERS = ${JSON.stringify(HEAT_TIERS)};
         const NOTICE_TYPES = ${JSON.stringify(NOTICE_TYPES)};
         // Каталоги для довідки механік — щоб її цифри читались із реальних даних
@@ -6023,6 +6138,7 @@ function buildHtml(botUsername) {
             deferUntil: 0, defermentId: null, deferments: [],
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
             reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
+            mapBuildings: { tower: 0, hideout: 0, cache: 0 },
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
             adAirdropMult: 1, adConsentCount: 0,
         };
@@ -6080,6 +6196,14 @@ function buildHtml(botUsername) {
             if (kind === 'energy') return state.petId === 'cat' ? ECONOMY.PET_CAT_ENERGY_MULT : 1;
             if (kind === 'raid') return state.petId === 'neighbor' ? ECONOMY.PET_NEIGHBOR_RAID_MULT : 1;
             return 1;
+        }
+
+        // Вежа спостереження з карти території знижує шанс облави (той самий підхід, що petMult).
+        function mapRaidMult() {
+            const level = (state.mapBuildings && state.mapBuildings.tower) || 0;
+            if (level <= 0) return 1;
+            const raidCut = MAP_BUILDINGS.find(b => b.id === 'tower').levels[level - 1].raidCut;
+            return 1 - raidCut;
         }
 
         function applyLocation() {
@@ -7563,6 +7687,7 @@ function buildHtml(botUsername) {
                 checkpointStats: state.checkpointStats, noticeStats: state.noticeStats,
                 inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
+                mapBuildings: state.mapBuildings,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -7654,6 +7779,7 @@ function buildHtml(botUsername) {
                 state.snitchesLeft = typeof data.snitchesLeft === 'number' ? data.snitchesLeft : ECONOMY.SNITCH_DAILY_LIMIT;
                 state.investigationPending = !!data.investigationPending;
                 state.trophies = data.trophies || [];
+                state.mapBuildings = data.mapBuildings || { tower: 0, hideout: 0, cache: 0 };
                 state.medcomStats = data.medcomStats || null;
                 state.inspectorStats = data.inspectorStats || null;
                 state.checkpointStats = data.checkpointStats || null;
@@ -8005,6 +8131,64 @@ function buildHtml(botUsername) {
             document.getElementById(tabId).classList.add('active');
             if (tabId === 'room-wardrobe') renderCosmetics();
             if (tabId === 'room-shop') renderRoomItems();
+        };
+
+        // ===== Карта території: захисні споруди + орієнтири-посилання на вилазки =====
+        window.openMap = () => {
+            document.getElementById('map-screen').classList.remove('hidden');
+            renderMapBuildings();
+        };
+        window.closeMap = () => {
+            document.getElementById('map-screen').classList.add('hidden');
+        };
+
+        // Орієнтир на карті веде прямо до відповідної вилазки — це і є прив'язка
+        // карти до вилазок, яку просив користувач.
+        window.jumpToExpedition = (expeditionId) => {
+            closeMap();
+            const mainTab = document.querySelector('.tab[onclick*="\\'storage\\'"]');
+            if (mainTab) switchTab({ currentTarget: mainTab }, 'storage');
+            const subTab = document.querySelector('#storage .tab[onclick*="storage-exp"]');
+            if (subTab) switchStorageTab({ currentTarget: subTab }, 'storage-exp');
+        };
+
+        function renderMapBuildings() {
+            const list = document.getElementById('map-buildings-list');
+            if (!list) return;
+            list.innerHTML = MAP_BUILDINGS.map(b => {
+                const level = (state.mapBuildings && state.mapBuildings[b.id]) || 0;
+                const maxed = level >= b.levels.length;
+                const next = maxed ? null : b.levels[level];
+                const effectKey = Object.keys(b.levels[0]).find(k => k !== 'cost');
+                const fmtEffect = (eff) => Math.round(eff[effectKey] * 100) + '%';
+                const costStr = next ? Object.entries(next.cost)
+                    .map(([r, q]) => (RESOURCE_BY_ID[r] ? RESOURCE_BY_ID[r].emoji + ' ' + RESOURCE_BY_ID[r].name : r) + ' ×' + q)
+                    .join(', ') : '';
+                return '<div class="recipe-card">' +
+                    '<div class="recipe-title">' + b.emoji + ' ' + esc(b.name) + ' — рівень ' + level + '/' + b.levels.length + '</div>' +
+                    '<div class="recipe-desc">' + esc(b.desc) +
+                        (level > 0 ? '<br>Зараз: ' + fmtEffect(b.levels[level - 1]) : '') +
+                        (next ? '<br>Наступний рівень: ' + fmtEffect(next) : '') + '</div>' +
+                    (maxed
+                        ? '<div class="recipe-cost"><span class="recipe-ing ok">Максимальний рівень</span></div>'
+                        : '<div class="recipe-cost"><span class="recipe-ing">' + costStr + '</span></div>' +
+                          '<button onclick="buildMapBuilding(\\'' + b.id + '\\')">🔨 ' + (level > 0 ? 'Покращити' : 'Побудувати') + '</button>') +
+                    '</div>';
+            }).join('');
+        }
+
+        window.buildMapBuilding = async (buildingId) => {
+            const res = await apiFetch('/api/map/build', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, buildingId })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.mapBuildings = data.mapBuildings;
+            state.resources = data.resources;
+            state.storageUsed = data.used;
+            tg.HapticFeedback.notificationOccurred('success');
+            renderMapBuildings();
         };
 
         // ==========================================
@@ -9191,7 +9375,7 @@ function buildHtml(botUsername) {
         setInterval(() => {
             // Шанс облави масштабується розшуком: на 91+ heat облави вчетверо частіші,
             // ніж у "тихого" гравця. Це друга половина трейд-офу до множника доходу.
-            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult()) return;
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult() * mapRaidMult()) return;
 
             const raidScreen = document.getElementById('raid-screen');
             const timerEl = document.getElementById('raid-timer');
