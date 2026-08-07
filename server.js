@@ -1131,11 +1131,11 @@ const MARKET_ASSETS = RESOURCES
 
 // Колесо Зради та Перемоги — 1 безкоштовний прокрут/день, результат обирає сервер.
 const WHEEL_SEGMENTS = [
-    { label: '150 🪙', type: 'balance', amount: 150, weight: 24, color: '#4e4e50' },
+    { label: '150 🪙', type: 'balance', amount: 150, weight: 24, color: '#4a3f30' },
     { label: '300 🪙', type: 'balance', amount: 300, weight: 18, color: '#c3073f' },
     { label: 'Нічого', type: 'none', amount: 0, weight: 18, color: '#2a2a2d' },
     { label: 'Ресурс', type: 'resource', tier: 1, weight: 14, color: '#2e7d32' },
-    { label: '700 🪙', type: 'balance', amount: 700, weight: 12, color: '#4e4e50' },
+    { label: '700 🪙', type: 'balance', amount: 700, weight: 12, color: '#4a3f30' },
     { label: 'Енергія', type: 'energy', amount: 0, weight: 8, color: '#2b5c8f' },
     { label: 'Рідкісний ресурс', type: 'resource', tier: 2, weight: 5, color: '#6a1b9a' },
     { label: 'ДЖЕКПОТ 5000', type: 'balance', amount: 5000, weight: 1, color: '#ffd700' },
@@ -4994,17 +4994,17 @@ function buildHtml(botUsername) {
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
         h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(244,185,66,0.5); }
-        .stats { display: flex; justify-content: space-between; font-size: 14px; color: #9fb4c7; margin-top: 5px; }
+        .stats { display: flex; justify-content: space-between; font-size: 14px; color: #c2ab86; margin-top: 5px; }
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
         .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(244,185,66,0.5); }
 
-        .energy-bar { width: 100%; height: 12px; background: #1c1c2b; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .energy-bar { width: 100%; height: 12px; background: #1a150e; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2b2318; }
         .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #f4b942, #39ff14); box-shadow: 0 0 10px rgba(244,185,66,0.8); transition: width 0.2s; }
 
         /* ===== Розшук (heat) ===== */
         .heat-wrap { margin-top: 8px; cursor: pointer; }
         .heat-label { display: flex; justify-content: space-between; font-size: 10px; color: #b9c9d8; margin-bottom: 3px; letter-spacing: 0.3px; }
-        .heat-bar { width: 100%; height: 7px; background: #1c1c2b; border-radius: 4px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .heat-bar { width: 100%; height: 7px; background: #1a150e; border-radius: 4px; overflow: hidden; border: 1px solid #2b2318; }
         .heat-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffe066 55%, #ff3b3b); transition: width 0.4s; }
         /* Пульсація лише з 76+ ("Персональна справа") — це вже той рівень, коли гравець
            має відчувати, що на нього дивляться. Нижче анімація тільки б відволікала. */
@@ -5023,56 +5023,56 @@ function buildHtml(botUsername) {
         #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .case-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(244,185,66,0.15); }
         .case-tier { font-family: 'Orbitron', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
-        .case-flavor { font-size: 12px; color: #9fb4c7; text-align: center; font-style: italic; margin-bottom: 12px; }
+        .case-flavor { font-size: 12px; color: #c2ab86; text-align: center; font-style: italic; margin-bottom: 12px; }
         .case-mults { display: flex; gap: 8px; margin-bottom: 12px; }
         .case-mult { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px; text-align: center; }
         .case-mult b { display: block; font-size: 17px; font-family: 'Orbitron', sans-serif; }
-        .case-mult span { font-size: 10px; color: #9fb4c7; }
-        .case-log { font-size: 12px; border-top: 1px solid #2a2a3d; padding-top: 8px; }
+        .case-mult span { font-size: 10px; color: #c2ab86; }
+        .case-log { font-size: 12px; border-top: 1px solid #2b2318; padding-top: 8px; }
         .case-log-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .case-log-row span:first-child { color: #cfe3f2; }
+        .case-log-row span:first-child { color: #e8dcc4; }
         .case-log-up { color: #ff6b6b; font-weight: 700; white-space: nowrap; }
         .case-log-down { color: #39ff14; font-weight: 700; white-space: nowrap; }
 
         /* ===== Повістки ===== */
-        .notice-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .notice-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
         .notice-card.urgent { border-left-color: #ff3b3b; box-shadow: 0 0 14px rgba(255,59,59,0.18); }
         .notice-head { display: flex; align-items: center; gap: 8px; }
         .notice-emoji { font-size: 26px; line-height: 1; }
         .notice-name { font-weight: 700; font-size: 14px; }
-        .notice-flavor { font-size: 11px; color: #9fb4c7; font-style: italic; }
+        .notice-flavor { font-size: 11px; color: #c2ab86; font-style: italic; }
         .notice-timer { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 15px; color: var(--gold); white-space: nowrap; }
         .notice-card.urgent .notice-timer { color: #ff6b6b; }
         .notice-threat { font-size: 11px; color: #ffb4b4; background: rgba(255,59,59,0.08); border-radius: 6px; padding: 6px 8px; margin: 8px 0; line-height: 1.45; }
         .notice-card button { font-size: 13px; padding: 9px; margin-bottom: 6px; text-align: left; }
-        .notice-cost { float: right; color: #9fb4c7; font-size: 11px; font-weight: 400; }
+        .notice-cost { float: right; color: #c2ab86; font-size: 11px; font-weight: 400; }
 
         /* ===== PvP: стук і розслідування ===== */
         #profile-overlay, #investigation-screen { position: fixed; inset: 0; z-index: 1750; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .vs-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; margin-bottom: 12px; }
-        .vs-name { font-weight: 700; font-size: 14px; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #2a2a3d; }
+        .vs-name { font-weight: 700; font-size: 14px; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #2b2318; }
         .vs-name.them { color: var(--accent); }
         .vs-row { display: contents; }
         .vs-cell { font-size: 13px; padding: 5px 4px; text-align: center; }
         .vs-cell.win { color: #39ff14; font-weight: 700; }
-        .vs-label { font-size: 10px; color: #9fb4c7; text-align: center; white-space: nowrap; padding: 0 4px; }
+        .vs-label { font-size: 10px; color: #c2ab86; text-align: center; white-space: nowrap; padding: 0 4px; }
         .snitch-btn { background: linear-gradient(45deg, #7b1020, #c3073f) !important; border-color: #ff6b6b !important; }
-        .snitch-note { font-size: 11px; color: #9fb4c7; text-align: center; margin-top: -4px; margin-bottom: 10px; line-height: 1.45; }
-        .snitch-line { font-size: 12px; color: #cfe3f2; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; text-align: center; }
+        .snitch-note { font-size: 11px; color: #c2ab86; text-align: center; margin-top: -4px; margin-bottom: 10px; line-height: 1.45; }
+        .snitch-line { font-size: 12px; color: #e8dcc4; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; text-align: center; }
 
         .invest-banner { background: linear-gradient(135deg, rgba(195,7,63,0.22), rgba(255,59,59,0.10)); border: 1px solid rgba(255,59,59,0.55); border-radius: 10px; padding: 11px 12px; margin-bottom: 14px; cursor: pointer; }
         .invest-banner b { color: #ff8a8a; }
-        .suspect-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 10px; cursor: pointer; }
+        .suspect-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 10px; padding: 11px 12px; margin-bottom: 10px; cursor: pointer; }
         .suspect-card:active { border-color: var(--accent); }
         .suspect-face { font-size: 26px; }
         .suspect-name { font-weight: 700; font-size: 14px; }
-        .suspect-meta { font-size: 11px; color: #9fb4c7; }
+        .suspect-meta { font-size: 11px; color: #c2ab86; }
         .leader-row { cursor: pointer; }
         .leader-row:active { color: var(--accent2); }
 
         /* ===== Медкомісія ===== */
         #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
-        .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #3a3a4d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+        .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #3a2f22; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
         .symptom-card.picked { border-color: var(--gold); background: rgba(255,215,0,0.10); }
         .symptom-card.repeated { opacity: 0.75; }
         .symptom-emoji { font-size: 24px; }
@@ -5083,7 +5083,7 @@ function buildHtml(botUsername) {
         .medcom-scale .val { font-size: 19px; }
         .medcom-ok { color: #39ff14; }
         .medcom-bad { color: #ff4d4d; }
-        .medcom-bonus { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); border: 1px solid #2f2f42; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+        .medcom-bonus { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); border: 1px solid #2b2318; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
         .medcom-bonus.off { opacity: 0.45; }
         .medcom-bonus input { width: 16px; height: 16px; accent-color: var(--gold); }
 
@@ -5093,20 +5093,20 @@ function buildHtml(botUsername) {
         #inspector-face.hit { animation: inspShake .12s; }
         @keyframes inspShake { 0%{transform:translateX(0)} 25%{transform:translateX(-7px) rotate(-3deg)} 75%{transform:translateX(7px) rotate(3deg)} 100%{transform:translateX(0)} }
         #inspector-name { font-size: 20px; font-weight: 800; color: var(--gold); }
-        #inspector-taunt { font-size: 12px; color: #cfe3f2; font-style: italic; margin: 6px 0 14px; max-width: 320px; }
-        .insp-hpbar { width: 100%; max-width: 340px; height: 22px; background: #1a1a26; border-radius: 11px; overflow: hidden; border: 1px solid #3a3a4d; }
+        #inspector-taunt { font-size: 12px; color: #e8dcc4; font-style: italic; margin: 6px 0 14px; max-width: 320px; }
+        .insp-hpbar { width: 100%; max-width: 340px; height: 22px; background: #1a140c; border-radius: 11px; overflow: hidden; border: 1px solid #3a2f22; }
         .insp-hpfill { height: 100%; background: linear-gradient(90deg, #c3073f, #ff6b6b); transition: width .12s linear; }
-        .insp-hptext { font-size: 12px; color: #9fb4c7; margin: 6px 0 2px; }
+        .insp-hptext { font-size: 12px; color: #c2ab86; margin: 6px 0 2px; }
         #inspector-timer { font-size: 30px; font-weight: 800; margin: 10px 0 4px; }
         #inspector-timer.low { color: #ff4d4d; }
-        #inspector-weak { font-size: 12px; padding: 7px 12px; border-radius: 8px; margin: 8px 0 14px; background: rgba(255,255,255,0.05); color: #9fb4c7; max-width: 340px; }
+        #inspector-weak { font-size: 12px; padding: 7px 12px; border-radius: 8px; margin: 8px 0 14px; background: rgba(255,255,255,0.05); color: #c2ab86; max-width: 340px; }
         #inspector-weak.on { background: rgba(57,255,20,0.14); color: #39ff14; font-weight: 700; }
         #inspector-hitzone { width: 190px; height: 190px; border-radius: 50%; border: 3px solid var(--accent); background: radial-gradient(circle, rgba(195,7,63,0.35), rgba(195,7,63,0.08)); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; cursor: pointer; user-select: none; -webkit-user-select: none; }
         #inspector-hitzone:active { transform: scale(0.96); }
-        .insp-roster-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; text-align: left; }
+        .insp-roster-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; text-align: left; }
         .insp-roster-card.locked { opacity: 0.55; }
         .insp-roster-name { font-size: 13px; font-weight: 700; }
-        .insp-roster-meta { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
+        .insp-roster-meta { font-size: 11px; color: #c2ab86; line-height: 1.4; }
 
         /* ===== Відстрочки та блокпост ===== */
         #deferment-screen, #checkpoint-screen, #map-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(4,4,10,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
@@ -5114,19 +5114,19 @@ function buildHtml(botUsername) {
         .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         .map-img-wrap img { width: 100%; display: block; }
         .map-hotspot { position: absolute; width: auto; margin-bottom: 0; transform: translate(-50%, -50%); background: rgba(4,4,10,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
-        .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
+        .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
         .defer-card.locked { opacity: 0.55; }
         .defer-head { display: flex; align-items: center; gap: 9px; }
         .defer-name { font-size: 14px; font-weight: 700; }
         .defer-dur { margin-left: auto; font-size: 12px; color: var(--gold); white-space: nowrap; }
-        .defer-flavor { font-size: 11px; color: #9fb4c7; font-style: italic; margin: 5px 0 8px; line-height: 1.4; }
-        .defer-cost { font-size: 12px; color: #cfe3f2; margin-bottom: 8px; }
+        .defer-flavor { font-size: 11px; color: #c2ab86; font-style: italic; margin: 5px 0 8px; line-height: 1.4; }
+        .defer-cost { font-size: 12px; color: #e8dcc4; margin-bottom: 8px; }
         .defer-reason { font-size: 11px; color: #ff8a8a; margin-top: 6px; }
         .defer-active { background: linear-gradient(135deg, rgba(57,255,20,0.16), rgba(57,255,20,0.05)); border: 1px solid rgba(57,255,20,0.5); border-radius: 10px; padding: 12px; margin-bottom: 14px; text-align: center; }
         .defer-active b { color: #39ff14; }
         #defer-chip { display: none; align-items: center; gap: 4px; font-size: 11px; background: rgba(57,255,20,0.14); color: #39ff14; border-radius: 20px; padding: 3px 9px; font-weight: 700; }
         #defer-chip.on { display: inline-flex; }
-        .cp-choice { background: rgba(255,255,255,0.04); border: 2px solid #3a3a4d; border-radius: 10px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
+        .cp-choice { background: rgba(255,255,255,0.04); border: 2px solid #3a2f22; border-radius: 10px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
         .cp-choice:active { border-color: var(--accent); }
         .cp-head { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
         .cp-chance { margin-left: auto; font-size: 16px; color: var(--gold); }
@@ -5138,19 +5138,19 @@ function buildHtml(botUsername) {
         .skill-points b { color: var(--gold); font-size: 20px; }
         .skill-branch { margin-bottom: 18px; }
         .skill-branch-head { font-size: 15px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
-        .skill-branch-desc { font-size: 11px; color: #9fb4c7; margin-bottom: 9px; }
-        .skill-node { display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.03); border: 1px solid #2f2f42; border-radius: 9px; padding: 9px 10px; margin-bottom: 6px; }
+        .skill-branch-desc { font-size: 11px; color: #c2ab86; margin-bottom: 9px; }
+        .skill-node { display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.03); border: 1px solid #2b2318; border-radius: 9px; padding: 9px 10px; margin-bottom: 6px; }
         .skill-node.owned { border-color: rgba(57,255,20,0.5); background: rgba(57,255,20,0.07); }
         .skill-node.locked { opacity: 0.42; }
-        .skill-dot { width: 22px; height: 22px; border-radius: 50%; background: #2a2a3d; color: #9fb4c7; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .skill-dot { width: 22px; height: 22px; border-radius: 50%; background: #2b2318; color: #c2ab86; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .skill-node.owned .skill-dot { background: #39ff14; color: #08210a; }
         .skill-name { font-size: 13px; font-weight: 700; }
-        .skill-desc { font-size: 11px; color: #9fb4c7; line-height: 1.4; }
+        .skill-desc { font-size: 11px; color: #c2ab86; line-height: 1.4; }
         .skill-node button { width: auto; margin: 0 0 0 auto; padding: 6px 12px; font-size: 12px; flex-shrink: 0; align-self: center; }
 
         /* Перемикач ×1/×10/MAX для апгрейдів */
         .buy-switch { display: flex; gap: 6px; margin-bottom: 10px; }
-        .buy-switch button { flex: 1; margin: 0; padding: 7px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid #3a3a4d; color: #cfe3f2; }
+        .buy-switch button { flex: 1; margin: 0; padding: 7px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid #3a2f22; color: #e8dcc4; }
         .buy-switch button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
 
         /* Офлайн-звіт */
@@ -5161,28 +5161,28 @@ function buildHtml(botUsername) {
 
         /* ===== Репутація з районом ===== */
         #reputation-screen { position: fixed; inset: 0; z-index: 1770; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
-        .npc-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 11px; padding: 12px; margin-bottom: 11px; }
+        .npc-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 11px; padding: 12px; margin-bottom: 11px; }
         .npc-card.maxed { border-color: rgba(255,215,0,0.55); background: rgba(255,215,0,0.07); }
         .npc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
         .npc-name { font-size: 15px; font-weight: 800; }
         .npc-rep { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--gold); }
-        .npc-about { font-size: 11px; color: #9fb4c7; font-style: italic; line-height: 1.4; margin-bottom: 8px; }
+        .npc-about { font-size: 11px; color: #c2ab86; font-style: italic; line-height: 1.4; margin-bottom: 8px; }
         .npc-quest { background: rgba(0,0,0,0.25); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; }
         .npc-quest-text { font-size: 12px; margin-bottom: 6px; }
-        .npc-quest-prog { font-size: 11px; color: #9fb4c7; }
+        .npc-quest-prog { font-size: 11px; color: #c2ab86; }
         .npc-quest-prog.done { color: #39ff14; font-weight: 700; }
-        .npc-perk { font-size: 11px; color: #cfe3f2; background: rgba(255,255,255,0.05); border-radius: 7px; padding: 7px 9px; margin-top: 7px; }
+        .npc-perk { font-size: 11px; color: #e8dcc4; background: rgba(255,255,255,0.05); border-radius: 7px; padding: 7px 9px; margin-top: 7px; }
         .npc-perk.on { color: #ffd700; }
 
         /* ===== Сезони, ліги, війни ===== */
         #season-screen, #war-screen, #season-result { position: fixed; inset: 0; z-index: 1795; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .league-badge { text-align: center; font-size: 20px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
-        .league-sub { text-align: center; font-size: 12px; color: #9fb4c7; margin-bottom: 12px; }
+        .league-sub { text-align: center; font-size: 12px; color: #c2ab86; margin-bottom: 12px; }
         .standing-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 7px 9px; border-radius: 7px; margin-bottom: 4px; background: rgba(255,255,255,0.03); }
         .standing-row.me { background: rgba(255,215,0,0.13); border: 1px solid rgba(255,215,0,0.4); font-weight: 700; }
         .standing-row.promote { border-left: 3px solid #39ff14; }
         .standing-row.relegate { border-left: 3px solid #ff4d4d; }
-        .standing-rank { width: 22px; color: #9fb4c7; }
+        .standing-rank { width: 22px; color: #c2ab86; }
         .standing-pts { margin-left: auto; color: var(--gold); font-weight: 700; }
         .season-title-chip { display: inline-block; font-size: 10px; background: rgba(255,215,0,0.18); color: #ffd700; border-radius: 10px; padding: 1px 7px; margin-left: 5px; }
         .war-scores { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -5190,27 +5190,27 @@ function buildHtml(botUsername) {
         .war-side.mine { border: 1px solid rgba(57,255,20,0.45); }
         .war-side.theirs { border: 1px solid rgba(255,77,77,0.45); }
         .war-side b { display: block; font-size: 22px; color: var(--gold); }
-        .war-side span { font-size: 11px; color: #9fb4c7; }
+        .war-side span { font-size: 11px; color: #c2ab86; }
         .enemy-row { display: flex; align-items: center; gap: 8px; font-size: 13px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
         .enemy-row button { width: auto; margin: 0 0 0 auto; padding: 5px 11px; font-size: 12px; }
         #district-screen { position: fixed; inset: 0; z-index: 1900; background: radial-gradient(circle at 50% 30%, #2a1a0d 0%, #07070d 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; text-align: center; }
         #district-bus { font-size: 76px; line-height: 1; }
         #district-bus.hit { animation: inspShake .12s; }
-        .district-contrib { font-size: 12px; color: #cfe3f2; display: flex; gap: 8px; padding: 4px 0; }
+        .district-contrib { font-size: 12px; color: #e8dcc4; display: flex; gap: 8px; padding: 4px 0; }
         .district-contrib b { margin-left: auto; color: var(--gold); }
 
         /* ===== Довідка механік ===== */
         #codex-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(4,4,10,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .codex-nav { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
-        .codex-nav button { width: auto; flex: none; margin: 0; padding: 5px 10px; font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid #3a3a4d; color: #cfe3f2; }
+        .codex-nav button { width: auto; flex: none; margin: 0; padding: 5px 10px; font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid #3a2f22; color: #e8dcc4; }
         .codex-nav button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
         .codex-sec h3 { font-size: 16px; color: var(--gold); margin: 0 0 4px; }
-        .codex-lead { font-size: 12px; color: #9fb4c7; line-height: 1.55; margin: 0 0 12px; }
-        .codex-block { background: rgba(255,255,255,0.04); border: 1px solid #2f2f42; border-radius: 9px; padding: 10px 11px; margin-bottom: 9px; }
+        .codex-lead { font-size: 12px; color: #c2ab86; line-height: 1.55; margin: 0 0 12px; }
+        .codex-block { background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 9px; padding: 10px 11px; margin-bottom: 9px; }
         .codex-block h4 { font-size: 13px; margin: 0 0 5px; color: #fff; }
-        .codex-block p { font-size: 12px; color: #cfe3f2; line-height: 1.5; margin: 0 0 6px; }
+        .codex-block p { font-size: 12px; color: #e8dcc4; line-height: 1.5; margin: 0 0 6px; }
         .codex-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-        .codex-table td { padding: 4px 5px; border-bottom: 1px solid rgba(255,255,255,0.07); color: #cfe3f2; vertical-align: top; }
+        .codex-table td { padding: 4px 5px; border-bottom: 1px solid rgba(255,255,255,0.07); color: #e8dcc4; vertical-align: top; }
         .codex-table td:last-child { text-align: right; color: var(--gold); white-space: nowrap; font-weight: 600; }
         .codex-tip { font-size: 11.5px; line-height: 1.5; color: #b9ffb0; background: rgba(57,255,20,0.08); border-left: 3px solid rgba(57,255,20,0.5); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
         .codex-warn { font-size: 11.5px; line-height: 1.5; color: #ffc9c9; background: rgba(255,77,77,0.09); border-left: 3px solid rgba(255,77,77,0.55); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
@@ -5224,7 +5224,7 @@ function buildHtml(botUsername) {
         .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
         .tabs-container::-webkit-scrollbar { height: 4px; }
         .tabs-container::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(244,185,66,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #9fb4c7; }
+        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(244,185,66,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #c2ab86; }
         .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(232,98,44,0.6), 0 0 20px rgba(244,185,66,0.4); }
 
         .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(244,185,66,0.2); box-sizing: border-box; }
@@ -5239,17 +5239,17 @@ function buildHtml(botUsername) {
         .dev-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.4); color: #ffca6a; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
 
         /* ===== Ящики ===== */
-        .crate-card { background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+        .crate-card { background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
         .crate-card.stars { border-color: rgba(255,224,102,0.5); background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(255,224,102,0.08)); }
         .crate-card.on-sale { border-color: rgba(57,255,20,0.55); box-shadow: 0 0 14px rgba(57,255,20,0.15); }
         .sale-badge { display: inline-block; margin-left: 7px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #39ff14; color: #07230a; vertical-align: middle; }
         .crate-top { display: flex; align-items: center; gap: 10px; }
         .crate-top img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
         .crate-name { font-weight: 700; font-size: 14px; }
-        .crate-desc { font-size: 11px; color: #9fb4c7; line-height: 1.4; margin-top: 2px; }
+        .crate-desc { font-size: 11px; color: #c2ab86; line-height: 1.4; margin-top: 2px; }
         .crate-card button { margin: 10px 0 0; }
         .crate-odds-toggle { background: none; border: none; color: var(--accent2); font-size: 11px; padding: 6px 0 0; margin: 0; width: auto; text-decoration: underline; cursor: pointer; }
-        .crate-odds { font-size: 11px; color: #9fb4c7; margin-top: 6px; border-top: 1px solid #2a2a3d; padding-top: 6px; }
+        .crate-odds { font-size: 11px; color: #c2ab86; margin-top: 6px; border-top: 1px solid #2b2318; padding-top: 6px; }
         .crate-odds div { display: flex; justify-content: space-between; padding: 1px 0; }
 
         /* ===== Анімація відкривання ящика ===== */
@@ -5325,29 +5325,29 @@ function buildHtml(botUsername) {
         /* ===== Кладовка ===== */
         .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(244,185,66,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
         .storage-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
-        .storage-bar { width: 100%; height: 10px; background: #1c1c2b; border-radius: 5px; overflow: hidden; border: 1px solid #2a2a3d; }
+        .storage-bar { width: 100%; height: 10px; background: #1a150e; border-radius: 5px; overflow: hidden; border: 1px solid #2b2318; }
         .storage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #39ff14, #ffe066); transition: width 0.3s; }
         .storage-fill.full { background: linear-gradient(90deg, #ff5722, #ff1744); }
         .storage-header button { margin: 10px 0 0; font-size: 13px; padding: 9px; }
-        .res-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
+        .res-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
         .res-card.empty { opacity: 0.4; }
         .res-emoji { font-size: 24px; width: 28px; text-align: center; }
         .res-img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
         .res-info { flex: 1; min-width: 0; }
         .res-name { font-size: 13px; font-weight: 600; }
-        .res-meta { font-size: 10px; color: #9fb4c7; }
+        .res-meta { font-size: 10px; color: #c2ab86; }
         .res-qty { font-family: 'Orbitron', sans-serif; font-size: 16px; color: var(--gold); min-width: 34px; text-align: right; }
         .res-card button { width: auto; margin: 0; padding: 6px 10px; font-size: 11px; white-space: nowrap; }
         .res-tier-1 { border-left: 3px solid #78909c; }
         .res-tier-2 { border-left: 3px solid #29b6f6; }
         .res-tier-3 { border-left: 3px solid #ab47bc; }
         .res-tier-4 { border-left: 3px solid var(--gold); }
-        .recipe-card { background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 9px; padding: 11px; margin-bottom: 9px; }
+        .recipe-card { background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 9px; padding: 11px; margin-bottom: 9px; }
         .recipe-card.ready { border-color: rgba(57,255,20,0.5); }
         .recipe-title { font-size: 14px; font-weight: 700; }
-        .recipe-desc { font-size: 11px; color: #9fb4c7; margin: 3px 0 7px; }
+        .recipe-desc { font-size: 11px; color: #c2ab86; margin: 3px 0 7px; }
         .recipe-cost { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-        .recipe-ing { font-size: 11px; padding: 3px 7px; border-radius: 5px; background: #1c1c2b; border: 1px solid #333; }
+        .recipe-ing { font-size: 11px; padding: 3px 7px; border-radius: 5px; background: #1a150e; border: 1px solid #2b2318; }
         .recipe-ing.ok { border-color: rgba(57,255,20,0.6); color: #b9ffb0; }
         .recipe-ing.missing { border-color: rgba(255,87,34,0.6); color: #ffb59c; }
         .recipe-card button { margin: 0; padding: 8px; font-size: 12px; }
@@ -5360,11 +5360,11 @@ function buildHtml(botUsername) {
         .coll-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
 
         /* ===== Багаторівневі апгрейди магазину ===== */
-        .upg-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #333; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; }
+        .upg-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; }
         .upg-card img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
         .upg-info { flex: 1; min-width: 0; }
         .upg-name { font-size: 13px; font-weight: 600; }
-        .upg-meta { font-size: 10px; color: #9fb4c7; }
+        .upg-meta { font-size: 10px; color: #c2ab86; }
         .upg-card button { width: auto; margin: 0; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
         .stars-section-title { font-size: 14px; margin: 0 0 8px; text-align: center; color: #eee; }
         .donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -5382,18 +5382,18 @@ function buildHtml(botUsername) {
         #knock-screen { background-image: linear-gradient(rgba(120,0,0,0.75), rgba(80,0,0,0.85)), url('/images/qte-knock-door.webp'); }
         #raid-screen h1, #knock-screen h1 { color: #ff0000; font-size: 36px; animation: blink 0.2s infinite; text-align: center; margin: 0; padding: 0 20px; }
         #raid-timer, #knock-timer { font-size: 30px; color: #fff; margin: 20px 0; }
-        #raid-progress { width: 80%; height: 30px; background: #333; border: 2px solid #fff; border-radius: 15px; overflow: hidden; margin-bottom: 30px; }
+        #raid-progress { width: 80%; height: 30px; background: #2b2318; border: 2px solid #fff; border-radius: 15px; overflow: hidden; margin-bottom: 30px; }
         #raid-fill { width: 0%; height: 100%; background: #ff0000; transition: width 0.1s; }
         .run-btn { font-size: 16px; font-weight: bold; padding: 10px; background: #ff0000; border-radius: 50%; width: 150px; height: 150px; border: 5px solid #fff; box-shadow: 0 0 30px #ff0000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
         .run-btn img { width: 50px; height: 50px; pointer-events: none; }
-        .knock-btn { padding: 10px; background: #333; border-radius: 20px; border: 4px solid #fff; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; }
+        .knock-btn { padding: 10px; background: #2b2318; border-radius: 20px; border: 4px solid #fff; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; }
         .knock-btn img { width: 90px; height: 90px; pointer-events: none; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
         .airdrop { position: fixed; font-size: 36px; z-index: 900; cursor: pointer; animation: flyAcross 3s linear forwards; }
         @keyframes flyAcross { 0% { transform: translateX(-20px) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(20px) translateY(-40px); opacity: 0; } }
 
-        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14141f; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(244,185,66,0.5), 0 0 70px rgba(232,98,44,0.3); display: none; max-width: 80vw; }
+        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14100a; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(244,185,66,0.5), 0 0 70px rgba(232,98,44,0.3); display: none; max-width: 80vw; }
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
 
@@ -5401,18 +5401,18 @@ function buildHtml(botUsername) {
         #splash-screen span { color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        .asset-row { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .asset-row { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); border: 1px solid #2b2318; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
         .asset-name { font-weight: bold; }
         .asset-price { color: var(--gold); font-weight: bold; }
         .asset-controls { display: flex; gap: 6px; align-items: center; }
-        .asset-controls input { width: 50px; text-align: center; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px; }
+        .asset-controls input { width: 50px; text-align: center; background: #1c170f; color: #fff; border: 1px solid #3a2f22; border-radius: 4px; padding: 4px; }
         .asset-controls button { width: auto; padding: 6px 10px; margin: 0; font-size: 12px; }
         .sparkline { height: 24px; width: 70px; }
 
-        .clan-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .clan-card { background: rgba(255,255,255,0.05); border: 1px solid #2b2318; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .clan-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .pet-card { position: relative; background-color: rgba(255,255,255,0.05); background-size: cover; background-position: center; border: 1px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 12px; min-height: 92px; box-sizing: border-box; max-width: 65%; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7); }
+        .pet-card { position: relative; background-color: rgba(255,255,255,0.05); background-size: cover; background-position: center; border: 1px solid #2b2318; border-radius: 10px; padding: 10px; margin-bottom: 12px; min-height: 92px; box-sizing: border-box; max-width: 65%; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7); }
         .pet-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,8,5,0.88) 0%, rgba(10,8,5,0.6) 55%, rgba(10,8,5,0.05) 100%); z-index: 0; }
         .pet-card > * { position: relative; z-index: 1; }
         .pet-card.equipped { border-color: var(--gold); box-shadow: 0 0 10px rgba(255,212,71,0.4); }
@@ -5424,7 +5424,7 @@ function buildHtml(botUsername) {
         .ach-row.unlocked { opacity: 1; border: 1px solid var(--gold); }
         .ach-icon { font-size: 22px; }
         .ach-name { font-weight: bold; font-size: 13px; }
-        .ach-desc { font-size: 11px; color: #aaa; }
+        .ach-desc { font-size: 11px; color: #b8a888; }
 
         .wheel-wrap { display: flex; flex-direction: column; align-items: center; margin: 15px 0; }
         #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(244,185,66,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
@@ -5449,7 +5449,7 @@ function buildHtml(botUsername) {
             50%, 100% { box-shadow: 0 0 0 4px #2979ff, 0 0 30px 8px #2979ff99; }
         }
         .frame-siren { animation: sirenGlow 0.5s step-end infinite; }
-        .cosmetic-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .cosmetic-card { background: rgba(255,255,255,0.05); border: 1px solid #2b2318; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .cosmetic-card.equipped { border-color: var(--gold); }
         .cosmetic-card .cosmetic-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .cosmetic-card .cosmetic-emoji { font-size: 22px; }
@@ -5457,11 +5457,11 @@ function buildHtml(botUsername) {
         .cosmetic-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; white-space: nowrap; }
         .slot-heading { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin: 12px 0 6px; }
 
-        .quest-row { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+        .quest-row { background: rgba(255,255,255,0.05); border: 1px solid #2b2318; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
         .quest-row.done { border-color: var(--gold); }
         .quest-name { font-weight: bold; font-size: 13px; }
-        .quest-desc { font-size: 11px; color: #aaa; margin: 4px 0 8px; }
-        .quest-progress-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+        .quest-desc { font-size: 11px; color: #b8a888; margin: 4px 0 8px; }
+        .quest-progress-bar { height: 8px; background: #2b2318; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
         .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
@@ -5470,7 +5470,7 @@ function buildHtml(botUsername) {
 
         #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(4,4,10,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
         #help-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(244,185,66,0.2); }
-        .help-step { font-size: 13px; line-height: 1.55; color: #cfe3f2; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
+        .help-step { font-size: 13px; line-height: 1.55; color: #e8dcc4; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
         .help-step b { color: var(--text); }
 
         #room-screen { position: fixed; inset: 0; z-index: 1500; background: var(--bg); overflow-y: auto; padding: 15px; box-sizing: border-box; }
@@ -5579,26 +5579,26 @@ function buildHtml(botUsername) {
     </div>
 
     <div id="shop" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Апгрейди купуються нескінченно — кожен наступний рівень дорожчий.</p>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Апгрейди купуються нескінченно — кожен наступний рівень дорожчий.</p>
         <div id="upgrades-list"></div>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Еволюція:</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Еволюція:</h3>
         <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.webp" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
         <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.webp" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
         <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.webp" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
         <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><img class="btn-icon" src="/images/location-5-abroad.webp" alt="">Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
         <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><img class="btn-icon" src="/images/location-6-bunker.webp" alt="">Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Компаньйони:</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Компаньйони:</h3>
         <div id="pets-list"></div>
     </div>
 
     <div id="quests" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Щоденні квести. Прогрес і нагороди обнуляються опівночі.</p>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Щоденні квести. Прогрес і нагороди обнуляються опівночі.</p>
         <div id="quests-list"></div>
     </div>
 
     <div id="market" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Тут торгують ресурсами з твоєї кладовки. Курс гуляє кожні 3 хв: продавай на піку, а на дні — докуповуй під крафт замість фарму ящиків.</p>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Тут торгують ресурсами з твоєї кладовки. Курс гуляє кожні 3 хв: продавай на піку, а на дні — докуповуй під крафт замість фарму ящиків.</p>
         <button onclick="loadMarket()">🔄 Оновити курс</button>
         <div id="market-list"></div>
     </div>
@@ -5610,21 +5610,21 @@ function buildHtml(botUsername) {
             <button class="secondary" onclick="openWar()">⚔️ Війна ОСББ</button>
             <button class="secondary" onclick="openDistrict()">🚌 Облава на район</button>
         </div>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Створити чат ОСББ</h3>
-        <input type="text" id="clan-name-input" placeholder="Назва чату" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Створити чат ОСББ</h3>
+        <input type="text" id="clan-name-input" placeholder="Назва чату" style="width:100%; padding:10px; box-sizing:border-box; background:#1c170f; border:1px solid #3a2f22; color:#fff; border-radius:5px; margin-bottom:10px;">
         <button onclick="createClan()">Створити (+${(ECONOMY.CLAN_PASSIVE_BONUS * 100).toFixed(0)}% пасиву всім)</button>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Приєднатися</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Приєднатися</h3>
         <button onclick="loadClanList()">🔄 Оновити список чатів</button>
         <div id="clan-list"></div>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Топ чатів ОСББ (за скарбницею)</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Топ чатів ОСББ (за скарбницею)</h3>
         <button onclick="loadClanLeaderboard()">🔄 Оновити рейтинг кланів</button>
         <div id="clan-leaderboard"></div>
     </div>
 
     <div id="gacha" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Ящики — головне джерело ресурсів для кладовки й крафту. Шанси показані чесно, тицьни «шанси» під ящиком.</p>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Ящики — головне джерело ресурсів для кладовки й крафту. Шанси показані чесно, тицьни «шанси» під ящиком.</p>
         <div id="crates-list"></div>
-        <h3 style="font-size:14px; margin: 20px 0 5px; border-bottom: 1px solid #444;">Колесо Зради та Перемоги (1 раз/день, безкоштовно):</h3>
+        <h3 style="font-size:14px; margin: 20px 0 5px; border-bottom: 1px solid #3a2f22;">Колесо Зради та Перемоги (1 раз/день, безкоштовно):</h3>
         <div class="wheel-wrap">
             <div class="wheel-pointer"></div>
             <div id="wheel"></div>
@@ -5648,37 +5648,37 @@ function buildHtml(botUsername) {
             <div class="tab" onclick="switchStorageTab(event, 'storage-craft')">🔨 Крафт</div>
         </div>
         <div id="storage-res" class="panel active">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавати можна прямо тут — але за <b>поточним курсом біржі</b>, тож спершу глянь на 📈 Біржу.</p>
+            <p style="margin-top:0; color:#b8a888; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавати можна прямо тут — але за <b>поточним курсом біржі</b>, тож спершу глянь на 📈 Біржу.</p>
             <div id="resources-list"></div>
         </div>
         <div id="storage-craft" class="panel">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Крафт дає те, що за валюту не купиш: щити від облав, розширення бака, постійні множники.</p>
+            <p style="margin-top:0; color:#b8a888; font-size:12px;">Крафт дає те, що за валюту не купиш: щити від облав, розширення бака, постійні множники.</p>
             <div id="recipes-list"></div>
         </div>
     </div>
 
     <div id="storage-exp" class="panel">
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Відправ себе по ресурси й закрий гру — вилазка йде реальний час. Є ризик спалитись і втратити здобич; щит від облав цей ризик прибирає.</p>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Відправ себе по ресурси й закрий гру — вилазка йде реальний час. Є ризик спалитись і втратити здобич; щит від облав цей ризик прибирає.</p>
         <div id="expeditions-list"></div>
     </div>
 
     <div id="friends" class="panel">
         <img src="/images/social-referral.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <h3 style="margin-top:0;">Здай друга</h3>
-        <p style="font-size:12px; color:#aaa;">Отримай ${ECONOMY.REFERRAL_REWARD} 🪙 за кожного друга, який перейде за твоїм посиланням і заляже на дно.</p>
+        <p style="font-size:12px; color:#b8a888;">Отримай ${ECONOMY.REFERRAL_REWARD} 🪙 за кожного друга, який перейде за твоїм посиланням і заляже на дно.</p>
         <p style="font-size:12px;">Здано друзів: <b id="ref-count">0</b></p>
-        <input type="text" id="ref-link" readonly style="width: 100%; padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box;">
+        <input type="text" id="ref-link" readonly style="width: 100%; padding: 10px; background: #1c170f; color: #fff; border: 1px solid #3a2f22; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box;">
         <button onclick="copyRef()">📋 Скопіювати посилання</button>
     </div>
 
     <div id="revenge" class="panel">
         <h3 class="stars-section-title">📜 Легалізація (престиж)</h3>
         <div id="prestige-box"></div>
-        <p style="font-size:11px; color:#aaa; margin-top:8px;">Дерево навичок — вкладка «🌳 Навички» вгорі.</p>
-        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+        <p style="font-size:11px; color:#b8a888; margin-top:8px;">Дерево навичок — вкладка «🌳 Навички» вгорі.</p>
+        <hr style="border:0; border-top:1px solid #3a2f22; margin: 18px 0;">
         <h3 class="stars-section-title">😈 Помста інспектору</h3>
-        <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
-        <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#aaa; text-align:center; padding:15px;"></div>
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
+        <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#b8a888; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
         <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(244,185,66,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
     </div>
@@ -5692,39 +5692,39 @@ function buildHtml(botUsername) {
 
         <h3 class="stars-section-title">👑 VIP-Схрон</h3>
         <button class="premium-btn" onclick="buyRealVip()"><img class="btn-icon" src="/images/vip-badge.webp" alt="">VIP-Схрон (${ECONOMY.VIP_PRICE_STARS} ⭐)</button>
-        <p style="font-size:12px; color:#aaa; text-align:center; margin-top:6px;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
+        <p style="font-size:12px; color:#b8a888; text-align:center; margin-top:6px;">VIP: Х3 дохід, нескінченна енергія, повний імунітет до ОБЛАВ.</p>
 
-        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+        <hr style="border:0; border-top:1px solid #3a2f22; margin: 18px 0;">
 
         <h3 class="stars-section-title">🔑 Промокод</h3>
-        <input type="text" id="promo" placeholder="Введи промокод" style="width:100%; padding:10px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:5px; margin-bottom:10px;">
+        <input type="text" id="promo" placeholder="Введи промокод" style="width:100%; padding:10px; box-sizing:border-box; background:#1c170f; border:1px solid #3a2f22; color:#fff; border-radius:5px; margin-bottom:10px;">
         <button onclick="usePromo()">Активувати код</button>
 
-        <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
+        <hr style="border:0; border-top:1px solid #3a2f22; margin: 18px 0;">
 
         <h3 class="stars-section-title">❤️ Підтримати розробника</h3>
-        <p style="font-size:12px; color:#aaa; text-align:center; margin-top:0;">Жодних ігрових бонусів — просто щоб сказати "дякую" за гру.</p>
+        <p style="font-size:12px; color:#b8a888; text-align:center; margin-top:0;">Жодних ігрових бонусів — просто щоб сказати "дякую" за гру.</p>
         <div class="donate-grid">
             ${ECONOMY.DONATE_AMOUNTS.map(a => `<button class="donate-btn" onclick="buyDonate(${a})">${a} ⭐</button>`).join('')}
         </div>
     </div>
 
     <div id="top" class="panel">
-        <h3 style="font-size:14px; margin: 0 0 8px; border-bottom: 1px solid #444;">📊 Твоя статистика</h3>
+        <h3 style="font-size:14px; margin: 0 0 8px; border-bottom: 1px solid #3a2f22;">📊 Твоя статистика</h3>
         <div id="stats-box"></div>
-        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🎯 Колекція</h3>
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #3a2f22;">🎯 Колекція</h3>
         <div id="collection-box"></div>
-        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🏅 Сезон</h3>
-        <p style="font-size:12px; color:#9fb4c7; margin:0 0 8px; line-height:1.5;">
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #3a2f22;">🏅 Сезон</h3>
+        <p style="font-size:12px; color:#c2ab86; margin:0 0 8px; line-height:1.5;">
             Рейтинг за балансом — це «хто довше грає». Ліга обнуляється щотижня,
             тому шанс має і новачок.
         </p>
         <button onclick="openSeason()">🏅 Моя ліга і сезонні очки</button>
-        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #444;">🏆 Рейтинг гравців</h3>
+        <h3 style="font-size:14px; margin: 18px 0 8px; border-bottom: 1px solid #3a2f22;">🏆 Рейтинг гравців</h3>
         <img src="/images/leaderboard-trophy.webp" alt="" style="width:56px; height:56px; object-fit:contain; display:block; margin: 0 auto 10px;">
         <button onclick="loadTop()">🔄 Оновити рейтинг</button>
         <ol id="leaderboard-list" style="padding-left: 20px; font-family: monospace; font-size: 14px; line-height: 1.8;"></ol>
-        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #444;">Досягнення:</h3>
+        <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Досягнення:</h3>
         <div id="achievements-list"></div>
     </div>
 
@@ -5787,14 +5787,14 @@ function buildHtml(botUsername) {
                 <div class="case-mult"><b id="case-income">×1.00</b><span>до всього доходу</span></div>
                 <div class="case-mult"><b id="case-raid">×1.0</b><span>шанс облави</span></div>
             </div>
-            <p style="font-size:12px; color:#9fb4c7; line-height:1.5; margin: 0 0 10px;">
+            <p style="font-size:12px; color:#c2ab86; line-height:1.5; margin: 0 0 10px;">
                 Що ти активніший і багатший — то більше тобою цікавляться. Розшук піднімає дохід,
                 але разом із ним і шанс облави. Сам вирішуй, на якому рівні жити.
                 Про тебе поступово забувають: −1 за кожні 12 хвилин, навіть коли гра закрита.
             </p>
             <div class="case-log" id="case-log"></div>
             <h3 style="font-size:14px; color:var(--gold); margin: 16px 0 4px;">🎖️ Ким ти вже цікавий</h3>
-            <p style="font-size:11px; color:#9fb4c7; margin: 0 0 10px; line-height:1.45;">
+            <p style="font-size:11px; color:#c2ab86; margin: 0 0 10px; line-height:1.45;">
                 Інспектори приходять самі, коли розшук достатньо високий. Приходить завжди
                 найсерйозніший із доступних.
             </p>
@@ -5808,7 +5808,7 @@ function buildHtml(botUsername) {
         <div class="case-card">
             <button class="room-close" onclick="closeCodex()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">📖 Довідка механік</h2>
-            <p style="font-size:11px; color:#9fb4c7; text-align:center; margin: 0 0 12px;">
+            <p style="font-size:11px; color:#c2ab86; text-align:center; margin: 0 0 12px;">
                 Усі цифри тут — справжні, вони читаються прямо з гри.
             </p>
             <div class="codex-nav" id="codex-nav"></div>
@@ -5824,7 +5824,7 @@ function buildHtml(botUsername) {
             <div class="league-badge" id="league-badge"></div>
             <div class="league-sub" id="league-sub"></div>
             <div id="season-standings"></div>
-            <p style="font-size:11px; color:#9fb4c7; line-height:1.5; margin-top:12px;">
+            <p style="font-size:11px; color:#c2ab86; line-height:1.5; margin-top:12px;">
                 Топ-<span id="promote-n"></span> піднімаються лігою вище, останні
                 <span id="relegate-n"></span> — нижче. Очки обнуляються щопонеділка,
                 тому новачок має реальний шанс. Сезонну косметику й титул не купиш
@@ -5857,7 +5857,7 @@ function buildHtml(botUsername) {
     <div id="district-screen" class="hidden">
         <div id="district-bus">🚌</div>
         <div style="font-size:19px; font-weight:800; color:var(--gold); margin-top:4px;">Автобус ТЦК</div>
-        <div style="font-size:12px; color:#cfe3f2; font-style:italic; margin:6px 0 12px; max-width:320px;">
+        <div style="font-size:12px; color:#e8dcc4; font-style:italic; margin:6px 0 12px; max-width:320px;">
             Заїхав у район на весь чат. Бʼємо разом — інакше не встигнемо.
         </div>
         <div class="insp-hptext" id="district-hptext"></div>
@@ -5874,7 +5874,7 @@ function buildHtml(botUsername) {
         <div class="case-card">
             <button class="room-close" onclick="closeReputation()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🤝 Район</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 14px; line-height:1.5;">
                 Люди навколо теж чогось хочуть. Допомагаєш — вони памʼятають.
                 На 100 репутації кожен дає щось назавжди.
             </p>
@@ -5887,7 +5887,7 @@ function buildHtml(botUsername) {
     <div id="offline-report" class="hidden">
         <div class="case-card">
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🌙 Поки тебе не було</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px;" id="offline-away"></p>
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 14px;" id="offline-away"></p>
             <div id="offline-lines"></div>
             <button onclick="closeOfflineReport()" style="margin-top:10px;">Зрозуміло</button>
         </div>
@@ -5898,7 +5898,7 @@ function buildHtml(botUsername) {
         <div class="case-card">
             <button class="room-close" onclick="closeSkills()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🌳 Навички ухилянта</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px; line-height:1.5;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 12px; line-height:1.5;">
                 Кожна довідка з легалізації дає 1 очко. Довідки при цьому продовжують давати
                 свій +10% доходу — навички це бонус зверху. У гілці навички беруться послідовно.
             </p>
@@ -5913,7 +5913,7 @@ function buildHtml(botUsername) {
         <div class="case-card">
             <button class="room-close" onclick="closeDeferments()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🎫 Відстрочки</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 14px; line-height:1.5;">
                 Поки діє відстрочка — повістки не приходять, стуки не діють, блокпост проходиться
                 автоматично. Але й розшук не росте: <b>поки ти невидимий, ти й заробляєш як невидимий</b>.
             </p>
@@ -5928,7 +5928,7 @@ function buildHtml(botUsername) {
         <div class="map-wrap">
             <button class="room-close" onclick="closeMap()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🗺️ Карта території</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px; line-height:1.5;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 12px; line-height:1.5;">
                 Орієнтири на карті ведуть до вилазок. Будуй споруди за деревину/металобрухт/цеглу —
                 вони реально знижують ризики.
             </p>
@@ -5948,7 +5948,7 @@ function buildHtml(botUsername) {
     <div id="checkpoint-screen" class="hidden">
         <div class="case-card">
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🚧 Блокпост</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px; line-height:1.5;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 14px; line-height:1.5;">
                 Переїзд помітили. Треба якось пояснити, куди це ти зібрався.
             </p>
             <div id="checkpoint-body"></div>
@@ -5959,7 +5959,7 @@ function buildHtml(botUsername) {
     <div id="medcom-screen" class="hidden">
         <div class="case-card">
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🏥 Медкомісія</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 12px;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 12px;">
                 Обери <b>3 скарги</b> з п'яти. Сума переконливості має перебити скептицизм комісії.
                 Чим вищий твій розшук — тим менше тобі вірять.
             </p>
@@ -5967,7 +5967,7 @@ function buildHtml(botUsername) {
             <div id="medcom-bonuses"></div>
             <div class="medcom-scale">
                 <span>Переконливість <span class="val" id="medcom-power">0</span></span>
-                <span style="color:#9fb4c7;">Скептицизм <span class="val" id="medcom-skept">100</span></span>
+                <span style="color:#c2ab86;">Скептицизм <span class="val" id="medcom-skept">100</span></span>
             </div>
             <button id="medcom-submit" onclick="submitMedcom()">Подати діагноз</button>
             <button class="secondary" id="medcom-reroll" onclick="rerollMedcom()">Перекинути картки</button>
@@ -5984,7 +5984,7 @@ function buildHtml(botUsername) {
         <div id="inspector-timer">0.0</div>
         <div id="inspector-weak"></div>
         <div id="inspector-hitzone">ТИСНИ</div>
-        <div style="font-size:11px; color:#9fb4c7; margin-top:12px;">Кожен клік коштує 3 енергії</div>
+        <div style="font-size:11px; color:#c2ab86; margin-top:12px;">Кожен клік коштує 3 енергії</div>
     </div>
 
     <!-- Порівняння профілів: твоя статистика проти його + кнопка "здати". -->
@@ -6015,7 +6015,7 @@ function buildHtml(botUsername) {
         <div class="case-card">
             <button class="room-close" onclick="closeNotices()">✕</button>
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">📬 Повістки</h2>
-            <p style="font-size:12px; color:#9fb4c7; text-align:center; margin: 0 0 14px;">
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 14px;">
                 Таймер тікає, навіть коли гра закрита. Протухла повістка = штраф і різкий стрибок розшуку.
             </p>
             <div class="invest-banner hidden" id="invest-banner" onclick="openInvestigation()">
@@ -6063,7 +6063,7 @@ function buildHtml(botUsername) {
             <div class="tab" onclick="switchRoomTab(event, 'room-shop')">🛋 Речі кімнати</div>
         </div>
         <div id="room-wardrobe" class="panel active">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
+            <p style="margin-top:0; color:#b8a888; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
             <div class="slot-heading">Головні убори</div>
             <div id="wardrobe-hat"></div>
             <div class="slot-heading">Маскування обличчя</div>
@@ -6074,7 +6074,7 @@ function buildHtml(botUsername) {
             <div id="wardrobe-frame"></div>
         </div>
         <div id="room-shop" class="panel">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Прикрась кімнату — можна тримати декілька речей одночасно.</p>
+            <p style="margin-top:0; color:#b8a888; font-size:12px;">Прикрась кімнату — можна тримати декілька речей одночасно.</p>
             <div id="room-items-list"></div>
         </div>
     </div>
@@ -6083,11 +6083,10 @@ function buildHtml(botUsername) {
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        // Справжній fullscreen (Bot API 8.0+) — на клієнтах, де його немає,
-        // просто пропускаємо, лишається tg.expand().
-        if (typeof tg.requestFullscreen === 'function') {
-            try { tg.requestFullscreen(); } catch (e) { /* старий клієнт без підтримки */ }
-        }
+        // ⚠️ НЕ додавати tg.requestFullscreen() — вмикає ВЛАСНУ шапку Telegram
+        // (✕ Закрити/аватар/меню) як overlay поверх сторінки, яка перекривала
+        // верхні кнопки гри й блокувала по них тапи. Уже раз ловились, лишити
+        // тільки tg.expand().
         tg.disableVerticalSwipes();
 
         // Автоматично додає підписані дані Telegram (initData) до кожного захищеного запиту,
@@ -6380,7 +6379,7 @@ function buildHtml(botUsername) {
                     return '<div class="case-log-row"><span>' + esc(e.reason) + '</span>' +
                         '<span class="' + cls + '">' + sign + e.delta + '</span></div>';
                 }).join('')
-                : '<div style="color:#9fb4c7; font-size:12px;">Поки що тиша. Ти нікого не цікавиш — і це добре.</div>';
+                : '<div style="color:#c2ab86; font-size:12px;">Поки що тиша. Ти нікого не цікавиш — і це добре.</div>';
         }
 
         // Тексти з сервера потрапляють в innerHTML — екрануємо, щоб чиясь назва
@@ -6417,7 +6416,7 @@ function buildHtml(botUsername) {
             if (!list) return;
             const notices = state.notices || [];
             if (!notices.length) {
-                list.innerHTML = '<div style="color:#9fb4c7; font-size:13px; text-align:center; padding: 18px 0;">' +
+                list.innerHTML = '<div style="color:#c2ab86; font-size:13px; text-align:center; padding: 18px 0;">' +
                     'Поки що жодної повістки. Насолоджуйся.</div>';
                 return;
             }
@@ -6603,7 +6602,7 @@ function buildHtml(botUsername) {
 
             { id: 'inspectors', tab: '👮 Інспектори', title: 'Боси приходять на високий розшук', build: () => {
                 const rows = INSPECTORS.map(i =>
-                    row(i.emoji + ' ' + i.name + '<br><span style="font-size:10px;color:#9fb4c7">' + i.weaknessHint + '</span>',
+                    row(i.emoji + ' ' + i.name + '<br><span style="font-size:10px;color:#c2ab86">' + i.weaknessHint + '</span>',
                         fmtNum(i.hp) + ' · ' + i.window + 'с<br>з розшуку ' + i.unlockHeat)).join('');
                 return '<p class="codex-lead">Приходять самі, коли розшук достатньо високий — і завжди найсерйозніший із доступних. ' +
                     'Бій: клікаєш у вікні, кожен клік коштує ' + ECONOMY.INSPECTOR_ENERGY_PER_CLICK + ' енергії. ' +
@@ -6624,7 +6623,7 @@ function buildHtml(botUsername) {
                     else if (d.cost.clanLevel) cost = 'ОСББ ' + d.cost.clanLevel + ' рівня';
                     else cost = Object.entries(d.cost.res).map(([r,q]) => (RESOURCE_BY_ID[r]||{}).emoji + '×' + q).join(' ');
                     const dur = d.hours >= 24 ? plural(Math.round(d.hours/24), 'доба','доби','діб') : d.hours + ' год';
-                    return row(d.emoji + ' ' + d.name + '<br><span style="font-size:10px;color:#9fb4c7">' + dur + '</span>', cost);
+                    return row(d.emoji + ' ' + d.name + '<br><span style="font-size:10px;color:#c2ab86">' + dur + '</span>', cost);
                 }).join('');
                 return '<p class="codex-lead">Одна активна за раз. Поки діє: повістки не приходять, чужі стуки не діють, ' +
                     'блокпост проходиться автоматично.</p>' +
@@ -6724,7 +6723,7 @@ function buildHtml(botUsername) {
 
             { id: 'district', tab: '🤝 Район', title: 'Люди навколо', build: () => {
                 const rows = REPUTATION_NPCS.map(n =>
-                    block(n.emoji + ' ' + n.name, '<i style="color:#9fb4c7">«' + n.about + '»</i><br>' +
+                    block(n.emoji + ' ' + n.name, '<i style="color:#c2ab86">«' + n.about + '»</i><br>' +
                         'На ' + ECONOMY.REP_MAX + ' репутації: <b style="color:var(--gold)">' + n.perk + '</b>')).join('');
                 return '<p class="codex-lead">У кожного щоденний квест. Квест дня однаковий для всіх і не міняється, ' +
                     'скільки не перезаходь. Ресурсні квести — це саме віддати: ресурси списуються безповоротно.</p>' +
@@ -6789,7 +6788,7 @@ function buildHtml(botUsername) {
                     '<span class="standing-rank">' + s.rank + '</span>' +
                     '<span>' + esc(s.name) + (s.title ? '<span class="season-title-chip">' + esc(s.title) + '</span>' : '') + '</span>' +
                     '<span class="standing-pts">' + fmtNum(s.points) + '</span></div>';
-            }).join('') || '<div style="font-size:12px;color:#9fb4c7;text-align:center;padding:12px;">У цій лізі поки тихо.</div>';
+            }).join('') || '<div style="font-size:12px;color:#c2ab86;text-align:center;padding:12px;">У цій лізі поки тихо.</div>';
         }
 
         function showSeasonResult(r) {
@@ -6829,7 +6828,7 @@ function buildHtml(botUsername) {
                     d.pendingWarCrate + ')</button>';
             }
             if (!d.war) {
-                html += '<p style="font-size:13px; color:#9fb4c7; text-align:center; padding:14px 0; line-height:1.5;">' +
+                html += '<p style="font-size:13px; color:#c2ab86; text-align:center; padding:14px 0; line-height:1.5;">' +
                     'Цього тижня твій чат ОСББ без пари. Пари складаються щопонеділка за рівнем чату.</p>';
                 box.innerHTML = html;
                 return;
@@ -6841,17 +6840,17 @@ function buildHtml(botUsername) {
                 '<div style="font-size:18px;">' + (leading ? '🏆' : '😬') + '</div>' +
                 '<div class="war-side theirs"><b>' + fmtNum(w.theirPoints) + '</b><span>' + esc(w.opponentName) + '</span></div>' +
                 '</div>';
-            html += '<div style="font-size:12px; color:#9fb4c7; text-align:center; margin-bottom:12px;">' +
+            html += '<div style="font-size:12px; color:#c2ab86; text-align:center; margin-bottom:12px;">' +
                 (w.active ? 'До кінця війни: ' + fmtCountdown(Math.max(0, w.endsAt - Date.now())) : 'Війна завершена') +
                 ' · твій внесок: <b style="color:var(--gold)">' + fmtNum(w.myContribution) + '</b></div>';
 
             if (w.enemies.length) {
                 html += '<h3 style="font-size:14px; color:var(--gold); margin:14px 0 6px;">Склад ворожого чату</h3>' +
-                    '<p style="font-size:11px; color:#9fb4c7; margin:0 0 8px;">Стук на ворога дає +' +
+                    '<p style="font-size:11px; color:#c2ab86; margin:0 0 8px;">Стук на ворога дає +' +
                     ECONOMY.WAR_POINTS_SNITCH + ' очок війни і коштує вдвічі дешевше.</p>' +
                     w.enemies.map(e =>
                         '<div class="enemy-row"><span>🕴️</span><span>' + esc(e.name) + '</span>' +
-                        '<span style="font-size:11px;color:#9fb4c7;">схрон ' + e.level + '</span>' +
+                        '<span style="font-size:11px;color:#c2ab86;">схрон ' + e.level + '</span>' +
                         '<button class="snitch-btn" onclick="openProfile(\\'' + e.pid + '\\')">🐍</button></div>'
                     ).join('');
             }
@@ -7067,7 +7066,7 @@ function buildHtml(botUsername) {
 
             document.getElementById('skill-points').innerHTML = data.skillPoints > 0
                 ? 'Вільних очок: <b>' + data.skillPoints + '</b>'
-                : '<span style="font-size:13px; color:#9fb4c7;">Вільних очок немає. Взято ' +
+                : '<span style="font-size:13px; color:#c2ab86;">Вільних очок немає. Взято ' +
                   data.skillsOwned + ' із ' + data.skillsTotal + ' — нові очки дає легалізація.</span>';
 
             document.getElementById('skills-tree').innerHTML = data.branches.map(br =>
@@ -7151,7 +7150,7 @@ function buildHtml(botUsername) {
                 const def = (data.deferments || []).find(d => d.id === data.defermentId);
                 activeBox.className = 'defer-active';
                 activeBox.innerHTML = '<b>' + (def ? def.emoji + ' ' + esc(def.name) : 'Відстрочка діє') + '</b><br>' +
-                    '<span style="font-size:12px; color:#9fb4c7;">Лишилось: <b id="defer-countdown">' +
+                    '<span style="font-size:12px; color:#c2ab86;">Лишилось: <b id="defer-countdown">' +
                     fmtCountdown(state.deferUntil - Date.now()) + '</b></span>';
             }
 
@@ -7222,7 +7221,7 @@ function buildHtml(botUsername) {
             if (data.checkpointAuto) {
                 // Під відстрочкою вибору немає — і це приємно.
                 box.innerHTML = '<div class="defer-active"><b>🎫 У тебе відстрочка</b><br>' +
-                    '<span style="font-size:12px; color:#9fb4c7;">Показав папірець — навіть виходити з машини не довелось.</span></div>' +
+                    '<span style="font-size:12px; color:#c2ab86;">Показав папірець — навіть виходити з машини не довелось.</span></div>' +
                     '<button onclick="passCheckpoint(\\'auto\\')">Їхати далі</button>';
                 return;
             }
@@ -7623,20 +7622,20 @@ function buildHtml(botUsername) {
             investigationSuspects = data.suspects || [];
             if (!data.pending) {
                 state.investigationPending = false;
-                box.innerHTML = '<p style="font-size:13px; color:#9fb4c7; text-align:center; padding: 18px 0;">' +
+                box.innerHTML = '<p style="font-size:13px; color:#c2ab86; text-align:center; padding: 18px 0;">' +
                     'Зараз розслідувати нічого. Живи спокійно.</p>';
                 return;
             }
             if (data.revealed) {
                 // Щур-розвідник уже все підслухав — здогадуватись не треба.
-                box.innerHTML = '<p style="font-size:13px; line-height:1.55; color:#cfe3f2;">' +
+                box.innerHTML = '<p style="font-size:13px; line-height:1.55; color:#e8dcc4;">' +
                     '🐀 Щур-розвідник підслухав розмову і назвав ім\\'я одразу:</p>' +
                     '<div class="suspect-card" style="cursor:default;"><span class="suspect-face">🐍</span>' +
                     '<div><div class="suspect-name">' + esc(data.snitchName) + '</div>' +
                     '<div class="suspect-meta">Тепер ти знаєш. Що з цим робити — вирішуй сам.</div></div></div>';
                 return;
             }
-            box.innerHTML = '<p style="font-size:12px; color:#9fb4c7; line-height:1.5; margin: 4px 0 12px;">' +
+            box.innerHTML = '<p style="font-size:12px; color:#c2ab86; line-height:1.5; margin: 4px 0 12px;">' +
                 'Один здогад. Вгадаєш — забереш частину його балансу як моральну компенсацію. ' +
                 'Помилишся — невинний образиться і отримає право на безкоштовний дзвінок уже на тебе.</p>' +
                 data.suspects.map((s, i) =>
@@ -8705,7 +8704,7 @@ function buildHtml(botUsername) {
                 return;
             }
             if (slots > 1) {
-                html += '<div style="font-size:12px; color:#9fb4c7; text-align:center; margin: 10px 0 8px;">' +
+                html += '<div style="font-size:12px; color:#c2ab86; text-align:center; margin: 10px 0 8px;">' +
                     'Вільних нір: ' + (slots - active.length) + ' з ' + slots + '</div>';
             }
 
@@ -9047,13 +9046,13 @@ function buildHtml(botUsername) {
                 const diff = Math.round(100 * (price - base) / base);
                 const trend = diff > 0
                     ? '<span style="color:#39ff14">+' + diff + '%</span>'
-                    : (diff < 0 ? '<span style="color:#ff5722">' + diff + '%</span>' : '<span style="color:#9fb4c7">0%</span>');
+                    : (diff < 0 ? '<span style="color:#ff5722">' + diff + '%</span>' : '<span style="color:#c2ab86">0%</span>');
                 const visual = a.img
                     ? '<img class="res-img" src="' + a.img + '" alt="">'
                     : a.emoji;
                 return '<div class="asset-row">' +
                     '<div><div class="asset-name">' + visual + ' ' + a.name + '</div>' +
-                    '<div style="font-size:11px;color:#aaa;">У кладовці: ' + held + ' · ' + trend + ' до бази</div></div>' +
+                    '<div style="font-size:11px;color:#b8a888;">У кладовці: ' + held + ' · ' + trend + ' до бази</div></div>' +
                     '<svg class="sparkline" viewBox="0 0 70 24"><polyline points="' + pts + '" fill="none" stroke="#ffd700" stroke-width="2"/></svg>' +
                     '<div class="asset-price">' + price + ' 🪙</div>' +
                     '<div class="asset-controls">' +
@@ -9091,7 +9090,7 @@ function buildHtml(botUsername) {
             // Війна і кооп-бос мають сенс лише всередині чату.
             document.getElementById('clan-war-buttons').classList.toggle('hidden', !state.clanId);
             if (!state.clanId) {
-                el.innerHTML = '<p style="font-size:12px;color:#aaa;">Ти поки не в жодному чаті ОСББ.</p>';
+                el.innerHTML = '<p style="font-size:12px;color:#b8a888;">Ти поки не в жодному чаті ОСББ.</p>';
                 return;
             }
             const lvl = state.clanLevel || 0;
@@ -9100,20 +9099,20 @@ function buildHtml(botUsername) {
             const pct = next ? Math.min(100, Math.round(100 * treasury / next)) : 100;
             const progress = next
                 ? '<div class="storage-bar" style="margin:6px 0;"><div class="storage-fill" style="width:' + pct + '%"></div></div>' +
-                  '<div style="font-size:11px;color:#9fb4c7;">До ' + (lvl + 1) + ' рівня: ' + treasury.toLocaleString('uk-UA') + ' / ' + next.toLocaleString('uk-UA') + ' 🪙</div>'
+                  '<div style="font-size:11px;color:#c2ab86;">До ' + (lvl + 1) + ' рівня: ' + treasury.toLocaleString('uk-UA') + ' / ' + next.toLocaleString('uk-UA') + ' 🪙</div>'
                 : '<div style="font-size:11px;color:var(--gold);margin-top:6px;">Максимальний рівень!</div>';
 
             el.innerHTML =
                 '<div class="clan-card" style="display:block;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
                         '<div><b>🏘 ' + state.clanName + '</b> <span style="color:var(--gold)">Ур. ' + lvl + '</span><br>' +
-                        '<span style="font-size:11px;color:#aaa;">+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву всім учасникам</span></div>' +
+                        '<span style="font-size:11px;color:#b8a888;">+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву всім учасникам</span></div>' +
                         '<button onclick="leaveClan()" style="width:auto;margin:0;padding:6px 12px;font-size:12px;">Вийти</button>' +
                     '</div>' +
                     progress +
-                    '<div style="font-size:11px;color:#9fb4c7;margin-top:6px;">Твій внесок: ' + (state.clanMyContribution || 0).toLocaleString('uk-UA') + ' 🪙</div>' +
+                    '<div style="font-size:11px;color:#c2ab86;margin-top:6px;">Твій внесок: ' + (state.clanMyContribution || 0).toLocaleString('uk-UA') + ' 🪙</div>' +
                     '<div style="display:flex;gap:6px;margin-top:8px;">' +
-                        '<input type="number" id="clan-donate-amount" min="1" placeholder="Сума" style="flex:1;min-width:0;padding:8px;background:#222;border:1px solid #444;color:#fff;border-radius:5px;">' +
+                        '<input type="number" id="clan-donate-amount" min="1" placeholder="Сума" style="flex:1;min-width:0;padding:8px;background:#1c170f;border:1px solid #3a2f22;color:#fff;border-radius:5px;">' +
                         '<button onclick="donateClan()" style="width:auto;margin:0;padding:8px 14px;font-size:12px;white-space:nowrap;">Внести</button>' +
                     '</div>' +
                 '</div>';
@@ -9185,9 +9184,9 @@ function buildHtml(botUsername) {
             list.innerHTML = data.map(c =>
                 '<div class="clan-card"><span>🏘 ' + c.name +
                 ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
-                ' <span style="font-size:11px;color:#9fb4c7;">(' + c.members + ' уч.)</span></span>' +
+                ' <span style="font-size:11px;color:#c2ab86;">(' + c.members + ' уч.)</span></span>' +
                 '<button onclick="joinClan(\\'' + c.id + '\\')">Приєднатись</button></div>'
-            ).join('') || '<p style="font-size:12px;color:#aaa;">Поки немає жодного чату. Створи перший!</p>';
+            ).join('') || '<p style="font-size:12px;color:#b8a888;">Поки немає жодного чату. Створи перший!</p>';
         };
 
         window.loadClanLeaderboard = async () => {
@@ -9198,10 +9197,10 @@ function buildHtml(botUsername) {
             list.innerHTML = data.map((c, i) =>
                 '<div class="clan-card"><span>#' + (i + 1) + ' 🏘 ' + c.name +
                 ' <span style="color:var(--gold)">Ур.' + (c.level || 0) + '</span>' +
-                '<br><span style="font-size:11px;color:#9fb4c7;">' + c.members + ' уч.</span></span>' +
+                '<br><span style="font-size:11px;color:#c2ab86;">' + c.members + ' уч.</span></span>' +
                 '<b style="color:var(--gold)">' + (c.treasury || 0).toLocaleString('uk-UA') + ' 🪙<br>' +
-                '<span style="font-size:10px;color:#9fb4c7;font-weight:normal;">скарбниця</span></b></div>'
-            ).join('') || '<p style="font-size:12px;color:#aaa;">Поки немає рейтингу.</p>';
+                '<span style="font-size:10px;color:#c2ab86;font-weight:normal;">скарбниця</span></b></div>'
+            ).join('') || '<p style="font-size:12px;color:#b8a888;">Поки немає рейтингу.</p>';
         };
 
         // ===== Досягнення =====
@@ -9392,7 +9391,7 @@ function buildHtml(botUsername) {
                 (u.isVip ? '👑 ' : '') + (u.league || '') + ' ' + esc(u.name) +
                 (u.seasonTitle ? '<span class="season-title-chip">' + esc(u.seasonTitle) + '</span>' : '') +
                 ' - <b style="color:var(--gold)">' + fmtNum(Math.floor(u.balance)) + '</b>' +
-                '<span style="font-size:10px; color:#9fb4c7;"> · 🐍' + ((u.snitch || {}).sent || 0) +
+                '<span style="font-size:10px; color:#c2ab86;"> · 🐍' + ((u.snitch || {}).sent || 0) +
                 ' 🎯' + ((u.snitch || {}).received || 0) + '</span></li>'
             ).join('') || '<li>Поки що нікого немає</li>';
         }
