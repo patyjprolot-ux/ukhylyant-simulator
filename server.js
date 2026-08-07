@@ -5409,7 +5409,9 @@ function buildHtml(botUsername) {
         .clan-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .clan-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .pet-card { background-color: rgba(255,255,255,0.05); background-size: cover; background-position: center; border: 1px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 10px; min-height: 92px; box-sizing: border-box; max-width: 62%; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7); }
+        .pet-card { position: relative; background-color: rgba(255,255,255,0.05); background-size: cover; background-position: center; border: 1px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 12px; min-height: 92px; box-sizing: border-box; max-width: 65%; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7); }
+        .pet-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,8,5,0.88) 0%, rgba(10,8,5,0.6) 55%, rgba(10,8,5,0.05) 100%); z-index: 0; }
+        .pet-card > * { position: relative; z-index: 1; }
         .pet-card.equipped { border-color: var(--gold); box-shadow: 0 0 10px rgba(255,212,71,0.4); }
         .pet-card .pet-title { font-weight: bold; }
         .pet-card .pet-desc { font-size: 11px; color: #e8dfce; margin: 4px 0 8px; }
