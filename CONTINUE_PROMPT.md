@@ -293,6 +293,78 @@ Hotspot-координати орієнтирів (`top`/`left` у %) підіб
 (v2) — підлогу 150 000 варто буде переглянути тим самим фіксом (Ф-4), коли
 дійде черга.
 
+## v2.1 «Рівень ухилянта» — ✅ РЕАЛІЗОВАНО Й ЗАПУШЕНО (2026-08-08)
+
+Все нижче зроблено: playerLevel/xp/addXP, LEVEL_UNLOCKS клієнтський гейт,
+Ухирація, серверний гейт інспекторів, FAQ-розділи. Фоновий аудит після
+реалізації знайшов і вже виправлено 2 реальні баги: `xp/playerLevel/ukhyr`
+не потрапляли в `saveToCloud()` (губились при редеплої Render), і
+`syncLevel()` не викликався після перемоги над інспектором (тост/розблок
+запізнювались). Журнал нижче лишено як історичний запис рішень.
+
+## Модуляризація server.js — план готовий, ще НЕ виконано (2026-08-08)
+
+`server.js` — 10 413 рядків в одному файлі. Користувач попросив підготувати
+план розбиття на модулі (не виконувати зараз — окремий захід). План
+розбиття на 5 фаз, від найменш ризикованого до найбільш:
+
+**Фаза 1 (найбезпечніша) — чисті дані/каталоги, без логіки.**
+Винести в `data/*.js` (CommonJS, `module.exports`): `ECONOMY`, `RESOURCES`,
+`CRATES`, `RECIPES`, `EXPEDITIONS`, `LOCATIONS`, `PETS`, `COSMETICS`,
+`QUESTS`, `ACHIEVEMENTS`, `MAP_BUILDINGS`, `HEAT_TIERS`, `NOTICE_TYPES`,
+`SKILL_BRANCHES`, `REPUTATION_NPCS`, `LEAGUES`, `DEFERMENTS`,
+`CHECKPOINT_CHOICES`, `INSPECTORS`, `SYMPTOMS`, `UKHYR_RANKS`. Жодних змін
+поведінки — просто `const ECONOMY = require('./data/economy')` замість
+інлайн-об'єкта. Найкращий перший крок: нульовий ризик, легко звірити
+(`JSON.stringify` до/після рефакторингу мають збігтись байт-в-байт).
+
+**Фаза 2 — чисті серверні функції-механіки (без Express).**
+`lib/mechanics/heat.js` (changeHeat, heatTierOf, heatIncomeMult,
+heatRaidMult), `lib/mechanics/economy.js` (upgCost, upgEffectPerLevel,
+tierGateCost, upgradeGateInfo, tierCostMultCapped), `lib/mechanics/skills.js`
+(hasSkill, applySkillLimits), `lib/mechanics/levels.js` (addXP, addUkhyr,
+xpForLevel, playerLevelForXP, ukhyrRank — сьогоднішній додаток),
+`lib/mechanics/map.js` (mapBuildingLevel, mapBuildingEffect, mapRaidMult,
+mapProtectPct). Кожна функція бере `user`/`ECONOMY` як параметр, не лізе в
+`usersDB` напряму — тому переносяться майже механічно.
+
+**Фаза 3 — модель користувача.**
+`lib/user-store.js`: `createFreshUser`, `migrateUser`, `getUser`, `usersDB`,
+`RESTORE_*_FIELDS`. Тут вже є залежність від Фази 1/2 (дефолтні значення
+беруть з ECONOMY, migrateUser викликає функції з Фази 2) — робити після них.
+
+**Фаза 4 — Express-роути (найбільша й найризикованіша частина логіки).**
+Групувати по `routes/*.js` за доменом, не по одному файлу на ендпоінт:
+`routes/economy.js` (upgrade/craft/storage/market/crate), `routes/social.js`
+(clan/snitch/leaderboard/nickname), `routes/security.js`
+(notices/medcom/checkpoint/inspector), `routes/map.js`, `routes/misc.js`
+(daily/promo/restore/save/user). Кожен файл експортує `(app, deps) => {...}`
+і реєструє свої `app.post/get`. Ризик: легко забути якийсь
+`requireTelegramAuth`/побічний ефект при копіюванні — робити по одному
+домену за раз, з `node -c` і живим smoke-тестом (curl) після КОЖНОГО файлу,
+не пачкою.
+
+**Фаза 5 (найризикованіша, робити останньою) — клієнтський HTML/CSS/JS.**
+`buildHtml()` — один величезний template literal, що вшиває серверні
+каталоги через `${JSON.stringify(X)}` прямо в код. Повне розділення на
+статичні файли вимагає або (а) віддавати `public/app.js`/`public/style.css`
+статично через `express.static` і класти лише маленький
+`<script>window.GAME_DATA = {...}</script>` перед їх підключенням, або (б)
+лишити template-literal, але імпортувати великі шматки з окремих `.js`
+файлів через `require('fs').readFileSync` + конкатенацію. Варіант (а)
+чистіший, але міняє спосіб віддачі (кешування статики, CSP) — вимагає
+окремої перевірки в реальному Telegram WebView, не тільки локально. Один
+хибний бектик/лапка в template literal ламає ВЕСЬ клієнт мовчки (як сьогодні
+було з `\n` — знайдено й виправлено). Робити тільки коли Фази 1-4 вже стабільні
+й обкатані хоча б кілька днів на живих гравцях.
+
+**Загальне правило для всіх фаз:** кожна фаза — окремий коміт (не пуш усе
+одразу), `node -c` + локальний `curl`-smoke-тест з тими самими сценаріями,
+що вже використовувались цієї сесії (промо → фарм ресурсів → купівля/крафт/
+вилазка/апгрейд → перевірка відповіді), і **явне підтвердження від
+користувача перед переходом до наступної фази** — не робити всі 5 одним
+заходом навіть якщо технічно можливо встигнути.
+
 ## v2.1 «Рівень ухилянта» — журнал готовий до реалізації ОДНІЄЮ сесією (2026-08-07)
 
 Користувач передав чернетку від ChatGPT (XP-рівні 1-50 + рейтинг «Ухирація»),
