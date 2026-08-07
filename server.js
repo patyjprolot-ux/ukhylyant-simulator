@@ -805,10 +805,14 @@ const RECIPES = [
         effect: { type: 'shield', hours: 2 },
     },
     {
+        // Аудит балансу (2026-08-07): ресурсний кошт (fuel12+sim8+cash3) ≈ 5 620 ТК
+        // за поточними цінами продажу, тому первісні 40 000 ТК давали чистий
+        // арбітраж ×7 без ризику — краще за будь-яку іншу дію в грі. Знижено до
+        // 9 000 (маржа ×1.6, як у звичайного вигідного крафту, не безкінечний друк грошей).
         id: 'smuggle_kit', name: 'Набір контрабандиста', emoji: '🎒',
         cost: { fuel: 12, sim: 8, cash: 3 },
-        desc: 'Продається перекупу за 40 000 ТК',
-        effect: { type: 'coins', amount: 40000 },
+        desc: 'Продається перекупу за 9 000 ТК',
+        effect: { type: 'coins', amount: 9000 },
     },
     {
         id: 'feast', name: 'Бенкет на районі', emoji: '🍽️',
@@ -961,9 +965,13 @@ const EXPEDITIONS = [
         loot: [{ res: 'wood', min: 6, max: 14 }, { res: 'brick', min: 3, max: 8 }, { res: 'scrap', min: 2, max: 5 }],
     },
     {
+        // Аудит балансу (2026-08-07): за старими цифрами ця вилазка давала ~7.8 ТК/хв,
+        // а "Поїздка до баби в село" (коротша, безпечніша, той самий minLevel) — ~8.9
+        // ТК/хв: довша й ризикованіша місія програвала коротшій, тому сенсу її обирати
+        // не було. Здобич піднято, щоб вищий ризик реально компенсувався вищим доходом.
         id: 'warehouse', name: 'Нічний склад', emoji: '🏭', minutes: 480, minLevel: 3, risk: 0.25,
         desc: 'Вісім годин у чужому складі. Здобич серйозна.',
-        loot: [{ res: 'meds', min: 6, max: 14 }, { res: 'fuel', min: 5, max: 12 }, { res: 'sim', min: 3, max: 8 }],
+        loot: [{ res: 'meds', min: 9, max: 20 }, { res: 'fuel', min: 7, max: 17 }, { res: 'sim', min: 4, max: 11 }],
     },
     {
         id: 'village', name: 'Поїздка до баби в село', emoji: '🚜', minutes: 240, minLevel: 3, risk: 0.15,
@@ -1855,8 +1863,19 @@ const TIER_GATES = {
 function upgTier(level) { return Math.floor(level / ECONOMY.TIER_SIZE); }
 function upgInTier(level) { return level % ECONOMY.TIER_SIZE; }
 // Ціна купівлі рівня (level+1), коли поточний (уже куплений) рівень = level.
+// Аудит балансу (2026-08-07): TIER_GATES (ресурсні "ворота" між ешелонами) описані
+// лише до 5-го ешелону (рівень 50) і далі самі себе пом'якшують ×1.6/ешелон
+// (tierGateCost нижче). Але ціна САМОГО рівня в ТК досі множилась на
+// TIER_COST_MULT^tier (22^tier) без жодної межі — на 10-му ешелоні це вже ×22^10,
+// астрономічне число практично назавжди зупиняє прогрес. Дзеркалимо той самий
+// підхід ×1.6/ешелон за межею 5-го, щоб зростання не було необмеженим.
+function tierCostMultCapped(tier) {
+    const cap = 5;
+    if (tier <= cap) return Math.pow(ECONOMY.TIER_COST_MULT, tier);
+    return Math.pow(ECONOMY.TIER_COST_MULT, cap) * Math.pow(1.6, tier - cap);
+}
 function upgCost(base, level) {
-    return Math.round(base * Math.pow(ECONOMY.TIER_COST_MULT, upgTier(level)) * Math.pow(ECONOMY.IN_TIER_GROWTH, upgInTier(level)));
+    return Math.round(base * tierCostMultCapped(upgTier(level)) * Math.pow(ECONOMY.IN_TIER_GROWTH, upgInTier(level)));
 }
 // Скільки додає ОДИН рівень апгрейда, коли поточний (до купівлі) рівень = level.
 function upgEffectPerLevel(baseEffect, level) {
