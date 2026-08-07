@@ -1729,7 +1729,7 @@ function applyOfflineProgress(user) {
         const clan = getClanInfo(user);
         const vipMult = user.isVip ? 3 : 1;
         // Єдиний порядок множників доходу в грі: base * heat * vip * prestige * clan.
-        offlineEarnings = Math.floor(user.passive * heatIncomeMult(user) * vipMult * clan.bonus * elapsedSec);
+        offlineEarnings = Math.floor(user.passive * heatIncomeMult(user) * vipMult * prestigeMultiplier(user) * clan.bonus * elapsedSec);
         user.balance += offlineEarnings;
     }
     user.lastSeenAt = now;
@@ -3315,6 +3315,7 @@ app.post('/api/prestige/claim', requireTelegramAuth, (req, res) => {
     applySkillLimits(user);
     user.energy = user.maxEnergy;
     user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
+    user.upgTiersUnlocked = { hat: 0, jam: 0, thermos: 0, generator: 0 };
     user.portfolio = {};
     user.expeditions = [];
     // Ти тепер офіційно легальний — справу закрито, повістки анульовано.

@@ -356,12 +356,15 @@ mobile-clicker art style similar to Hamster Kombat, dark charcoal background, cr
 gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
 ```
 
-**Рулон замість шапки** (заміна 🧻)
+**Рулон замість шапки** (заміна 🧻) — ⚠️ виправлено 2026-08-07: стара версія
+малювала голову в кадрі → задвоєння обличчя при накладенні на персонажа.
 ```
-Icon of a toilet paper roll balanced on top of the head, isolated game icon, flat vector
-game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
-mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and
-gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+Icon of a roll of white toilet paper with a strap that turns it into a wearable hat,
+isolated object only, no face, no head, no body, no person, just the toilet paper roll
+and strap floating on a plain background, flat vector game-icon illustration, thick clean
+black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar
+to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark, centered composition
 ```
 
 **Капелюх-парасолька** (заміна ☂️)
@@ -380,12 +383,15 @@ art style similar to Hamster Kombat, dark charcoal background, crimson red and g
 lighting, slightly absurd comedic tone, no text, no watermark, centered composition
 ```
 
-**Крижаний компрес на голові** (заміна 🧊)
+**Крижаний компрес на голові** (заміна 🧊) — ⚠️ виправлено 2026-08-07: стара
+версія малювала голову в кадрі → задвоєння обличчя при накладенні на персонажа.
 ```
-Icon of an ice pack strapped to the forehead, isolated game icon, flat vector game-icon
-illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker
-art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim
-lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+Icon of an ice pack wrapped in cloth with a simple elastic strap, isolated object only,
+no face, no head, no body, no person, just the ice pack and strap floating on a plain
+background, flat vector game-icon illustration, thick clean black outlines, cel-shaded
+flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark
+charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone,
+no text, no watermark, centered composition
 ```
 
 ---
@@ -718,66 +724,40 @@ lighting, slightly absurd comedic tone, no text, no watermark, centered composit
 
 ---
 
-## (Опційно) Кімнати анфас для екрана "Кімната" (1024×1024, 6 шт.)
+## Кімнати анфас, яких бракує — Човен і Бункер (16:9, ПРІОРИТЕТ)
 
-Заміна для тих самих 6 локацій, тільки персонаж стоїть на весь зріст анфас —
-щоб гардероб (капелюхи/маски/аксесуари) лягав рівно завжди, а не як зараз
-(кожна локація — це окрема поза: виглядає з-під дивана, гребе на човні тощо).
+⚠️ **Виправлено (2026-08-07):** старий чернетковий розділ тут мав дві помилки —
+"1024×1024" (насправді контейнер `.room-scene` в коді `aspect-ratio:16/9`) і
+"centered composition" (насправді координати гардеробу `#room-cosmetic-*`
+зашиті під ПРАВУ ТРЕТИНУ кадру, `left:77%`). 4 з 6 локацій (диван/підвал/
+балкани/закордон) вже намальовані правильно в цій позі — чіпати їх не треба.
+Бракує лише Човна і Бункера. Повний план — `customization_rework_plan.md`
+в корені проєкту.
 
-**Кімната 1: Бабусин Диван (анфас)**
+**room-4-boat (Човен на Тисі)**
 ```
-Cartoon young man standing full-body, facing camera directly, arms relaxed, in grandma's
-cluttered living room with a floral couch behind him, centered composition, plenty of empty
-space above his head for hats, flat vector game-icon illustration, thick clean black outlines,
-cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark
-charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text,
-no watermark, centered composition
-```
-
-**Кімната 2: Вологий Підвал (анфас)**
-```
-Cartoon young man standing full-body, facing camera directly, in a dim damp concrete basement
-with a hanging bare lightbulb, centered composition, empty space above head, flat vector
-game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
-mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and
-gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
-```
-
-**Кімната 3: Балканська хатинка (анфас)**
-```
-Cartoon young man standing full-body, facing camera directly, in front of a small rustic
-Balkan mountain hut with drying peppers on the wall, centered composition, empty space above
-head, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors,
-dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background,
-crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark,
-centered composition
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, same body
+proportions and figure size as a standard character reference, plenty of empty space
+above his head for hats, standing on the deck of a small wooden boat, foggy river and
+dark forest silhouette in the background, moonlight on the water, the rest of the left
+two-thirds of the frame is open empty deck space with no other objects drawn (leave it
+uncluttered, decor will be added later), flat vector game-icon illustration, thick clean
+black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar
+to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
 ```
 
-**Кімната 4: Човен на Тисі (анфас)**
+**room-6-bunker (Президентський бункер)**
 ```
-Cartoon young man standing full-body, facing camera directly, next to a small wooden boat on a
-foggy riverbank, centered composition, empty space above head, flat vector game-icon
-illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker
-art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim
-lighting, slightly absurd comedic tone, no text, no watermark, centered composition
-```
-
-**Кімната 5: Закордон (анфас)**
-```
-Cartoon young man standing full-body, facing camera directly, near a border checkpoint barrier
-at dawn with a small suitcase by his feet, centered composition, empty space above head, flat
-vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark
-satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson
-red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered
-composition
-```
-
-**Кімната 6: Президентський бункер (анфас)**
-```
-Cartoon young man standing full-body, facing camera directly, confidently in a plush
-underground bunker room with a giant round security door behind him, centered composition,
-empty space above head, flat vector game-icon illustration, thick clean black outlines,
-cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark
-charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text,
-no watermark, centered composition
+Wide 16:9 illustration, cartoon young man standing full-body, facing camera directly,
+positioned in the right third of the frame, arms relaxed at his sides, same body
+proportions and figure size as a standard character reference, plenty of empty space
+above his head for hats, confidently standing in a plush underground bunker room with a
+giant round security door and retro control panels on the left wall, warm lamp lighting,
+the rest of the left two-thirds of the frame is open empty floor space with no other
+objects drawn (leave it uncluttered, decor will be added later), flat vector game-icon
+illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
+mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red
+and gold rim lighting, slightly absurd comedic tone, no text, no watermark
 ```
