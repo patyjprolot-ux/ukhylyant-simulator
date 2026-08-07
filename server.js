@@ -54,10 +54,17 @@ function byId(list) {
 }
 
 const ECONOMY = {
-    // --- Апгрейди магазину: тепер БАГАТОРІВНЕВІ (купуються нескінченно) ---
-    // Ціна рівня N = base * UPGRADE_GROWTH^N. Ціни стартово низькі, але ростуть швидко —
-    // це головний нескінченний сток валюти, щоб гра не проходилась за вечір.
-    UPGRADE_GROWTH: 1.58,
+    // --- Апгрейди магазину: ЕШЕЛОННА система (v2.0 «Вертикаль», журнал 2026-08-07) ---
+    // Стара UPGRADE_GROWTH (чисто експоненційна ціна проти лінійного ефекту) видалена —
+    // математично неминуча стіна за будь-якого growth>1, відкат числа лікує симптом,
+    // не причину. Замість неї: ешелони по TIER_SIZE рівнів. Усередині ешелону ціна
+    // росте м'яко (IN_TIER_GROWTH), перехід у новий ешелон — окрема "гейт"-подія за
+    // ТК (через звичайну ціну рівня) + ресурси (TIER_GATES нижче), і множить ефект
+    // рівня на TIER_EFFECT_MULT. Дохід і ціна відтоді ростуть одним законом.
+    TIER_SIZE: 10,
+    TIER_COST_MULT: 22,
+    IN_TIER_GROWTH: 1.35,
+    TIER_EFFECT_MULT: 2.2,
     HAT_PRICE: 40, HAT_CLICK_BONUS: 1,
     JAM_PRICE: 150, JAM_PASSIVE_BONUS: 1,
     THERMOS_PRICE: 900, THERMOS_CLICK_BONUS: 3,
@@ -651,21 +658,24 @@ const CRATES = [
     },
     {
         id: 'contraband', name: 'Контрабандний контейнер', emoji: '🚢', img: '/images/gacha-box-elite.webp',
-        price: 35000, currency: 'coins',
+        price: 60000, currency: 'coins',
         desc: 'Приплив по Тисі. Питань не задаємо, вміст не коментуємо.',
+        // Ціна й ваги підкручені журналом v2.0 (розділ 6.5): ресурси тепер справді
+        // цінні (їдять ешелони апгрейдів), тому дорожче; ticket 5→1 — Білий Квиток
+        // мав ~4.3% з не-донатного ящика, тепер ~0.87%, лишається рідкісною фіналкою.
         loot: [
             { type: 'res', res: 'cash', min: 2, max: 6, weight: 22 },
             { type: 'res', res: 'sim', min: 5, max: 12, weight: 18 },
             { type: 'res', res: 'fuel', min: 6, max: 14, weight: 16 },
             { type: 'coins', min: 25000, max: 60000, weight: 14 },
             { type: 'res', res: 'stamp', min: 1, max: 3, weight: 12 },
-            { type: 'res', res: 'scrap', min: 4, max: 10, weight: 8 },
-            { type: 'res', res: 'brick', min: 4, max: 10, weight: 8 },
+            { type: 'res', res: 'scrap', min: 4, max: 10, weight: 10 },
+            { type: 'res', res: 'brick', min: 4, max: 10, weight: 10 },
             { type: 'cosmetic', weight: 10 },
-            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 5 },
+            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 1 },
             // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
             // не взяти найдовшу відстрочку.
-            { type: 'res', res: 'phone', min: 1, max: 1, weight: 3 },
+            { type: 'res', res: 'phone', min: 1, max: 1, weight: 2 },
             { type: 'res', res: 'shard', min: 1, max: 3, weight: 6 },
             { type: 'granny', weight: 4 },
             { type: 'energy', weight: 3 },
@@ -822,9 +832,9 @@ const RECIPES = [
     // стануть валютою будівництва на карті території. ---
     {
         id: 'reinforced_hideout', name: 'Зміцнена криївка', emoji: '🪜',
-        cost: { wood: 20, brick: 10, scrap: 5 },
-        desc: '+35 до максимальної енергії (назавжди)',
-        effect: { type: 'maxEnergy', amount: 35 },
+        cost: { wood: 28, brick: 14, scrap: 8 },
+        desc: '+28 до максимальної енергії (назавжди)',
+        effect: { type: 'maxEnergy', amount: 28 },
     },
     {
         id: 'scrap_generator', name: 'Генератор з металобрухту', emoji: '⚙️',
@@ -1366,6 +1376,7 @@ function createFreshUser(id, name) {
         resources: {},              // { cans: 12, battery: 3, ... }
         storageLevel: 0,            // місткість = BASE + level * PER_LEVEL
         upgrades: { hat: 0, jam: 0, thermos: 0, generator: 0 }, // рівні багаторівневих апгрейдів
+        upgTiersUnlocked: { hat: 0, jam: 0, thermos: 0, generator: 0 }, // пробиті ешелони (v2.0)
         craftedCount: 0,
         cratesOpened: {},           // { cardboard: 5, elite: 1, ... } — для статистики й досягнень
         shieldUntil: 0,             // timestamp: до якого моменту діє щит від облав
@@ -1508,6 +1519,19 @@ function migrateUser(user) {
     }
     for (const k of ['hat', 'jam', 'thermos', 'generator']) {
         if (typeof user.upgrades[k] !== 'number') user.upgrades[k] = 0;
+    }
+    // Ешелони v2.0: живі гравці не платять заднім числом за рівні, які вже мають —
+    // ешелони до поточного рівня грандфазеряться безкоштовно (журнал, розділ 9.2).
+    if (typeof user.upgTiersUnlocked !== 'object' || user.upgTiersUnlocked === null) {
+        user.upgTiersUnlocked = { hat: 0, jam: 0, thermos: 0, generator: 0 };
+        for (const k of ['hat', 'jam', 'thermos', 'generator']) {
+            user.upgTiersUnlocked[k] = Math.floor((user.upgrades[k] || 0) / ECONOMY.TIER_SIZE);
+        }
+    }
+    for (const k of ['hat', 'jam', 'thermos', 'generator']) {
+        if (typeof user.upgTiersUnlocked[k] !== 'number') {
+            user.upgTiersUnlocked[k] = Math.floor((user.upgrades[k] || 0) / ECONOMY.TIER_SIZE);
+        }
     }
     if (typeof user.heat !== 'number' || !isFinite(user.heat)) user.heat = 0;
     if (!Array.isArray(user.heatLog)) user.heatLog = [];
@@ -1780,6 +1804,75 @@ const UPGRADE_BASE = {
     hat: ECONOMY.HAT_PRICE, jam: ECONOMY.JAM_PRICE,
     thermos: ECONOMY.THERMOS_PRICE, generator: ECONOMY.GENERATOR_PRICE,
 };
+const UPGRADE_BASE_EFFECT = {
+    hat: ECONOMY.HAT_CLICK_BONUS, jam: ECONOMY.JAM_PASSIVE_BONUS,
+    thermos: ECONOMY.THERMOS_CLICK_BONUS, generator: ECONOMY.GENERATOR_PASSIVE_BONUS,
+};
+
+// Гейти ешелонів: щоб купити рівень 11/21/31/…, мало заплатити ТК за сам рівень —
+// треба ще "пробити" ешелон ресурсами. Індекс 0 = гейт у ешелон 1 (після рівня 10),
+// індекс 1 = гейт у ешелон 2 (після 20) і т.д. Ешелон 6+ — остання таблиця ×1.6^(tier-5).
+// coins із журналу = валюта (cash, тір 3), batt = battery, med = meds.
+const TIER_GATES = {
+    hat: [
+        { paper: 10, tape: 8 },
+        { paper: 24, tape: 18, scrap: 6 },
+        { paper: 40, tape: 30, cash: 4 },
+        { cash: 8, stamp: 3 },
+        { cash: 16, stamp: 8, phone: 1 },
+    ],
+    jam: [
+        { cans: 12, battery: 8 },
+        { cans: 26, battery: 18, wood: 10 },
+        { cans: 40, meds: 10, sausage: 8 },
+        { cash: 8, stamp: 3 },
+        { cash: 16, stamp: 8, phone: 1 },
+    ],
+    thermos: [
+        { meds: 6, sausage: 6 },
+        { meds: 14, sausage: 12, fuel: 8 },
+        { meds: 24, fuel: 16, sim: 5 },
+        { cash: 10, stamp: 4 },
+        { cash: 20, stamp: 10, phone: 1 },
+    ],
+    generator: [
+        { wood: 10, scrap: 8 },
+        { wood: 24, scrap: 16, brick: 10 },
+        { fuel: 20, scrap: 24, brick: 16 },
+        { cash: 12, stamp: 5 },
+        { cash: 24, stamp: 12, phone: 1 },
+    ],
+};
+function upgTier(level) { return Math.floor(level / ECONOMY.TIER_SIZE); }
+function upgInTier(level) { return level % ECONOMY.TIER_SIZE; }
+// Ціна купівлі рівня (level+1), коли поточний (уже куплений) рівень = level.
+function upgCost(base, level) {
+    return Math.round(base * Math.pow(ECONOMY.TIER_COST_MULT, upgTier(level)) * Math.pow(ECONOMY.IN_TIER_GROWTH, upgInTier(level)));
+}
+// Скільки додає ОДИН рівень апгрейда, коли поточний (до купівлі) рівень = level.
+function upgEffectPerLevel(baseEffect, level) {
+    return baseEffect * Math.pow(ECONOMY.TIER_EFFECT_MULT, upgTier(level));
+}
+// Вартість ресурсів, щоб пробити ешелон tier (1-based: 1 = гейт після рівня 10).
+function tierGateCost(key, tier) {
+    const gates = TIER_GATES[key];
+    if (tier <= gates.length) return gates[tier - 1];
+    const last = gates[gates.length - 1];
+    const mult = Math.pow(1.6, tier - gates.length);
+    const scaled = {};
+    for (const [res, qty] of Object.entries(last)) scaled[res] = Math.ceil(qty * mult);
+    return scaled;
+}
+// Чи гейт потрібен ПРЯМО ЗАРАЗ (гравець стоїть рівно на межі ешелону, наступний
+// рівень уже належить новому ешелону) і чи він уже пробитий.
+function upgradeGateInfo(user, key) {
+    const owned = (user.upgrades && user.upgrades[key]) || 0;
+    if (owned === 0 || owned % ECONOMY.TIER_SIZE !== 0) return null;
+    const tier = owned / ECONOMY.TIER_SIZE;
+    const unlocked = (user.upgTiersUnlocked && user.upgTiersUnlocked[key]) || 0;
+    if (unlocked >= tier) return null;
+    return { tier, cost: tierGateCost(key, tier) };
+}
 
 // Скільки рівнів апгрейда гравець потягне за N спроб і скільки це коштує.
 // maxLevels = Infinity означає "все, що по кишені". Ціна росте геометрично,
@@ -1788,8 +1881,13 @@ function upgradeBatchPlan(user, key, maxLevels) {
     let cost = 0;
     let levels = 0;
     const owned = user.upgrades[key] || 0;
+    const unlocked = (user.upgTiersUnlocked && user.upgTiersUnlocked[key]) || 0;
     while (levels < maxLevels) {
-        const next = Math.round(UPGRADE_BASE[key] * Math.pow(ECONOMY.UPGRADE_GROWTH, owned + levels));
+        const current = owned + levels;
+        // Межа ешелону, ще не пробита ресурсами — батч зупиняється тут (не купуємо
+        // "в борг" і не автосписуємо ресурси мовчки, гравець тисне окрему кнопку гейта).
+        if (current > 0 && current % ECONOMY.TIER_SIZE === 0 && unlocked < current / ECONOMY.TIER_SIZE) break;
+        const next = upgCost(UPGRADE_BASE[key], current);
         if (cost + next > user.balance) break;
         cost += next;
         levels++;
@@ -1798,10 +1896,12 @@ function upgradeBatchPlan(user, key, maxLevels) {
     return { levels, cost };
 }
 
-// Ціна наступного рівня багаторівневого апгрейда магазину.
+// Ціна наступного рівня багаторівневого апгрейда магазину (null, якщо спочатку
+// треба пробити ешелон — дивись upgradeGateInfo).
 function upgradeCost(user, key) {
+    if (upgradeGateInfo(user, key)) return null;
     const lvl = (user.upgrades && user.upgrades[key]) || 0;
-    return Math.round(UPGRADE_BASE[key] * Math.pow(ECONOMY.UPGRADE_GROWTH, lvl));
+    return upgCost(UPGRADE_BASE[key], lvl);
 }
 
 function hasActiveShield(user) {
@@ -2178,6 +2278,58 @@ function prestigePointsAvailable(user) {
 
 function prestigeMultiplier(user) {
     return 1 + (user.prestigePoints || 0) * ECONOMY.PRESTIGE_BONUS_PER_POINT;
+}
+
+// "Наступний крок" (журнал v2.0, розділ 7) — один рядок під шапкою, що каже
+// гравцю, куди йти ПРЯМО ЗАРАЗ. Перша спрацьована умова виграє, детерміновано.
+// Рахується на сервері (як heat/notices), а не вгадується клієнтом.
+function nextStep(user) {
+    const now = Date.now();
+    const soonNotice = (user.notices || []).find((n) => (n.expiresAt || n.deadline || 0) - now < 60 * 60 * 1000 && (n.expiresAt || n.deadline || 0) > now);
+    if (soonNotice) return { icon: '⏰', text: 'Повістка протухає — зніми', tab: 'notices' };
+
+    if (user.inspector && (user.inspector.endsAt || 0) > now) {
+        const insp = INSPECTOR_BY_ID[user.inspector.id];
+        return { icon: '👮', text: (insp ? insp.name : 'Інспектор') + ' на порозі', tab: 'heatcase' };
+    }
+
+    const doneExp = (user.expeditions || []).find((e) => (e.endsAt || 0) <= now);
+    if (doneExp) return { icon: '🎒', text: 'Забери здобич з вилазки', tab: 'storage-exp' };
+
+    const used = storageUsed(user), cap = storageCapacity(user);
+    if (cap > 0 && used / cap > 0.85) return { icon: '📦', text: 'Кладовка повна — продай/скрафти', tab: 'storage' };
+
+    if (!(user.expeditions || []).length && user.energy > user.maxEnergy * 0.8) {
+        return { icon: '🚶', text: 'Відправ вилазку', tab: 'storage-exp' };
+    }
+
+    const UPGRADE_NAMES = { hat: 'Шапочка з фольги', jam: 'Закрутка', thermos: 'Термос кави', generator: 'Генератор' };
+    for (const key of ['hat', 'jam', 'thermos', 'generator']) {
+        const gate = upgradeGateInfo(user, key);
+        if (gate) {
+            const missing = Object.entries(gate.cost).filter(([r, q]) => (user.resources[r] || 0) < q);
+            if (!missing.length) {
+                return { icon: '🔓', text: 'Пробий ешелон "' + UPGRADE_NAMES[key] + '"', tab: 'shop' };
+            }
+            const [resId] = missing[0];
+            return { icon: '🧱', text: 'Не вистачає ' + RESOURCE_BY_ID[resId].name + ' для ешелону', tab: 'market' };
+        }
+    }
+
+    if (user.craftedCount === 0) return { icon: '🔧', text: 'Скрафти щось у кладовці', tab: 'storage' };
+
+    const readyQuest = QUESTS.find((q) => {
+        if ((user.claimedQuests || []).includes(q.id)) return false;
+        const p = questProgress(user, q);
+        return !p.invert && p.have / p.need >= 0.8 && p.have / p.need < 1;
+    });
+    if (readyQuest) return { icon: '📋', text: '«' + readyQuest.name + '» — майже', tab: 'quests' };
+
+    if (user.level >= ECONOMY.PRESTIGE_UNLOCK_LEVEL && prestigePointsAvailable(user) > 0) {
+        return { icon: '🎓', text: 'Час легалізуватись', tab: 'revenge' };
+    }
+
+    return { icon: '💰', text: 'Купуй рівні / клікай', tab: 'shop' };
 }
 
 // Розкриває один ящик: обирає дроп за вагами і одразу застосовує ефект до гравця.
@@ -2582,9 +2734,14 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         storageUsed: storageUsed(user),
         storageUpgradeCost: user.storageLevel >= ECONOMY.STORAGE_MAX_LEVEL ? null : storageUpgradeCost(user),
         upgrades: user.upgrades,
+        upgTiersUnlocked: user.upgTiersUnlocked,
         upgradeCosts: {
             hat: upgradeCost(user, 'hat'), jam: upgradeCost(user, 'jam'),
             thermos: upgradeCost(user, 'thermos'), generator: upgradeCost(user, 'generator'),
+        },
+        upgradeGates: {
+            hat: upgradeGateInfo(user, 'hat'), jam: upgradeGateInfo(user, 'jam'),
+            thermos: upgradeGateInfo(user, 'thermos'), generator: upgradeGateInfo(user, 'generator'),
         },
         craftedCount: user.craftedCount,
         cratesOpened: user.cratesOpened,
@@ -2607,6 +2764,8 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         trophies: user.trophies || [],
         mapBuildings: user.mapBuildings,
+        nickname: user.nickname,
+        nextStep: nextStep(user),
         medcomStats: user.medcomStats,
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
@@ -2720,7 +2879,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
         robbery, snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
         investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
         deferUntil: user.deferUntil || 0,
-        ...inspectorSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user),
+        ...inspectorSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user), nextStep: nextStep(user),
     });
 });
 
@@ -2737,7 +2896,7 @@ const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energ
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
-const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats', 'mapBuildings'];
+const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats', 'mapBuildings', 'upgTiersUnlocked'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
@@ -3349,19 +3508,53 @@ app.post('/api/upgrade/buy', requireTelegramAuth, (req, res) => {
     // довіряти не можна.
     const want = req.body.amount === 'max' ? Infinity : Math.max(1, Math.floor(Number(req.body.amount) || 1));
     const plan = upgradeBatchPlan(user, key, want);
-    if (!plan.levels) return res.json({ success: false, message: 'Недостатньо ТК' });
+    if (!plan.levels) {
+        const gate = upgradeGateInfo(user, key);
+        return res.json({ success: false, message: gate ? 'Спочатку пробий ешелон' : 'Недостатньо ТК', gate });
+    }
 
     user.balance -= plan.cost;
+    const owned = user.upgrades[key] || 0;
+    // Ефект рівня залежить від ешелону (upgEffectPerLevel), тому сумуємо по кожному
+    // рівню в пачці окремо — купівля MAX через межу ешелону (де вже пробитий гейт)
+    // мусить рахувати старіші рівні за старим множником, новіші — за новим.
+    let effectSum = 0;
+    for (let i = 0; i < plan.levels; i++) effectSum += upgEffectPerLevel(UPGRADE_BASE_EFFECT[key], owned + i);
+    effectSum = Math.round(effectSum * 10) / 10;
     user.upgrades[key] += plan.levels;
-    if (key === 'hat') user.clickVal += ECONOMY.HAT_CLICK_BONUS * plan.levels;
-    if (key === 'jam') user.passive += ECONOMY.JAM_PASSIVE_BONUS * plan.levels;
-    if (key === 'thermos') user.clickVal += ECONOMY.THERMOS_CLICK_BONUS * plan.levels;
-    if (key === 'generator') user.passive += ECONOMY.GENERATOR_PASSIVE_BONUS * plan.levels;
+    if (key === 'hat' || key === 'thermos') user.clickVal += effectSum;
+    else user.passive += effectSum;
     const unlocked = checkAchievements(user);
     res.json({
         success: true, balance: user.balance, clickVal: user.clickVal, passive: user.passive,
-        upgrades: user.upgrades, nextCost: upgradeCost(user, key), unlockedAchievements: unlocked,
-        levelsBought: plan.levels, spent: plan.cost,
+        upgrades: user.upgrades, nextCost: upgradeCost(user, key), nextGate: upgradeGateInfo(user, key),
+        unlockedAchievements: unlocked, levelsBought: plan.levels, spent: plan.cost, effectGained: effectSum,
+    });
+});
+
+// Пробити ешелон: заплатити ресурсами, щоб продовжити купувати рівні понад
+// межу (10/20/30/...). ТК за сам рівень платяться окремо, звичайним /api/upgrade/buy.
+app.post('/api/upgrade/breakTier', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const key = req.body.key;
+    if (!UPGRADE_BASE[key]) return res.status(400).json({ error: 'Невідомий апгрейд' });
+    const gate = upgradeGateInfo(user, key);
+    if (!gate) return res.json({ success: false, message: 'Ешелон зараз не потрібно пробивати' });
+    for (const [resId, qty] of Object.entries(gate.cost)) {
+        if ((user.resources[resId] || 0) < qty) {
+            return res.json({ success: false, message: `Не вистачає: ${RESOURCE_BY_ID[resId].name}` });
+        }
+    }
+    for (const [resId, qty] of Object.entries(gate.cost)) {
+        user.resources[resId] -= qty;
+        if (user.resources[resId] <= 0) delete user.resources[resId];
+    }
+    if (!user.upgTiersUnlocked) user.upgTiersUnlocked = { hat: 0, jam: 0, thermos: 0, generator: 0 };
+    user.upgTiersUnlocked[key] = gate.tier;
+    res.json({
+        success: true, tier: gate.tier, upgTiersUnlocked: user.upgTiersUnlocked,
+        nextCost: upgradeCost(user, key), nextGate: upgradeGateInfo(user, key),
+        ...storageSnapshot(user),
     });
 });
 
@@ -5027,6 +5220,7 @@ function buildHtml(botUsername) {
         header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #f0b93fcc; }
+        .next-step { margin-top: 8px; padding: 8px 10px; background: rgba(224,165,46,0.12); border: 1px solid rgba(224,165,46,0.35); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
         h2 { margin: 5px 0; font-family: 'Comfortaa', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(224,165,46,0.5); }
         .stats { display: flex; justify-content: space-between; font-size: 14px; color: #c2ab86; margin-top: 5px; }
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
@@ -5142,7 +5336,9 @@ function buildHtml(botUsername) {
         .insp-roster-meta { font-size: 11px; color: #c2ab86; line-height: 1.4; }
 
         /* ===== Відстрочки та блокпост ===== */
-        #deferment-screen, #checkpoint-screen, #map-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(10,8,5,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #deferment-screen, #checkpoint-screen, #map-screen, #nickname-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(10,8,5,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #nickname-screen { display: flex; align-items: center; }
+        #nickname-screen.hidden { display: none; }
         .map-wrap { max-width: 640px; margin: 0 auto; }
         .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         .map-img-wrap img { width: 100%; display: block; }
@@ -5516,9 +5712,11 @@ function buildHtml(botUsername) {
         #medcom-screen, #inspector-screen, #deferment-screen, #checkpoint-screen, #map-screen,
         #skills-screen, #offline-report, #reputation-screen, #season-screen, #war-screen,
         #season-result, #district-screen, #codex-screen, #crate-overlay, #help-overlay,
-        #room-screen {
+        #room-screen, #disclaimer-overlay {
             padding-top: max(16px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px));
         }
+        #disclaimer-overlay { position: fixed; inset: 0; z-index: 1950; background: rgba(10,8,5,0.95); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+        #disclaimer-overlay.hidden { display: none; }
         .room-close { position: absolute; top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
         /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
            анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
@@ -5559,10 +5757,11 @@ function buildHtml(botUsername) {
     <header>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
-        <div class="header-line">
-            <span id="username">Ухилянт</span><span id="vip-badge" class="vip-badge hidden">VIP</span> | Lvl: <span id="level-display">1</span>
+        <div class="header-line" onclick="openNicknameEditor()" style="cursor:pointer;">
+            <span id="username">Ухилянт</span> ✏️<span id="vip-badge" class="vip-badge hidden">VIP</span> | Lvl: <span id="level-display">1</span>
         </div>
         <h2><span id="balance">0</span> 🪙 ТК</h2>
+        <div id="next-step" class="next-step hidden" onclick="goNextStep()"></div>
         <div class="stats">
             <span>Пасив: <span id="passive">0</span>/с</span>
             <span>⭐ <span id="stars-count">0</span></span>
@@ -5773,6 +5972,22 @@ function buildHtml(botUsername) {
         <button onclick="document.getElementById('gacha-result').classList.add('hidden')">Забрати</button>
     </div>
 
+    <!-- Дисклеймер: гра — сатира, не заклик. Показується один раз, до довідки. -->
+    <div id="disclaimer-overlay" class="hidden">
+        <div id="help-card" style="text-align:center;">
+            <div style="font-size:40px; margin-bottom:8px;">🎭</div>
+            <h2 style="margin-top:0; color:var(--gold); font-size:19px;">Це все вигадано</h2>
+            <p style="font-size:13px; line-height:1.6; color:var(--text); margin:0 0 16px;">
+                «Симулятор Ухилянта» — сатирична гра для друзів. Усі механіки, персонажі
+                й ситуації вигадані й перебільшені заради жарту. Гра НЕ закликає до
+                протиправних дій, ухилення від мобілізації чи будь-яких порушень
+                закону — і засуджує їх. Насильство в грі відсутнє. Це розвага у
+                комічному вигляді, не інструкція й не заклик до дії.
+            </p>
+            <button onclick="closeDisclaimer()">Зрозуміло</button>
+        </div>
+    </div>
+
     <!-- Коротка довідка. Показується один раз на першому запуску (прапорець у
          localStorage) і далі відкривається кнопкою "?" у шапці. -->
     <div id="help-overlay" class="hidden">
@@ -5958,6 +6173,22 @@ function buildHtml(botUsername) {
             <div id="deferment-active" class="hidden"></div>
             <div id="deferment-list"></div>
             <button onclick="closeDeferments()" style="margin-top:8px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Нік: публічне ім'я замість справжнього з Telegram. -->
+    <div id="nickname-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeNicknameEditor()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">✏️ Твій нік</h2>
+            <p style="font-size:12px; color:#c2ab86; text-align:center; margin: 0 0 12px; line-height:1.5;">
+                У топі й профілях інші гравці бачать саме цей нік, не справжнє ім'я з Telegram.
+                3-16 символів, має бути унікальним.
+            </p>
+            <input type="text" id="nickname-input" maxlength="16" placeholder="Наприклад: ТінявийКабанчик"
+                style="width:100%; padding:10px; background:var(--btn); color:var(--text); border:1px solid rgba(224,165,46,0.3); border-radius:8px; margin-bottom:10px; box-sizing:border-box; font-family:inherit; font-size:14px;">
+            <div id="nickname-error" style="font-size:12px; color:#ff8a8a; margin-bottom:10px; min-height:14px;"></div>
+            <button onclick="saveNickname()">Зберегти</button>
         </div>
     </div>
 
@@ -6191,6 +6422,7 @@ function buildHtml(botUsername) {
             revengeUnlocked: false, revengeClaimedToday: false,
             resources: {}, storageLevel: 0, storageCapacity: 0, storageUsed: 0, storageUpgradeCost: 0,
             upgrades: { hat: 0, jam: 0, thermos: 0, generator: 0 }, upgradeCosts: {},
+            upgTiersUnlocked: { hat: 0, jam: 0, thermos: 0, generator: 0 }, upgradeGates: {},
             craftedCount: 0, shieldUntil: 0, permanentShield: false,
             balanceRev: 0,
             heat: 0, heatTier: HEAT_TIERS[0], heatLog: [],
@@ -7755,6 +7987,7 @@ function buildHtml(botUsername) {
                 inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
                 mapBuildings: state.mapBuildings,
+                upgTiersUnlocked: state.upgTiersUnlocked,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
@@ -7818,6 +8051,8 @@ function buildHtml(botUsername) {
                 state.storageUpgradeCost = data.storageUpgradeCost;
                 state.upgrades = data.upgrades || { hat: 0, jam: 0, thermos: 0, generator: 0 };
                 state.upgradeCosts = data.upgradeCosts || {};
+                state.upgTiersUnlocked = data.upgTiersUnlocked || { hat: 0, jam: 0, thermos: 0, generator: 0 };
+                state.upgradeGates = data.upgradeGates || {};
                 state.craftedCount = data.craftedCount || 0;
                 state.shieldUntil = data.shieldUntil || 0;
                 state.permanentShield = !!data.permanentShield;
@@ -7847,6 +8082,9 @@ function buildHtml(botUsername) {
                 state.investigationPending = !!data.investigationPending;
                 state.trophies = data.trophies || [];
                 state.mapBuildings = data.mapBuildings || { tower: 0, hideout: 0, cache: 0 };
+                state.nickname = data.nickname || null;
+                document.getElementById('username').innerText = state.nickname || user.first_name;
+                if (data.nextStep) renderNextStep(data.nextStep);
                 state.medcomStats = data.medcomStats || null;
                 state.inspectorStats = data.inspectorStats || null;
                 state.checkpointStats = data.checkpointStats || null;
@@ -7892,7 +8130,7 @@ function buildHtml(botUsername) {
                     setTimeout(() => splash.remove(), 400);
                 }, 600);
             }
-            maybeShowHelpOnFirstRun();
+            maybeShowDisclaimerOnFirstRun();
         }
         init();
 
@@ -7951,8 +8189,47 @@ function buildHtml(botUsername) {
                     renderAchievements();
                     updateUI();
                 }
+                if (data.nextStep) renderNextStep(data.nextStep);
             }).catch(() => {});
         }
+
+        // "Наступний крок" — один рядок під шапкою, куди йти прямо зараз (журнал v2.0, §7).
+        function renderNextStep(step) {
+            state.nextStep = step;
+            const el = document.getElementById('next-step');
+            if (!step) { el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            el.innerHTML = step.icon + ' ' + esc(step.text) + ' →';
+        }
+        window.openNicknameEditor = () => {
+            document.getElementById('nickname-input').value = state.nickname || '';
+            document.getElementById('nickname-error').innerText = '';
+            document.getElementById('nickname-screen').classList.remove('hidden');
+        };
+        window.closeNicknameEditor = () => document.getElementById('nickname-screen').classList.add('hidden');
+        window.saveNickname = async () => {
+            const nickname = document.getElementById('nickname-input').value.trim();
+            const errEl = document.getElementById('nickname-error');
+            const res = await apiFetch('/api/nickname/set', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, nickname })
+            });
+            const data = await res.json();
+            if (!data.success) { errEl.innerText = data.message || 'Помилка'; return; }
+            state.nickname = data.nickname;
+            document.getElementById('username').innerText = state.nickname;
+            closeNicknameEditor();
+            tg.HapticFeedback.notificationOccurred('success');
+        };
+
+        window.goNextStep = () => {
+            const step = state.nextStep;
+            if (!step) return;
+            if (step.tab === 'heatcase') { openHeatCase(); return; }
+            const btn = document.querySelector('.tab[onclick*="\\'' + step.tab + '\\'"]') ||
+                document.querySelector('.tab[onclick*="' + step.tab + '"]');
+            if (btn) switchTab({ currentTarget: btn }, step.tab);
+        };
 
         // ===== Основний клік =====
         ui.clk.addEventListener('touchstart', handleMainClick, { passive: false });
@@ -8557,10 +8834,24 @@ function buildHtml(botUsername) {
             document.getElementById('help-overlay').classList.add('hidden');
             try { localStorage.setItem(HELP_SEEN_KEY, '1'); } catch (e) {}
         };
+        // Дисклеймер (гра — сатира, не заклик) — показується ПЕРЕД довідкою, теж
+        // лише один раз, окремий прапорець.
+        const DISCLAIMER_SEEN_KEY = 'ukh_disclaimer_seen_v1';
+        window.closeDisclaimer = () => {
+            document.getElementById('disclaimer-overlay').classList.add('hidden');
+            try { localStorage.setItem(DISCLAIMER_SEEN_KEY, '1'); } catch (e) {}
+            maybeShowHelpOnFirstRun();
+        };
         function maybeShowHelpOnFirstRun() {
             let seen = false;
             try { seen = localStorage.getItem(HELP_SEEN_KEY) === '1'; } catch (e) {}
             if (!seen) setTimeout(openHelp, 1200); // після сплеш-екрана
+        }
+        function maybeShowDisclaimerOnFirstRun() {
+            let seen = false;
+            try { seen = localStorage.getItem(DISCLAIMER_SEEN_KEY) === '1'; } catch (e) {}
+            if (!seen) { setTimeout(() => document.getElementById('disclaimer-overlay').classList.remove('hidden'), 800); return; }
+            maybeShowHelpOnFirstRun();
         }
 
         // ===== Статистика та колекція =====
@@ -8893,12 +9184,29 @@ function buildHtml(botUsername) {
 
             list.innerHTML = switcher + UPGRADE_META.map(u => {
                 const lvl = (state.upgrades || {})[u.key] || 0;
+                const tier = (state.upgTiersUnlocked || {})[u.key] || 0;
+                const gate = (state.upgradeGates || {})[u.key];
+                const tierLabel = tier > 0 ? ' <span style="color:var(--accent2); font-size:11px;">(ешелон ' + tier + ')</span>' : '';
+                if (gate) {
+                    const missing = Object.entries(gate.cost).map(([r, q]) => {
+                        const have = (state.resources || {})[r] || 0;
+                        const meta = RESOURCE_BY_ID[r];
+                        const ok = have >= q;
+                        return '<span style="color:' + (ok ? '#b9ffb0' : '#ff8a8a') + '">' + meta.emoji + ' ' + q + '</span>';
+                    }).join(' ');
+                    return '<div class="upg-card">' +
+                        '<img src="' + u.img + '" alt="">' +
+                        '<div class="upg-info"><div class="upg-name">' + u.name + ' <span style="color:var(--gold)">Ур. ' + lvl + '</span></div>' +
+                        '<div class="upg-meta">🔒 Ешелон ' + gate.tier + ' — потрібно: ' + missing + '</div></div>' +
+                        '<button onclick="breakUpgradeTier(\\'' + u.key + '\\')">Пробити</button>' +
+                    '</div>';
+                }
                 const cost = (state.upgradeCosts || {})[u.key] || 0;
                 const afford = state.balance >= cost;
                 return '<div class="upg-card">' +
                     '<img src="' + u.img + '" alt="">' +
                     '<div class="upg-info"><div class="upg-name">' + u.name + ' <span style="color:var(--gold)">Ур. ' + lvl + '</span></div>' +
-                    '<div class="upg-meta">' + u.bonus + ' за рівень</div></div>' +
+                    '<div class="upg-meta">' + u.bonus + ' за рівень' + tierLabel + '</div></div>' +
                     '<button onclick="buyUpgrade(\\'' + u.key + '\\')"' + (afford ? '' : ' disabled') + '>' +
                     fmtNum(cost) + ' 🪙' + (amount === 1 ? '' : '<br><span style="font-size:10px;opacity:.8">' +
                         (amount === 'max' ? 'скільки влізе' : '×' + amount) + '</span>') + '</button>' +
@@ -8912,10 +9220,14 @@ function buildHtml(botUsername) {
                 body: JSON.stringify({ id: user.id, key, amount: state.buyAmount || 1 })
             });
             const data = await res.json();
-            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            if (!data.success) {
+                if (data.gate) { state.upgradeGates[key] = data.gate; renderUpgrades(); }
+                return tg.showAlert(data.message || 'Помилка');
+            }
             state.balance = data.balance; state.clickVal = data.clickVal; state.passive = data.passive;
             state.upgrades = data.upgrades;
             state.upgradeCosts[key] = data.nextCost;
+            state.upgradeGates[key] = data.nextGate;
             tg.HapticFeedback.notificationOccurred('success');
             if (data.levelsBought > 1) {
                 tg.showAlert('⬆️ +' + data.levelsBought + ' рівнів за ' + fmtNum(data.spent) + ' ТК');
@@ -8925,6 +9237,23 @@ function buildHtml(botUsername) {
                 renderAchievements();
             }
             updateUI();
+            renderUpgrades();
+        };
+
+        window.breakUpgradeTier = async (key) => {
+            const res = await apiFetch('/api/upgrade/breakTier', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, key })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.upgTiersUnlocked = data.upgTiersUnlocked;
+            state.upgradeCosts[key] = data.nextCost;
+            state.upgradeGates[key] = data.nextGate;
+            state.resources = data.resources;
+            state.storageUsed = data.used;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('🔓 Ешелон ' + data.tier + ' пробито!');
             renderUpgrades();
         };
 
