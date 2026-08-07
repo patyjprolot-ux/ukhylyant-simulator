@@ -9550,7 +9550,13 @@ function buildHtml(botUsername) {
 }
 
 // Роздаємо HTML
-app.get('/', (req, res) => res.send(HTML_CONTENT));
+// Гра часто змінюється, а Telegram WebView інакше може кешувати цю сторінку
+// й показувати стару (зокрема — стару баговану версію) без запиту на сервер
+// при повторному відкритті бота. no-store змушує завжди брати свіжу версію.
+app.get('/', (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.send(HTML_CONTENT);
+});
 
 // ==========================================
 // 9. ЗАПУСК
