@@ -982,12 +982,12 @@ const LOCATIONS = [
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
 const PETS = [
-    { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.webp', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
-    { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.webp', price: 8000, desc: '+15% до сили кліку' },
-    { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.webp', price: 6000, desc: '+30% до швидкості відновлення енергії' },
-    { id: 'dog', name: 'Двірняга-нюхач', emoji: '🐕', price: 15000, desc: '+40% здобичі з вилазок (винюхує краще)' },
-    { id: 'rat', name: 'Щур-розвідник', emoji: '🐀', price: 25000, desc: '-50% до ризику спалитись на вилазці' },
-    { id: 'pigeon', name: 'Голуб-курʼєр', emoji: '🕊️', price: 40000, desc: 'Вилазки тривають на 25% менше часу' },
+    { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.webp', bg: '/images/pet-neighbor-bg.webp', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
+    { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.webp', bg: '/images/pet-goose-bg.webp', price: 8000, desc: '+15% до сили кліку' },
+    { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.webp', bg: '/images/pet-cat-bg.webp', price: 6000, desc: '+30% до швидкості відновлення енергії' },
+    { id: 'dog', name: 'Двірняга-нюхач', img: '/images/pet-dog.webp', bg: '/images/pet-dog-bg.webp', price: 15000, desc: '+40% здобичі з вилазок (винюхує краще)' },
+    { id: 'rat', name: 'Щур-розвідник', img: '/images/pet-rat.webp', bg: '/images/pet-rat-bg.webp', price: 25000, desc: '-50% до ризику спалитись на вилазці' },
+    { id: 'pigeon', name: 'Голуб-курʼєр', emoji: '🕊️', bg: '/images/pet-pigeon-bg.webp', price: 40000, desc: 'Вилазки тривають на 25% менше часу' },
 ];
 // Множники компаньйонів для вилазок (усе інше — у ECONOMY.PET_*).
 const PET_EXPEDITION = {
@@ -1052,8 +1052,8 @@ const COSMETICS = [
     // Рамки клікера (суцільне світіння) + дві анімовані
     { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
     { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
-    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#c4974a', price: 2000 },
-    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#7a8a40', price: 1800 },
+    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#f4b942', price: 2000 },
+    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#e8622c', price: 1800 },
     { id: 'frame_toxic', slot: 'frame', name: 'Токсична рамка', color: '#39ff14', price: 2000 },
     { id: 'frame_royal', slot: 'frame', name: 'Королівська рамка', color: '#9c27b0', price: 2800 },
     { id: 'frame_ice', slot: 'frame', name: 'Крижана рамка', color: '#7df9ff', price: 1700 },
@@ -4976,7 +4976,7 @@ function buildHtml(botUsername) {
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Симулятор Ухилянта</title>
     <link rel="icon" type="image/png" href="/images/app-icon.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4984,20 +4984,21 @@ function buildHtml(botUsername) {
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --bg: #12100b; --panel-bg: #1c1810; --text: #f0e6d2; --accent: #7a8a40; --accent2: #c4974a; --btn: #23200f; --gold: #ffe066; }
-        body { margin: 0; padding: 10px; font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; }
+        :root { --bg: #171310; --panel-bg: #221c15; --text: #f5ead6; --accent: #e8622c; --accent2: #f4b942; --btn: #2a2118; --gold: #ffd447; }
+        html { background: var(--bg); min-height: 100%; }
+        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; min-height: 100vh; box-sizing: border-box; }
 
-        header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(196,151,74,0.35); box-shadow: 0 0 18px rgba(196,151,74,0.15), inset 0 0 25px rgba(122,138,64,0.05); }
+        header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(244,185,66,0.35); box-shadow: 0 0 18px rgba(244,185,66,0.15), inset 0 0 25px rgba(232,98,44,0.05); }
         header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
-        h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(196,151,74,0.5); }
+        h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(244,185,66,0.5); }
         .stats { display: flex; justify-content: space-between; font-size: 14px; color: #9fb4c7; margin-top: 5px; }
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
-        .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(196,151,74,0.5); }
+        .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(244,185,66,0.5); }
 
         .energy-bar { width: 100%; height: 12px; background: #1c1c2b; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2a2a3d; }
-        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #c4974a, #39ff14); box-shadow: 0 0 10px rgba(196,151,74,0.8); transition: width 0.2s; }
+        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #f4b942, #39ff14); box-shadow: 0 0 10px rgba(244,185,66,0.8); transition: width 0.2s; }
 
         /* ===== Розшук (heat) ===== */
         .heat-wrap { margin-top: 8px; cursor: pointer; }
@@ -5013,13 +5014,13 @@ function buildHtml(botUsername) {
         }
         .energy-lock { font-size: 11px; color: #ff8a8a; margin-top: 5px; text-align: center; }
 
-        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(196,151,74,0.4); }
+        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
         .notices-badge { position: absolute; top: 3px; left: 110px; min-width: 15px; height: 15px; line-height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
         .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
         @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
 
         #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
-        .case-card { background: var(--panel-bg); border: 1px solid rgba(196,151,74,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(196,151,74,0.15); }
+        .case-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(244,185,66,0.15); }
         .case-tier { font-family: 'Orbitron', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
         .case-flavor { font-size: 12px; color: #9fb4c7; text-align: center; font-style: italic; margin-bottom: 12px; }
         .case-mults { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -5217,19 +5218,19 @@ function buildHtml(botUsername) {
         .clickable:active { transform: scale(0.92); }
         .clickable img { height: 26vh; max-width: 85vw; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); pointer-events: none; user-select: none; border-radius: 12px; }
         .clickable .emoji-fallback { font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
-        .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(196,151,74,0.6); margin-bottom: 6px; }
+        .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(244,185,66,0.6); margin-bottom: 6px; }
 
         .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
         .tabs-container::-webkit-scrollbar { height: 4px; }
         .tabs-container::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(196,151,74,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #9fb4c7; }
-        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(122,138,64,0.6), 0 0 20px rgba(196,151,74,0.4); }
+        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(244,185,66,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #9fb4c7; }
+        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(232,98,44,0.6), 0 0 20px rgba(244,185,66,0.4); }
 
-        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; max-height: 50vh; overflow-y: auto; border: 1px solid rgba(196,151,74,0.2); }
+        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; max-height: 50vh; overflow-y: auto; border: 1px solid rgba(244,185,66,0.2); }
         .panel.active { display: block; }
 
-        button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(196,151,74,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(196,151,74,0.5); }
+        button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(244,185,66,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(244,185,66,0.5); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .premium-btn { background: linear-gradient(45deg, #5b1fb3, #00c3ff); border: 1px solid #fff; }
         .dev-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.4); color: #ffca6a; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
@@ -5319,7 +5320,7 @@ function buildHtml(botUsername) {
         #crate-overlay.result-nothing #crate-prize-title { color: #7d8b99; text-shadow: none; }
 
         /* ===== Кладовка ===== */
-        .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(196,151,74,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(244,185,66,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
         .storage-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
         .storage-bar { width: 100%; height: 10px; background: #1c1c2b; border-radius: 5px; overflow: hidden; border: 1px solid #2a2a3d; }
         .storage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #39ff14, #ffe066); transition: width 0.3s; }
@@ -5364,7 +5365,7 @@ function buildHtml(botUsername) {
         .upg-card button { width: auto; margin: 0; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
         .stars-section-title { font-size: 14px; margin: 0 0 8px; text-align: center; color: #eee; }
         .donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .donate-btn { background: linear-gradient(45deg, #7a8a40, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
+        .donate-btn { background: linear-gradient(45deg, #e8622c, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
         .gacha-btn { background: linear-gradient(45deg, #ff9800, #ff5722); font-size: 16px; padding: 15px; box-shadow: 0 0 14px rgba(255,87,34,0.4); }
         .gacha-btn-premium { background: linear-gradient(45deg, #9c27b0, #673ab7); box-shadow: 0 0 14px rgba(156,39,176,0.5); }
         .btn-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 8px; border-radius: 5px; object-fit: cover; }
@@ -5389,7 +5390,7 @@ function buildHtml(botUsername) {
         .airdrop { position: fixed; font-size: 36px; z-index: 900; cursor: pointer; animation: flyAcross 3s linear forwards; }
         @keyframes flyAcross { 0% { transform: translateX(-20px) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(20px) translateY(-40px); opacity: 0; } }
 
-        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14141f; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(196,151,74,0.5), 0 0 70px rgba(122,138,64,0.3); display: none; max-width: 80vw; }
+        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14141f; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(244,185,66,0.5), 0 0 70px rgba(232,98,44,0.3); display: none; max-width: 80vw; }
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
 
@@ -5408,11 +5409,11 @@ function buildHtml(botUsername) {
         .clan-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .clan-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .pet-card { background: rgba(255,255,255,0.05); border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
-        .pet-card.equipped { border-color: var(--gold); }
+        .pet-card { background-color: rgba(255,255,255,0.05); background-size: cover; background-position: center; border: 1px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 10px; min-height: 92px; box-sizing: border-box; max-width: 62%; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7); }
+        .pet-card.equipped { border-color: var(--gold); box-shadow: 0 0 10px rgba(255,212,71,0.4); }
         .pet-card .pet-title { font-weight: bold; }
-        .pet-card .pet-desc { font-size: 11px; color: #aaa; margin: 4px 0 8px; }
-        .pet-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
+        .pet-card .pet-desc { font-size: 11px; color: #e8dfce; margin: 4px 0 8px; }
+        .pet-card button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; text-shadow: none; }
 
         .ach-row { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px; margin-bottom: 6px; opacity: 0.5; }
         .ach-row.unlocked { opacity: 1; border: 1px solid var(--gold); }
@@ -5421,7 +5422,7 @@ function buildHtml(botUsername) {
         .ach-desc { font-size: 11px; color: #aaa; }
 
         .wheel-wrap { display: flex; flex-direction: column; align-items: center; margin: 15px 0; }
-        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(196,151,74,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
+        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(244,185,66,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
         .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--accent2); filter: drop-shadow(0 0 6px var(--accent2)); margin-bottom: -4px; z-index: 2; }
         #wheel-labels { position: absolute; inset: 0; pointer-events: none; }
 
@@ -5429,13 +5430,13 @@ function buildHtml(botUsername) {
         .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; }
         .cosmetic-neck { position: absolute; top: 62%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
         @keyframes rainbowGlow {
-            0% { box-shadow: 0 0 0 4px #7a8a40, 0 0 25px 6px #7a8a4088; }
+            0% { box-shadow: 0 0 0 4px #e8622c, 0 0 25px 6px #e8622c88; }
             17% { box-shadow: 0 0 0 4px #ff9800, 0 0 25px 6px #ff980088; }
             34% { box-shadow: 0 0 0 4px #ffe066, 0 0 25px 6px #ffe06688; }
             50% { box-shadow: 0 0 0 4px #39ff14, 0 0 25px 6px #39ff1488; }
-            67% { box-shadow: 0 0 0 4px #c4974a, 0 0 25px 6px #c4974a88; }
+            67% { box-shadow: 0 0 0 4px #f4b942, 0 0 25px 6px #f4b94288; }
             84% { box-shadow: 0 0 0 4px #9c27b0, 0 0 25px 6px #9c27b088; }
-            100% { box-shadow: 0 0 0 4px #7a8a40, 0 0 25px 6px #7a8a4088; }
+            100% { box-shadow: 0 0 0 4px #e8622c, 0 0 25px 6px #e8622c88; }
         }
         .frame-rainbow { animation: rainbowGlow 4s linear infinite; }
         @keyframes sirenGlow {
@@ -5459,11 +5460,11 @@ function buildHtml(botUsername) {
         .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(196,151,74,0.4); }
-        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(196,151,74,0.4); }
+        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
+        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
 
         #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(4,4,10,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
-        #help-card { background: var(--panel-bg); border: 1px solid rgba(196,151,74,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(196,151,74,0.2); }
+        #help-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(244,185,66,0.2); }
         .help-step { font-size: 13px; line-height: 1.55; color: #cfe3f2; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
         .help-step b { color: var(--text); }
 
@@ -5472,7 +5473,7 @@ function buildHtml(botUsername) {
         /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
            анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
            квадратна img (тоді композиція буде не ідеальною, це очікувано до заміни картинки). */
-        .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(196,151,74,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(244,185,66,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
         .room-scene img#room-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; filter: none; }
         .room-scene .emoji-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 110px; }
         /* Персонаж у кімнаті стоїть праворуч (~78% по X) — окремі координати від
@@ -5534,6 +5535,8 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="switchTab(event, 'clan')">🏘 Клани</div>
         <div class="tab" onclick="switchTab(event, 'gacha')">📦 Ящики</div>
         <div class="tab" onclick="switchTab(event, 'storage')">🗄 Кладовка</div>
+        <div class="tab" onclick="switchTab(event, 'storage-exp')">🌙 Вилазки</div>
+        <div class="tab" onclick="openSkills()">🌳 Навички</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
         <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
         <div class="tab" onclick="switchTab(event, 'stars')">💎 Донат</div>
@@ -5627,7 +5630,6 @@ function buildHtml(botUsername) {
         <div class="tabs-container">
             <div class="tab active" onclick="switchStorageTab(event, 'storage-res')">📦 Ресурси</div>
             <div class="tab" onclick="switchStorageTab(event, 'storage-craft')">🔨 Крафт</div>
-            <div class="tab" onclick="switchStorageTab(event, 'storage-exp')">🌙 Вилазки</div>
         </div>
         <div id="storage-res" class="panel active">
             <p style="margin-top:0; color:#aaa; font-size:12px;">Ресурси падають із ящиків і вилазок. Здавати можна прямо тут — але за <b>поточним курсом біржі</b>, тож спершу глянь на 📈 Біржу.</p>
@@ -5637,10 +5639,11 @@ function buildHtml(botUsername) {
             <p style="margin-top:0; color:#aaa; font-size:12px;">Крафт дає те, що за валюту не купиш: щити від облав, розширення бака, постійні множники.</p>
             <div id="recipes-list"></div>
         </div>
-        <div id="storage-exp" class="panel">
-            <p style="margin-top:0; color:#aaa; font-size:12px;">Відправ себе по ресурси й закрий гру — вилазка йде реальний час. Є ризик спалитись і втратити здобич; щит від облав цей ризик прибирає.</p>
-            <div id="expeditions-list"></div>
-        </div>
+    </div>
+
+    <div id="storage-exp" class="panel">
+        <p style="margin-top:0; color:#aaa; font-size:12px;">Відправ себе по ресурси й закрий гру — вилазка йде реальний час. Є ризик спалитись і втратити здобич; щит від облав цей ризик прибирає.</p>
+        <div id="expeditions-list"></div>
     </div>
 
     <div id="friends" class="panel">
@@ -5655,13 +5658,13 @@ function buildHtml(botUsername) {
     <div id="revenge" class="panel">
         <h3 class="stars-section-title">📜 Легалізація (престиж)</h3>
         <div id="prestige-box"></div>
-        <button class="secondary" onclick="openSkills()" style="margin-top:10px;">🌳 Дерево навичок ухилянта</button>
+        <p style="font-size:11px; color:#aaa; margin-top:8px;">Дерево навичок — вкладка «🌳 Навички» вгорі.</p>
         <hr style="border:0; border-top:1px solid #444; margin: 18px 0;">
         <h3 class="stars-section-title">😈 Помста інспектору</h3>
         <p style="margin-top:0; color:#aaa; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
         <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#aaa; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
-        <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(196,151,74,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
+        <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(244,185,66,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
     </div>
 
     <div id="stars" class="panel">
@@ -7998,6 +8001,7 @@ function buildHtml(botUsername) {
             if (tabId === 'shop') renderUpgrades();
             if (tabId === 'gacha') renderCrates();
             if (tabId === 'storage') { renderStorage(); renderRecipes(); }
+            if (tabId === 'storage-exp') renderExpeditions();
         };
 
         // ===== Магазин =====
@@ -8033,11 +8037,9 @@ function buildHtml(botUsername) {
                     : equipped
                         ? '<button onclick="equipPet(null)">Зняти</button>'
                         : '<button onclick="equipPet(\\'' + p.id + '\\')">Екіпірувати</button>';
-                const visual = p.img
-                    ? '<img class="btn-icon" src="' + p.img + '" alt="">'
-                    : '<span class="btn-emoji">' + (p.emoji || '🐾') + '</span>';
-                return '<div class="pet-card' + (equipped ? ' equipped' : '') + '">' +
-                    '<div class="pet-title">' + visual + p.name + (equipped ? ' (активний)' : '') + '</div>' +
+                const bgStyle = p.bg ? ' style="background-image:url(\\'' + p.bg + '\\')"' : '';
+                return '<div class="pet-card' + (equipped ? ' equipped' : '') + '"' + bgStyle + '>' +
+                    '<div class="pet-title">' + p.name + (equipped ? ' (активний)' : '') + '</div>' +
                     '<div class="pet-desc">' + p.desc + '</div>' + btn + '</div>';
             }).join('');
         }
@@ -8158,10 +8160,8 @@ function buildHtml(botUsername) {
         // карти до вилазок, яку просив користувач.
         window.jumpToExpedition = (expeditionId) => {
             closeMap();
-            const mainTab = document.querySelector('.tab[onclick*="\\'storage\\'"]');
-            if (mainTab) switchTab({ currentTarget: mainTab }, 'storage');
-            const subTab = document.querySelector('#storage .tab[onclick*="storage-exp"]');
-            if (subTab) switchStorageTab({ currentTarget: subTab }, 'storage-exp');
+            const expTab = document.querySelector('.tab[onclick*="storage-exp"]');
+            if (expTab) switchTab({ currentTarget: expTab }, 'storage-exp');
         };
 
         function renderMapBuildings() {
@@ -8927,7 +8927,7 @@ function buildHtml(botUsername) {
                     const owned = state.ownedCosmetics.includes(c.id);
                     const equipped = state.equippedCosmetics[slot] === c.id;
                     let swatchBg = c.color;
-                    if (c.color === 'rainbow') swatchBg = 'conic-gradient(#7a8a40, #ff9800, #ffe066, #39ff14, #c4974a, #9c27b0, #7a8a40)';
+                    if (c.color === 'rainbow') swatchBg = 'conic-gradient(#e8622c, #ff9800, #ffe066, #39ff14, #f4b942, #9c27b0, #e8622c)';
                     if (c.color === 'siren') swatchBg = 'linear-gradient(90deg, #ff1744 50%, #2979ff 50%)';
                     const visual = c.color
                         ? '<span class="cosmetic-swatch" style="background:' + swatchBg + ';"></span>'
