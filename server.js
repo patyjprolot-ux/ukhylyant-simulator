@@ -1332,6 +1332,7 @@ function createFreshUser(id, name) {
     return {
         id,
         name: name || 'Ухилянт',
+        nickname: null, // публічний унікальний нік — не показуємо справжнє ім'я з Telegram у топі/профілях
         balance: 0,
         clickVal: 1,
         passive: 0,
@@ -1480,6 +1481,21 @@ function installBalanceTracking(user) {
 
 // Дописує поля, яких не було в старіших версіях збереження, щоб гравці зі
 // збереженням із попередньої версії гри не ловили undefined на нових механіках.
+// Публічне ім'я гравця — НІКОЛИ справжнє ім'я з Telegram (не конфіденційно,
+// видно в топі/профілях/розслідуваннях усім, включно з незнайомими гравцями
+// клану, якщо чат об'єднає друзів друзів). Поки нік не встановлено — опаковий
+// заповнювач за pid, не справжнє ім'я.
+function displayName(user) {
+    return user.nickname || ('Гравець-' + String(user.pid || user.id || '').slice(-4));
+}
+function nicknameTaken(nickname, exceptUserId) {
+    const norm = nickname.toLowerCase();
+    for (const u of usersDB.values()) {
+        if (u.id !== exceptUserId && u.nickname && u.nickname.toLowerCase() === norm) return true;
+    }
+    return false;
+}
+
 function migrateUser(user) {
     const fresh = createFreshUser(user.id, user.name);
     for (const key of Object.keys(fresh)) {
@@ -2898,10 +2914,28 @@ app.get('/api/leaderboard', (req, res) => {
         .slice(0, 10)
         // pid — опаковий публічний ідентифікатор, саме він потрібен, щоб тапнути
         // по гравцю й порівняти профілі. Telegram id тут не світимо.
-        .map((u) => ({ pid: u.pid, name: u.name, balance: u.balance, isVip: u.isVip, level: u.level,
+        .map((u) => ({ pid: u.pid, name: displayName(u), balance: u.balance, isVip: u.isVip, level: u.level,
             snitch: publicSnitchStats(u), seasonTitle: u.seasonTitle || null,
             league: LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, u.league || 0))].emoji }));
     res.json(top);
+});
+
+// Нік — публічне ім'я замість справжнього з Telegram. Унікальний (без урахування
+// регістру), 3-16 символів, літери (укр/англ)/цифри/підкреслення/пробіл.
+app.post('/api/nickname/set', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const raw = String(req.body.nickname || '').trim();
+    if (raw.length < 3 || raw.length > 16) {
+        return res.json({ success: false, message: 'Нік має бути від 3 до 16 символів' });
+    }
+    if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ ]+$/.test(raw)) {
+        return res.json({ success: false, message: 'Тільки літери, цифри, підкреслення й пробіл' });
+    }
+    if (nicknameTaken(raw, user.id)) {
+        return res.json({ success: false, message: 'Цей нік уже зайнято' });
+    }
+    user.nickname = raw;
+    res.json({ success: true, nickname: user.nickname });
 });
 
 // ---- Компаньйони ----
@@ -3612,7 +3646,7 @@ function seasonSnapshot(user) {
         promoteAt: zones.promote,
         relegateAt: zones.relegate,
         standings: rivals.slice(0, 30).map((u, i) => ({
-            rank: i + 1, name: u.name, pid: u.pid, points: u.seasonPoints || 0,
+            rank: i + 1, name: displayName(u), pid: u.pid, points: u.seasonPoints || 0,
             title: u.seasonTitle || null, me: u.id === user.id,
         })),
     };
@@ -3637,7 +3671,7 @@ function addWarPoints(user, points, reason) {
     if (!warActive(clan)) return;
     clan.war.myPoints = (clan.war.myPoints || 0) + points;
     clan.war.log = clan.war.log || [];
-    clan.war.log.unshift({ t: Date.now(), name: user.name, points, reason });
+    clan.war.log.unshift({ t: Date.now(), name: displayName(user), points, reason });
     if (clan.war.log.length > 20) clan.war.log.length = 20;
     clan.war.contributions = clan.war.contributions || {};
     clan.war.contributions[user.id] = (clan.war.contributions[user.id] || 0) + points;
@@ -3717,7 +3751,7 @@ function warSnapshot(user) {
             log: clan.war.log || [],
             enemies: foe ? foe.members.map((id) => {
                 const u = usersDB.get(id);
-                return u ? { pid: u.pid, name: u.name, level: u.level } : null;
+                return u ? { pid: u.pid, name: displayName(u), level: u.level } : null;
             }).filter(Boolean) : [],
         } : null,
         warResult: clan.warResult || null,
@@ -3859,7 +3893,7 @@ app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
         if (isTop && !u.trophies.includes('district_top')) u.trophies.push('district_top');
         logOffline(u, 'good', `🚌 Автобус ТЦК відбито (+${tk.toLocaleString('uk-UA')} ТК)`);
         if (id !== user.id) sendPush(id, '🚌 Автобус ТЦК відбито! Забери нагороду в грі.');
-        rewards.push({ name: u.name, tk, top: isTop });
+        rewards.push({ name: displayName(u), tk, top: isTop });
     }
     res.json({
         success: true, defeated: true, damage, rewards, topName: usersDB.get(topId)?.name || null,
@@ -4590,7 +4624,7 @@ function publicSnitchStats(user) {
 
 function profileCard(user) {
     return {
-        pid: user.pid, name: user.name, level: user.level, isVip: !!user.isVip,
+        pid: user.pid, name: displayName(user), level: user.level, isVip: !!user.isVip,
         balance: Math.floor(user.balance), heat: Math.round((user.heat || 0) * 10) / 10,
         heatTierName: heatTierOf(user.heat).name,
         prestigePoints: user.prestigePoints || 0,
@@ -4676,7 +4710,7 @@ app.post('/api/snitch', requireTelegramAuth, (req, res) => {
 
     // Щур-розвідник іноді одразу палить стукача — тоді розслідування не потрібне.
     const revealed = target.petId === 'rat' && Math.random() < ECONOMY.SNITCH_RAT_REVEAL_CHANCE;
-    target.snitchedBy.unshift({ byId: user.id, byName: user.name, at: now, investigated: false, revealed, suspects: null });
+    target.snitchedBy.unshift({ byId: user.id, byName: displayName(user), at: now, investigated: false, revealed, suspects: null });
     if (target.snitchedBy.length > ECONOMY.SNITCH_HISTORY_SIZE) target.snitchedBy.length = ECONOMY.SNITCH_HISTORY_SIZE;
 
     logOffline(target, 'bad', revealed ? `🐍 Тебе здав ${user.name}` : '🐍 Тебе хтось здав');
@@ -4710,7 +4744,7 @@ app.get('/api/investigation', requireTelegramAuth, (req, res) => {
     const suspects = entry.suspects
         .map((id) => usersDB.get(id))
         .filter(Boolean)
-        .map((u) => ({ pid: u.pid, name: u.name, level: u.level, snitch: publicSnitchStats(u) }));
+        .map((u) => ({ pid: u.pid, name: displayName(u), level: u.level, snitch: publicSnitchStats(u) }));
     res.json({ pending: true, revealed: false, at: entry.at, suspects });
 });
 
@@ -4741,7 +4775,7 @@ app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
             suspect.balance -= steal;
             user.balance += steal;
         }
-        suspect.pendingRobbery = { byName: user.name, amount: steal, at: Date.now() };
+        suspect.pendingRobbery = { byName: displayName(user), amount: steal, at: Date.now() };
         logOffline(suspect, 'bad', `🕵️ ${user.name} тебе вирахував (−${steal.toLocaleString('uk-UA')} ТК)`);
         suspect.snitchStats.robbed += steal;
         user.snitchStats.caught += 1;
@@ -5015,8 +5049,7 @@ function buildHtml(botUsername) {
         }
         .energy-lock { font-size: 11px; color: #ff8a8a; margin-top: 5px; text-align: center; }
 
-        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
-        .notices-badge { position: absolute; top: 3px; left: 110px; min-width: 15px; height: 15px; line-height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
+        .notices-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; line-height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
         .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
         @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
 
@@ -5465,8 +5498,9 @@ function buildHtml(botUsername) {
         .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
-        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
+        .action-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+        .action-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: auto; margin: 0; padding: 14px 4px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.04); border: 1px solid rgba(224,165,46,0.2); border-radius: 12px; }
+        .action-tile-icon { font-size: 24px; }
 
         #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(10,8,5,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
         #help-card { background: var(--panel-bg); border: 1px solid rgba(224,165,46,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(224,165,46,0.2); }
@@ -5523,11 +5557,6 @@ function buildHtml(botUsername) {
 <body>
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
-        <button class="summons-btn" onclick="openRoom()" title="Моя кімната">📜</button>
-        <button class="summons-btn" onclick="openMap()" title="Карта території">🗺️</button>
-        <button class="help-btn" onclick="openCodex()" title="Довідка механік">?</button>
-        <button class="notices-btn" onclick="openNotices()" title="Повістки">📬</button>
-        <div class="notices-badge hidden" id="notices-badge">0</div>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
         <div class="header-line">
@@ -5575,6 +5604,15 @@ function buildHtml(botUsername) {
                 <span id="heat-value">Розшук: 0</span>
             </div>
             <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
+        </div>
+        <div class="action-tiles">
+            <button class="action-tile" onclick="openRoom()"><span class="action-tile-icon">📜</span>Кімната</button>
+            <button class="action-tile" onclick="openMap()"><span class="action-tile-icon">🗺️</span>Карта</button>
+            <button class="action-tile" onclick="openCodex()"><span class="action-tile-icon">❓</span>Довідка</button>
+            <button class="action-tile" onclick="openNotices()">
+                <span class="action-tile-icon">📬</span>Повістки
+                <div class="notices-badge hidden" id="notices-badge">0</div>
+            </button>
         </div>
     </div>
 
