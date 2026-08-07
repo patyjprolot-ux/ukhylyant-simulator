@@ -5790,20 +5790,18 @@ function buildHtml(botUsername) {
         .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(224,165,46,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; container-type: inline-size; }
         .room-scene img#room-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; filter: none; }
         .room-scene .emoji-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 110px; }
-        /* Персонаж у кімнаті стоїть праворуч (~78% по X) — окремі координати від
-           .cosmetic-hat/face/neck на головному екрані клікера (там персонаж по центру).
-           Розмір предметів тут ЗАДАЄМО у % від ширини .room-scene (не px, як у базовому
-           класі) — картинка кімнати відповідає (responsive), а фіксовані пікселі базового
-           класу були розраховані під маленьку кнопку-клікер і на великому кадрі виглядали
-           то мікроскопічними (десктоп), то завеликими (вузький мобільний екран). */
-        /* .room-scene тримає aspect-ratio 16/9, тому щоб коробка предмета лишалась
-           візуально квадратною (це квадратні іконки), % висоти рахуємо як % ширини × 16/9 —
-           через "aspect-ratio:1 + height:auto" бокс роздувався вмістом (img/line-height)
-           замість строгого квадрата. */
+        /* Окремий прозорий персонаж (room-character.webp, спільний для всіх 6 локацій)
+           замість персонажа, вбудованого в кожен фон — так гардероб позиціонується
+           ОДИН раз відносно самого персонажа (у % від його власного блоку), а не
+           вгадується окремо під кожен фон. .room-character-wrap тримає точну пропорцію
+           обрізаної картинки персонажа (414×1058), тому % координати нижче стабільні
+           незалежно від розміру екрана. */
+        .room-character-wrap { position: absolute; top: 4%; right: 3%; height: 92%; aspect-ratio: 414 / 1058; container-type: inline-size; }
+        .room-character-wrap img#room-character-img { width: 100%; height: 100%; object-fit: contain; display: block; }
         #room-cosmetic-hat, #room-cosmetic-face, #room-cosmetic-neck { line-height: 1; }
-        #room-cosmetic-hat { top: 6%; left: 77%; width: 15%; height: 26.7%; font-size: 10cqw; }
-        #room-cosmetic-face { top: 26%; left: 77%; width: 11%; height: 19.6%; font-size: 7cqw; }
-        #room-cosmetic-neck { top: 39%; left: 77%; width: 11%; height: 19.6%; font-size: 7cqw; }
+        #room-cosmetic-hat { top: -5%; left: 50%; width: 46%; height: 20%; font-size: 26cqw; }
+        #room-cosmetic-face { top: 15%; left: 50%; width: 32%; height: 13%; font-size: 20cqw; }
+        #room-cosmetic-neck { top: 26%; left: 50%; width: 32%; height: 12%; font-size: 20cqw; }
         .room-item { position: absolute; font-size: 34px; z-index: 6; pointer-events: none; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7)); }
         .room-item img { width: 44px; height: 44px; object-fit: contain; }
         /* Сітка 3×3 в лівих ~60% кадру (кімната) — права зона зайнята персонажем,
@@ -6400,9 +6398,12 @@ function buildHtml(botUsername) {
         <div class="room-scene">
             <img id="room-bg-img" src="" alt="">
             <div id="room-emoji-fallback" class="emoji-fallback hidden"></div>
-            <div id="room-cosmetic-hat" class="cosmetic-hat hidden"></div>
-            <div id="room-cosmetic-face" class="cosmetic-face hidden"></div>
-            <div id="room-cosmetic-neck" class="cosmetic-neck hidden"></div>
+            <div class="room-character-wrap">
+                <img id="room-character-img" src="/images/room-character.webp" alt="">
+                <div id="room-cosmetic-hat" class="cosmetic-hat hidden"></div>
+                <div id="room-cosmetic-face" class="cosmetic-face hidden"></div>
+                <div id="room-cosmetic-neck" class="cosmetic-neck hidden"></div>
+            </div>
             ${ROOM_ITEMS.map((it) => `<div id="room-item-${it.id}" class="room-item pos-${it.pos} hidden">${it.img ? `<img src="${it.img}" alt="">` : it.emoji}</div>`).join('')}
         </div>
         <div class="tabs-container">
