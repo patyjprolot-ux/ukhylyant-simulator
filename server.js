@@ -4989,7 +4989,7 @@ function buildHtml(botUsername) {
         body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
         header, .tabs-container { flex-shrink: 0; }
 
-        header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(244,185,66,0.35); box-shadow: 0 0 18px rgba(244,185,66,0.15), inset 0 0 25px rgba(232,98,44,0.05); }
+        header { background: rgba(23,17,10,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(244,185,66,0.35); box-shadow: 0 0 18px rgba(244,185,66,0.15), inset 0 0 25px rgba(232,98,44,0.05); }
         header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
@@ -5020,7 +5020,7 @@ function buildHtml(botUsername) {
         .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
         @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
 
-        #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(10,8,5,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .case-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(244,185,66,0.15); }
         .case-tier { font-family: 'Orbitron', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
         .case-flavor { font-size: 12px; color: #c2ab86; text-align: center; font-style: italic; margin-bottom: 12px; }
@@ -5048,7 +5048,7 @@ function buildHtml(botUsername) {
         .notice-cost { float: right; color: #c2ab86; font-size: 11px; font-weight: 400; }
 
         /* ===== PvP: стук і розслідування ===== */
-        #profile-overlay, #investigation-screen { position: fixed; inset: 0; z-index: 1750; background: rgba(4,4,10,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #profile-overlay, #investigation-screen { position: fixed; inset: 0; z-index: 1750; background: rgba(10,8,5,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .vs-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; margin-bottom: 12px; }
         .vs-name { font-weight: 700; font-size: 14px; text-align: center; padding-bottom: 6px; border-bottom: 1px solid #2b2318; }
         .vs-name.them { color: var(--accent); }
@@ -5071,7 +5071,7 @@ function buildHtml(botUsername) {
         .leader-row:active { color: var(--accent2); }
 
         /* ===== Медкомісія ===== */
-        #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #3a2f22; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
         .symptom-card.picked { border-color: var(--gold); background: rgba(255,215,0,0.10); }
         .symptom-card.repeated { opacity: 0.75; }
@@ -5109,11 +5109,11 @@ function buildHtml(botUsername) {
         .insp-roster-meta { font-size: 11px; color: #c2ab86; line-height: 1.4; }
 
         /* ===== Відстрочки та блокпост ===== */
-        #deferment-screen, #checkpoint-screen, #map-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(4,4,10,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #deferment-screen, #checkpoint-screen, #map-screen { position: fixed; inset: 0; z-index: 1780; background: rgba(10,8,5,0.95); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .map-wrap { max-width: 640px; margin: 0 auto; }
         .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         .map-img-wrap img { width: 100%; display: block; }
-        .map-hotspot { position: absolute; width: auto; margin-bottom: 0; transform: translate(-50%, -50%); background: rgba(4,4,10,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
+        .map-hotspot { position: absolute; width: auto; margin-bottom: 0; transform: translate(-50%, -50%); background: rgba(10,8,5,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
         .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
         .defer-card.locked { opacity: 0.55; }
         .defer-head { display: flex; align-items: center; gap: 9px; }
@@ -5133,7 +5133,7 @@ function buildHtml(botUsername) {
         .cp-fail { font-size: 11px; color: #ff8a8a; margin-top: 6px; }
 
         /* ===== Дерево навичок ===== */
-        #skills-screen { position: fixed; inset: 0; z-index: 1790; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #skills-screen { position: fixed; inset: 0; z-index: 1790; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .skill-points { text-align: center; font-size: 15px; font-weight: 700; background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.4); border-radius: 10px; padding: 10px; margin-bottom: 14px; }
         .skill-points b { color: var(--gold); font-size: 20px; }
         .skill-branch { margin-bottom: 18px; }
@@ -5154,13 +5154,13 @@ function buildHtml(botUsername) {
         .buy-switch button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
 
         /* Офлайн-звіт */
-        #offline-report { position: fixed; inset: 0; z-index: 1850; background: rgba(4,4,10,0.95); display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
+        #offline-report { position: fixed; inset: 0; z-index: 1850; background: rgba(10,8,5,0.95); display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
         .offline-line { display: flex; align-items: center; gap: 9px; font-size: 13px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
         .offline-line b { margin-left: auto; color: var(--gold); white-space: nowrap; }
         .offline-line.bad b { color: #ff8a8a; }
 
         /* ===== Репутація з районом ===== */
-        #reputation-screen { position: fixed; inset: 0; z-index: 1770; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #reputation-screen { position: fixed; inset: 0; z-index: 1770; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .npc-card { background: rgba(255,255,255,0.04); border: 1px solid #3a2f22; border-radius: 11px; padding: 12px; margin-bottom: 11px; }
         .npc-card.maxed { border-color: rgba(255,215,0,0.55); background: rgba(255,215,0,0.07); }
         .npc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
@@ -5175,7 +5175,7 @@ function buildHtml(botUsername) {
         .npc-perk.on { color: #ffd700; }
 
         /* ===== Сезони, ліги, війни ===== */
-        #season-screen, #war-screen, #season-result { position: fixed; inset: 0; z-index: 1795; background: rgba(4,4,10,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #season-screen, #war-screen, #season-result { position: fixed; inset: 0; z-index: 1795; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .league-badge { text-align: center; font-size: 20px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
         .league-sub { text-align: center; font-size: 12px; color: #c2ab86; margin-bottom: 12px; }
         .standing-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 7px 9px; border-radius: 7px; margin-bottom: 4px; background: rgba(255,255,255,0.03); }
@@ -5200,7 +5200,7 @@ function buildHtml(botUsername) {
         .district-contrib b { margin-left: auto; color: var(--gold); }
 
         /* ===== Довідка механік ===== */
-        #codex-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(4,4,10,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #codex-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(10,8,5,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .codex-nav { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
         .codex-nav button { width: auto; flex: none; margin: 0; padding: 5px 10px; font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid #3a2f22; color: #e8dcc4; }
         .codex-nav button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
@@ -5253,7 +5253,7 @@ function buildHtml(botUsername) {
         .crate-odds div { display: flex; justify-content: space-between; padding: 1px 0; }
 
         /* ===== Анімація відкривання ящика ===== */
-        #crate-overlay { position: fixed; inset: 0; z-index: 1800; background: rgba(4,4,10,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+        #crate-overlay { position: fixed; inset: 0; z-index: 1800; background: rgba(10,8,5,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
         #crate-stage { position: relative; width: 260px; height: 260px; display: flex; align-items: center; justify-content: center; }
         #crate-box { position: relative; width: 150px; height: 150px; }
         #crate-box img { width: 100%; height: 100%; object-fit: contain; }
@@ -5468,7 +5468,7 @@ function buildHtml(botUsername) {
         .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
         .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
 
-        #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(4,4,10,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
+        #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(10,8,5,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
         #help-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(244,185,66,0.2); }
         .help-step { font-size: 13px; line-height: 1.55; color: #e8dcc4; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
         .help-step b { color: var(--text); }
