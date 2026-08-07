@@ -4988,6 +4988,7 @@ function buildHtml(botUsername) {
         body { margin: 0; padding: 10px; font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; }
 
         header { background: rgba(10,10,20,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(0,229,255,0.35); box-shadow: 0 0 18px rgba(0,229,255,0.15), inset 0 0 25px rgba(255,46,166,0.05); }
+        header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
         h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(0,229,255,0.5); }
@@ -5110,7 +5111,7 @@ function buildHtml(botUsername) {
         .map-wrap { max-width: 640px; margin: 0 auto; }
         .map-img-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         .map-img-wrap img { width: 100%; display: block; }
-        .map-hotspot { position: absolute; transform: translate(-50%, -50%); background: rgba(4,4,10,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
+        .map-hotspot { position: absolute; width: auto; margin-bottom: 0; transform: translate(-50%, -50%); background: rgba(4,4,10,0.7); border: 1px solid var(--gold); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap; }
         .defer-card { background: rgba(255,255,255,0.04); border: 1px solid #3a3a4d; border-radius: 10px; padding: 11px 12px; margin-bottom: 9px; }
         .defer-card.locked { opacity: 0.55; }
         .defer-head { display: flex; align-items: center; gap: 9px; }
@@ -5212,12 +5213,11 @@ function buildHtml(botUsername) {
         .codex-tip { font-size: 11.5px; line-height: 1.5; color: #b9ffb0; background: rgba(57,255,20,0.08); border-left: 3px solid rgba(57,255,20,0.5); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
         .codex-warn { font-size: 11.5px; line-height: 1.5; color: #ffc9c9; background: rgba(255,77,77,0.09); border-left: 3px solid rgba(255,77,77,0.55); border-radius: 0 7px 7px 0; padding: 8px 10px; margin-bottom: 9px; }
 
-        main { display: flex; justify-content: center; align-items: center; height: 25vh; position: relative; }
-        .clickable { position: relative; transition: transform 0.05s; cursor: pointer; }
+        .clickable { position: relative; display: inline-block; transition: transform 0.05s; cursor: pointer; }
         .clickable:active { transform: scale(0.92); }
-        .clickable img { height: 22vh; max-width: 80vw; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); pointer-events: none; user-select: none; border-radius: 12px; }
+        .clickable img { height: 26vh; max-width: 85vw; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); pointer-events: none; user-select: none; border-radius: 12px; }
         .clickable .emoji-fallback { font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
-        .location-name { position: absolute; top: -10px; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(0,229,255,0.6); }
+        .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(0,229,255,0.6); margin-bottom: 6px; }
 
         .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
         .tabs-container::-webkit-scrollbar { height: 4px; }
@@ -5513,7 +5513,7 @@ function buildHtml(botUsername) {
         <div class="notices-badge hidden" id="notices-badge">0</div>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
-        <div style="font-size: 14px; margin-bottom: 5px;">
+        <div class="header-line">
             <span id="username">Ухилянт</span><span id="vip-badge" class="vip-badge hidden">VIP</span> | Lvl: <span id="level-display">1</span>
         </div>
         <h2><span id="balance">0</span> 🪙 ТК</h2>
@@ -5521,32 +5521,14 @@ function buildHtml(botUsername) {
             <span>Пасив: <span id="passive">0</span>/с</span>
             <span>⭐ <span id="stars-count">0</span></span>
         </div>
-        <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
-        <div class="heat-wrap" id="heat-wrap" onclick="openHeatCase()">
-            <div class="heat-label">
-                <span id="heat-tier-label">😴 Ніхто тебе не знає</span>
-                <span id="heat-value">Розшук: 0</span>
-            </div>
-            <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
-        </div>
         <div class="energy-lock hidden" id="energy-lock"></div>
         <div id="defer-chip" onclick="openDeferments()"></div>
         <div class="clan-line hidden" id="clan-line"></div>
     </header>
 
-    <main>
-        <div class="location-name" id="location-name">Бабусин Диван</div>
-        <div id="clicker" class="clickable">
-            <img id="clicker-img" src="/images/location-1-couch.webp" alt="Ухилянт">
-            <div id="clicker-emoji" class="emoji-fallback hidden"></div>
-            <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
-            <div id="cosmetic-face" class="cosmetic-face hidden"></div>
-            <div id="cosmetic-neck" class="cosmetic-neck hidden"></div>
-        </div>
-    </main>
-
     <div class="tabs-container">
-        <div class="tab active" onclick="switchTab(event, 'shop')">🛒 Магазин</div>
+        <div class="tab active" onclick="switchTab(event, 'clicker-tab')">👆 Клікер</div>
+        <div class="tab" onclick="switchTab(event, 'shop')">🛒 Магазин</div>
         <div class="tab" onclick="switchTab(event, 'quests')">📋 Квести</div>
         <div class="tab" onclick="switchTab(event, 'market')">📈 Біржа</div>
         <div class="tab" onclick="switchTab(event, 'clan')">🏘 Клани</div>
@@ -5558,7 +5540,26 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="switchTab(event, 'top')">🏆 ТОП</div>
     </div>
 
-    <div id="shop" class="panel active">
+    <div id="clicker-tab" class="panel active" style="text-align:center;">
+        <div class="location-name" id="location-name">Бабусин Диван</div>
+        <div id="clicker" class="clickable">
+            <img id="clicker-img" src="/images/clicker-badge.webp" alt="Ухилянт">
+            <div id="clicker-emoji" class="emoji-fallback hidden"></div>
+            <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
+            <div id="cosmetic-face" class="cosmetic-face hidden"></div>
+            <div id="cosmetic-neck" class="cosmetic-neck hidden"></div>
+        </div>
+        <div class="energy-bar"><div id="energy-fill" class="energy-fill"></div></div>
+        <div class="heat-wrap" id="heat-wrap" onclick="openHeatCase()">
+            <div class="heat-label">
+                <span id="heat-tier-label">😴 Ніхто тебе не знає</span>
+                <span id="heat-value">Розшук: 0</span>
+            </div>
+            <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
+        </div>
+    </div>
+
+    <div id="shop" class="panel">
         <p style="margin-top:0; color:#aaa; font-size:12px;">Апгрейди купуються нескінченно — кожен наступний рівень дорожчий.</p>
         <div id="upgrades-list"></div>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
@@ -6206,18 +6207,16 @@ function buildHtml(botUsername) {
             return 1 - raidCut;
         }
 
+        // Кнопка-клікер — одна й та сама значка на всіх локаціях (не персонаж): вигляд
+        // персонажа за локацією лишається приналежністю екрана "Кімната", коли до неї
+        // дійде переробка кастомізації. Тут лише назва локації над кнопкою міняється.
+        const CLICKER_BADGE_IMG = '/images/clicker-badge.webp';
         function applyLocation() {
             const loc = LOCATIONS.find(l => l.level === state.level) || LOCATIONS[0];
             ui.loc.innerText = loc.name;
-            if (loc.img) {
-                ui.clkImg.classList.remove('hidden');
-                ui.clkEmoji.classList.add('hidden');
-                if (ui.clkImg.getAttribute('src') !== loc.img) ui.clkImg.src = loc.img;
-            } else {
-                ui.clkImg.classList.add('hidden');
-                ui.clkEmoji.classList.remove('hidden');
-                ui.clkEmoji.innerText = loc.emoji || '❓';
-            }
+            ui.clkImg.classList.remove('hidden');
+            ui.clkEmoji.classList.add('hidden');
+            if (ui.clkImg.getAttribute('src') !== CLICKER_BADGE_IMG) ui.clkImg.src = CLICKER_BADGE_IMG;
         }
 
         function updateUI() {
@@ -8078,8 +8077,9 @@ function buildHtml(botUsername) {
             emojiEl.style.textShadow = staticColor ? ('0 0 20px ' + staticColor) : 'none';
         }
 
+        // Гардероб більше НЕ показується на кнопці-клікері (там тепер значка ТЦК,
+        // не персонаж) — тільки в "Кімнаті", де й лишається сенс кастомізації.
         function applyCosmeticOverlay() {
-            renderCharacterOverlay(ui.clkImg, ui.clkEmoji, document.getElementById('cosmetic-hat'), document.getElementById('cosmetic-face'), document.getElementById('cosmetic-neck'));
             if (!document.getElementById('room-screen').classList.contains('hidden')) {
                 renderCharacterOverlay(document.getElementById('room-bg-img'), document.getElementById('room-emoji-fallback'), document.getElementById('room-cosmetic-hat'), document.getElementById('room-cosmetic-face'), document.getElementById('room-cosmetic-neck'));
             }
