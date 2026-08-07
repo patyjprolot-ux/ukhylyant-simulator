@@ -33,6 +33,13 @@ if (DEV_MODE_INSECURE) {
 }
 
 const bot = new Telegraf(BOT_TOKEN);
+// Без цього ЖОДНА необроблена помилка в bot.on/bot.action (напр. протухлий
+// callback_query, заблокований бот у друга, збій мережі Telegram) не мала
+// куди подітись — Telegraf прокидає її далі, і для живого бота на друзях
+// це означало реальний ризик впасти всім чатом через одну дрібницю.
+bot.catch((err, ctx) => {
+    console.error('Помилка бота:', err, 'updateType:', ctx?.updateType);
+});
 const app = express();
 app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
@@ -2663,7 +2670,11 @@ async function answerAdConsent(ctx, consent) {
     }
     user.adConsent = consent;
     if (consent) user.balance += ECONOMY.AD_CONSENT_BONUS;
-    await ctx.answerCbQuery(consent ? `+${ECONOMY.AD_CONSENT_BONUS} 🪙!` : 'Зрозуміло, не будемо.');
+    // Callback-запит "старіє" за ~15с (повільне з'єднання, редагування) — без
+    // try/catch ця помилка йшла необроблено, і саме тут її й ловили найчастіше.
+    try {
+        await ctx.answerCbQuery(consent ? `+${ECONOMY.AD_CONSENT_BONUS} 🪙!` : 'Зрозуміло, не будемо.');
+    } catch (e) { /* не критично — баланс і відповідь уже записані */ }
     try {
         await ctx.editMessageText(consent
             ? `✅ Дякую! +${ECONOMY.AD_CONSENT_BONUS} 🪙 на баланс. Зараз згодних: ${adConsentCount()} — саме вони й тримають на плаву аірдропи для всіх.`
