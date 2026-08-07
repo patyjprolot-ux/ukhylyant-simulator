@@ -1052,8 +1052,8 @@ const COSMETICS = [
     // Рамки клікера (суцільне світіння) + дві анімовані
     { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
     { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
-    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#f4b942', price: 2000 },
-    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#e8622c', price: 1800 },
+    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#e0a52e', price: 2000 },
+    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#9c5330', price: 1800 },
     { id: 'frame_toxic', slot: 'frame', name: 'Токсична рамка', color: '#39ff14', price: 2000 },
     { id: 'frame_royal', slot: 'frame', name: 'Королівська рамка', color: '#9c27b0', price: 2800 },
     { id: 'frame_ice', slot: 'frame', name: 'Крижана рамка', color: '#7df9ff', price: 1700 },
@@ -4981,31 +4981,31 @@ function buildHtml(botUsername) {
     <link rel="icon" type="image/png" href="/images/app-icon.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --bg: #171310; --panel-bg: #221c15; --text: #f5ead6; --accent: #e8622c; --accent2: #f4b942; --btn: #2a2118; --gold: #ffd447; }
+        :root { --bg: #171310; --panel-bg: #221c15; --text: #f5ead6; --accent: #9c5330; --accent2: #e0a52e; --btn: #2a2118; --gold: #f0b93f; }
         html { background: var(--bg); min-height: 100%; }
-        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
+        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Nunito', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
         header, .tabs-container { flex-shrink: 0; }
 
-        header { background: rgba(23,17,10,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(244,185,66,0.35); box-shadow: 0 0 18px rgba(244,185,66,0.15), inset 0 0 25px rgba(232,98,44,0.05); }
+        header { background: rgba(23,17,10,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(224,165,46,0.35); box-shadow: 0 0 18px rgba(224,165,46,0.15), inset 0 0 25px rgba(156,83,48,0.05); }
         header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 5px 10px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(255,224,102,0.6); }
-        .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #ffe066cc; }
-        h2 { margin: 5px 0; font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(244,185,66,0.5); }
+        .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #f0b93fcc; }
+        h2 { margin: 5px 0; font-family: 'Comfortaa', sans-serif; font-weight: 700; color: var(--gold); font-size: 26px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,224,102,0.8), 0 0 20px rgba(224,165,46,0.5); }
         .stats { display: flex; justify-content: space-between; font-size: 14px; color: #c2ab86; margin-top: 5px; }
         .vip-badge { color: #000; background: var(--gold); border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; }
-        .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(244,185,66,0.5); }
+        .clan-line { font-size: 11px; color: var(--accent2); margin-top: 4px; text-shadow: 0 0 6px rgba(224,165,46,0.5); }
 
         .energy-bar { width: 100%; height: 12px; background: #1a150e; border-radius: 6px; margin-top: 10px; overflow: hidden; border: 1px solid #2b2318; }
-        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #f4b942, #39ff14); box-shadow: 0 0 10px rgba(244,185,66,0.8); transition: width 0.2s; }
+        .energy-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #e0a52e, #39ff14); box-shadow: 0 0 10px rgba(224,165,46,0.8); transition: width 0.2s; }
 
         /* ===== Розшук (heat) ===== */
         .heat-wrap { margin-top: 8px; cursor: pointer; }
         .heat-label { display: flex; justify-content: space-between; font-size: 10px; color: #b9c9d8; margin-bottom: 3px; letter-spacing: 0.3px; }
         .heat-bar { width: 100%; height: 7px; background: #1a150e; border-radius: 4px; overflow: hidden; border: 1px solid #2b2318; }
-        .heat-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffe066 55%, #ff3b3b); transition: width 0.4s; }
+        .heat-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #39ff14, #f0b93f 55%, #ff3b3b); transition: width 0.4s; }
         /* Пульсація лише з 76+ ("Персональна справа") — це вже той рівень, коли гравець
            має відчувати, що на нього дивляться. Нижче анімація тільки б відволікала. */
         .heat-wrap.hot .heat-bar { animation: heatPulse 1.6s ease-in-out infinite; }
@@ -5015,18 +5015,18 @@ function buildHtml(botUsername) {
         }
         .energy-lock { font-size: 11px; color: #ff8a8a; margin-top: 5px; text-align: center; }
 
-        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
+        .notices-btn { position: absolute; top: 10px; left: 90px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 14px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
         .notices-badge { position: absolute; top: 3px; left: 110px; min-width: 15px; height: 15px; line-height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
         .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
         @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
 
         #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(10,8,5,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
-        .case-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(244,185,66,0.15); }
-        .case-tier { font-family: 'Orbitron', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
+        .case-card { background: var(--panel-bg); border: 1px solid rgba(224,165,46,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(224,165,46,0.15); }
+        .case-tier { font-family: 'Comfortaa', sans-serif; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
         .case-flavor { font-size: 12px; color: #c2ab86; text-align: center; font-style: italic; margin-bottom: 12px; }
         .case-mults { display: flex; gap: 8px; margin-bottom: 12px; }
         .case-mult { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px; text-align: center; }
-        .case-mult b { display: block; font-size: 17px; font-family: 'Orbitron', sans-serif; }
+        .case-mult b { display: block; font-size: 17px; font-family: 'Comfortaa', sans-serif; }
         .case-mult span { font-size: 10px; color: #c2ab86; }
         .case-log { font-size: 12px; border-top: 1px solid #2b2318; padding-top: 8px; }
         .case-log-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -5041,7 +5041,7 @@ function buildHtml(botUsername) {
         .notice-emoji { font-size: 26px; line-height: 1; }
         .notice-name { font-weight: 700; font-size: 14px; }
         .notice-flavor { font-size: 11px; color: #c2ab86; font-style: italic; }
-        .notice-timer { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 15px; color: var(--gold); white-space: nowrap; }
+        .notice-timer { margin-left: auto; font-family: 'Comfortaa', sans-serif; font-size: 15px; color: var(--gold); white-space: nowrap; }
         .notice-card.urgent .notice-timer { color: #ff6b6b; }
         .notice-threat { font-size: 11px; color: #ffb4b4; background: rgba(255,59,59,0.08); border-radius: 6px; padding: 6px 8px; margin: 8px 0; line-height: 1.45; }
         .notice-card button { font-size: 13px; padding: 9px; margin-bottom: 6px; text-align: left; }
@@ -5219,21 +5219,21 @@ function buildHtml(botUsername) {
         .clickable:active { transform: scale(0.92); }
         .clickable img { height: 26vh; max-width: 85vw; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); pointer-events: none; user-select: none; border-radius: 12px; }
         .clickable .emoji-fallback { font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.1)); }
-        .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(244,185,66,0.6); margin-bottom: 6px; }
+        .location-name { display: block; font-weight: bold; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; text-shadow: 0 0 6px rgba(224,165,46,0.6); margin-bottom: 6px; }
 
         .tabs-container { overflow-x: auto; white-space: nowrap; margin-bottom: 10px; padding-bottom: 5px; }
         .tabs-container::-webkit-scrollbar { height: 4px; }
         .tabs-container::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(244,185,66,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #c2ab86; }
-        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(232,98,44,0.6), 0 0 20px rgba(244,185,66,0.4); }
+        .tab { display: inline-block; padding: 10px 15px; background: var(--btn); border: 1px solid rgba(224,165,46,0.15); text-align: center; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; margin-right: 5px; color: #c2ab86; }
+        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(156,83,48,0.6), 0 0 20px rgba(224,165,46,0.4); }
 
-        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(244,185,66,0.2); box-sizing: border-box; }
+        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(224,165,46,0.2); box-sizing: border-box; }
         /* Верхньорівневі панелі розтягуються на весь простір, що лишився під шапкою й
            вкладками (замість фіксованих 50vh, через які знизу лишалось порожнє місце). */
         .panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-        button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(244,185,66,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(244,185,66,0.5); }
+        button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(224,165,46,0.25); border-radius: 8px; background: var(--btn); color: white; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.98); box-shadow: 0 0 12px rgba(224,165,46,0.5); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .premium-btn { background: linear-gradient(45deg, #5b1fb3, #00c3ff); border: 1px solid #fff; }
         .dev-notice { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.4); color: #ffca6a; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
@@ -5264,7 +5264,7 @@ function buildHtml(botUsername) {
         #crate-prize { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0; transform: scale(0.4); pointer-events: none; }
         #crate-prize-icon { font-size: 76px; line-height: 1; filter: drop-shadow(0 0 18px rgba(255,224,102,0.8)); }
         #crate-prize-icon img { width: 96px; height: 96px; object-fit: contain; }
-        #crate-prize-title { font-family: 'Orbitron', sans-serif; font-size: 19px; font-weight: 700; color: var(--gold); text-shadow: 0 0 12px rgba(255,224,102,0.7); text-align: center; }
+        #crate-prize-title { font-family: 'Comfortaa', sans-serif; font-size: 19px; font-weight: 700; color: var(--gold); text-shadow: 0 0 12px rgba(255,224,102,0.7); text-align: center; }
         #crate-prize-desc { font-size: 14px; color: var(--text); text-align: center; max-width: 78vw; }
         #crate-close, #crate-again { width: auto; padding: 12px 32px; margin: 0; }
         #crate-again { background: linear-gradient(45deg, #ff9800, #ff5722); }
@@ -5323,10 +5323,10 @@ function buildHtml(botUsername) {
         #crate-overlay.result-nothing #crate-prize-title { color: #7d8b99; text-shadow: none; }
 
         /* ===== Кладовка ===== */
-        .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(244,185,66,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .storage-header { background: rgba(255,255,255,0.04); border: 1px solid rgba(224,165,46,0.2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
         .storage-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
         .storage-bar { width: 100%; height: 10px; background: #1a150e; border-radius: 5px; overflow: hidden; border: 1px solid #2b2318; }
-        .storage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #39ff14, #ffe066); transition: width 0.3s; }
+        .storage-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #39ff14, #f0b93f); transition: width 0.3s; }
         .storage-fill.full { background: linear-gradient(90deg, #ff5722, #ff1744); }
         .storage-header button { margin: 10px 0 0; font-size: 13px; padding: 9px; }
         .res-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; }
@@ -5336,7 +5336,7 @@ function buildHtml(botUsername) {
         .res-info { flex: 1; min-width: 0; }
         .res-name { font-size: 13px; font-weight: 600; }
         .res-meta { font-size: 10px; color: #c2ab86; }
-        .res-qty { font-family: 'Orbitron', sans-serif; font-size: 16px; color: var(--gold); min-width: 34px; text-align: right; }
+        .res-qty { font-family: 'Comfortaa', sans-serif; font-size: 16px; color: var(--gold); min-width: 34px; text-align: right; }
         .res-card button { width: auto; margin: 0; padding: 6px 10px; font-size: 11px; white-space: nowrap; }
         .res-tier-1 { border-left: 3px solid #78909c; }
         .res-tier-2 { border-left: 3px solid #29b6f6; }
@@ -5355,7 +5355,7 @@ function buildHtml(botUsername) {
 
         /* ===== Статистика та колекція ===== */
         .stat-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; padding: 6px 2px; border-bottom: 1px solid #22222f; }
-        .stat-row b { font-family: 'Orbitron', sans-serif; color: var(--gold); font-size: 12px; white-space: nowrap; }
+        .stat-row b { font-family: 'Comfortaa', sans-serif; color: var(--gold); font-size: 12px; white-space: nowrap; }
         .coll-row { margin-bottom: 9px; }
         .coll-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
 
@@ -5368,13 +5368,13 @@ function buildHtml(botUsername) {
         .upg-card button { width: auto; margin: 0; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
         .stars-section-title { font-size: 14px; margin: 0 0 8px; text-align: center; color: #eee; }
         .donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .donate-btn { background: linear-gradient(45deg, #e8622c, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
+        .donate-btn { background: linear-gradient(45deg, #9c5330, #ff9800); margin-bottom: 0; padding: 10px 4px; font-size: 13px; }
         .gacha-btn { background: linear-gradient(45deg, #ff9800, #ff5722); font-size: 16px; padding: 15px; box-shadow: 0 0 14px rgba(255,87,34,0.4); }
         .gacha-btn-premium { background: linear-gradient(45deg, #9c27b0, #673ab7); box-shadow: 0 0 14px rgba(156,39,176,0.5); }
         .btn-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 8px; border-radius: 5px; object-fit: cover; }
         .btn-emoji { display: inline-block; width: 24px; text-align: center; margin-right: 8px; }
 
-        .click-text { position: absolute; color: var(--accent2); font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 22px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 0 0 6px var(--accent2), 0 0 14px var(--accent), 1px 1px 2px #000; z-index: 50; }
+        .click-text { position: absolute; color: var(--accent2); font-family: 'Comfortaa', sans-serif; font-weight: 700; font-size: 22px; pointer-events: none; animation: floatUp 0.8s ease-out forwards; text-shadow: 0 0 6px var(--accent2), 0 0 14px var(--accent), 1px 1px 2px #000; z-index: 50; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1.5); opacity: 0; } }
 
         #raid-screen, #knock-screen { position: fixed; top:0; left:0; right:0; bottom:0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; background-size: cover; background-position: center; }
@@ -5393,7 +5393,7 @@ function buildHtml(botUsername) {
         .airdrop { position: fixed; font-size: 36px; z-index: 900; cursor: pointer; animation: flyAcross 3s linear forwards; }
         @keyframes flyAcross { 0% { transform: translateX(-20px) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(20px) translateY(-40px); opacity: 0; } }
 
-        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14100a; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(244,185,66,0.5), 0 0 70px rgba(232,98,44,0.3); display: none; max-width: 80vw; }
+        #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14100a; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(224,165,46,0.5), 0 0 70px rgba(156,83,48,0.3); display: none; max-width: 80vw; }
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
 
@@ -5427,7 +5427,7 @@ function buildHtml(botUsername) {
         .ach-desc { font-size: 11px; color: #b8a888; }
 
         .wheel-wrap { display: flex; flex-direction: column; align-items: center; margin: 15px 0; }
-        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(244,185,66,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
+        #wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid var(--accent2); box-shadow: 0 0 25px rgba(224,165,46,0.6); position: relative; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); }
         .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--accent2); filter: drop-shadow(0 0 6px var(--accent2)); margin-bottom: -4px; z-index: 2; }
         #wheel-labels { position: absolute; inset: 0; pointer-events: none; }
 
@@ -5435,13 +5435,13 @@ function buildHtml(botUsername) {
         .cosmetic-face { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; }
         .cosmetic-neck { position: absolute; top: 62%; left: 50%; transform: translateX(-50%); width: 38px; height: 38px; font-size: 30px; line-height: 38px; text-align: center; z-index: 5; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
         @keyframes rainbowGlow {
-            0% { box-shadow: 0 0 0 4px #e8622c, 0 0 25px 6px #e8622c88; }
+            0% { box-shadow: 0 0 0 4px #9c5330, 0 0 25px 6px #9c533088; }
             17% { box-shadow: 0 0 0 4px #ff9800, 0 0 25px 6px #ff980088; }
-            34% { box-shadow: 0 0 0 4px #ffe066, 0 0 25px 6px #ffe06688; }
+            34% { box-shadow: 0 0 0 4px #f0b93f, 0 0 25px 6px #f0b93f88; }
             50% { box-shadow: 0 0 0 4px #39ff14, 0 0 25px 6px #39ff1488; }
-            67% { box-shadow: 0 0 0 4px #f4b942, 0 0 25px 6px #f4b94288; }
+            67% { box-shadow: 0 0 0 4px #e0a52e, 0 0 25px 6px #e0a52e88; }
             84% { box-shadow: 0 0 0 4px #9c27b0, 0 0 25px 6px #9c27b088; }
-            100% { box-shadow: 0 0 0 4px #e8622c, 0 0 25px 6px #e8622c88; }
+            100% { box-shadow: 0 0 0 4px #9c5330, 0 0 25px 6px #9c533088; }
         }
         .frame-rainbow { animation: rainbowGlow 4s linear infinite; }
         @keyframes sirenGlow {
@@ -5465,11 +5465,11 @@ function buildHtml(botUsername) {
         .quest-progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); }
         .quest-row button { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
 
-        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
-        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(244,185,66,0.4); }
+        .summons-btn { position: absolute; top: 10px; left: 10px; width: auto; margin: 0; padding: 5px 9px; font-size: 16px; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
+        .help-btn { position: absolute; top: 10px; left: 52px; width: 30px; height: 30px; margin: 0; padding: 0; font-size: 15px; font-weight: 700; border-radius: 50%; background: var(--btn); box-shadow: 0 0 10px rgba(224,165,46,0.4); }
 
         #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(10,8,5,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
-        #help-card { background: var(--panel-bg); border: 1px solid rgba(244,185,66,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(244,185,66,0.2); }
+        #help-card { background: var(--panel-bg); border: 1px solid rgba(224,165,46,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(224,165,46,0.2); }
         .help-step { font-size: 13px; line-height: 1.55; color: #e8dcc4; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
         .help-step b { color: var(--text); }
 
@@ -5489,7 +5489,7 @@ function buildHtml(botUsername) {
         /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
            анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
            квадратна img (тоді композиція буде не ідеальною, це очікувано до заміни картинки). */
-        .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(244,185,66,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .room-scene { position: relative; width: 100%; aspect-ratio: 16 / 9; background: rgba(255,255,255,0.04); border: 1px solid rgba(224,165,46,0.2); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
         .room-scene img#room-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; filter: none; }
         .room-scene .emoji-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 110px; }
         /* Персонаж у кімнаті стоїть праворуч (~78% по X) — окремі координати від
@@ -5680,7 +5680,7 @@ function buildHtml(botUsername) {
         <p style="margin-top:0; color:#b8a888; font-size:12px;">Дрібна ненасильницька помста за всі облави. Розблоковується після ${ECONOMY.REVENGE_UNLOCK_RAIDS} виживаних облав, 1 раз/день.</p>
         <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#b8a888; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
-        <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(244,185,66,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
+        <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(224,165,46,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
     </div>
 
     <div id="stars" class="panel">
@@ -8942,7 +8942,7 @@ function buildHtml(botUsername) {
                     const owned = state.ownedCosmetics.includes(c.id);
                     const equipped = state.equippedCosmetics[slot] === c.id;
                     let swatchBg = c.color;
-                    if (c.color === 'rainbow') swatchBg = 'conic-gradient(#e8622c, #ff9800, #ffe066, #39ff14, #f4b942, #9c27b0, #e8622c)';
+                    if (c.color === 'rainbow') swatchBg = 'conic-gradient(#9c5330, #ff9800, #f0b93f, #39ff14, #e0a52e, #9c27b0, #9c5330)';
                     if (c.color === 'siren') swatchBg = 'linear-gradient(90deg, #ff1744 50%, #2979ff 50%)';
                     const visual = c.color
                         ? '<span class="cosmetic-swatch" style="background:' + swatchBg + ';"></span>'
