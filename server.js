@@ -256,6 +256,10 @@ const ECONOMY = {
     // лишає відчутний, але не ламаючий баланс ефект (+33% кліків замість +100%).
     SKILL_LIGHTHAND_ENERGY_COST: 1.5, // Легка рука
 
+    // --- Міні-ігри ---
+    MINIGAME_STAKE_MIN: 100,
+    MINIGAME_STAKE_MAX: 20000,
+
     // --- Офлайн-звіт ---
     OFFLINE_REPORT_MIN_MS: 15 * 60 * 1000, // показуємо, лише якщо не було 15+ хвилин
     OFFLINE_LOG_SIZE: 12,
@@ -1177,6 +1181,36 @@ const WHEEL_SEGMENTS = [
     { label: 'ДЖЕКПОТ 5000', type: 'balance', amount: 5000, weight: 1, color: '#ffd700' },
 ];
 
+// --- Міні-ігри (маленькі додаткові механіки, не завʼязані на основну
+// прогресію — суто розвага з невеликим ризиком/зиском) ---
+
+// Швидкісна монетка: ставка на ТК, шанс трохи гірший за чесний 50/50
+// (як і завжди в казино "ТЦК"), виграш = ставка ×2.
+const COINFLIP_WIN_CHANCE = 0.47;
+
+// Колесо ризику 2.0: три рівні азарту, кожен трохи в мінус гравцю в
+// середньому (0.9/0.9/0.8 EV), щоб не стало новим золотим рецептом.
+const RISK_TIERS = [
+    { id: 'safe', name: 'Обережно', mult: 1.5, chance: 0.60 },
+    { id: 'medium', name: 'Середньо', mult: 3, chance: 0.30 },
+    { id: 'extreme', name: 'Відчайдушно', mult: 10, chance: 0.08 },
+];
+
+// Картонна карточна гра "Знайди пару": 4 пари (8 карток), нагорода залежить
+// від кількості спроб — чим краща памʼять, тим більший зиск.
+const MEMORY_ICONS = ['🥫', '🔋', '📄', '💊'];
+const MEMORY_ENTRY_COST = 200;
+const MEMORY_REWARD_TABLE = [
+    { maxFlips: 6, reward: 3000 },
+    { maxFlips: 8, reward: 2000 },
+    { maxFlips: 12, reward: 1000 },
+    { maxFlips: 16, reward: 500 },
+    { maxFlips: Infinity, reward: 200 },
+];
+function memoryRewardFor(flips) {
+    return MEMORY_REWARD_TABLE.find((t) => flips <= t.maxFlips).reward;
+}
+
 // Скільки гравець усього вніс у скарбницю свого чату (0, якщо не в чаті).
 // Оголошено тут, бо використовується в ACHIEVEMENTS нижче.
 function clanContributionOf(user) {
@@ -1404,6 +1438,7 @@ function createFreshUser(id, name) {
         revengeLastDate: null,
         tradesCount: 0,
         wheelSpinsCount: 0,
+        memoryGame: null, // активна гра "Знайди пару": {deck, revealed, matchedPairs, flips, firstPick}
         // --- Кладовка та крафт ---
         resources: {},              // { cans: 12, battery: 3, ... }
         storageLevel: 0,            // місткість = BASE + level * PER_LEVEL
@@ -2908,6 +2943,11 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         mapPlacements: user.mapPlacements || { tower: null, hideout: null, cache: null },
         nickname: user.nickname,
         xp: user.xp || 0, playerLevel: user.playerLevel || 1, ukhyr: user.ukhyr || 0,
+        memoryGame: user.memoryGame ? {
+            cardsCount: user.memoryGame.deck.length, revealed: user.memoryGame.revealed,
+            matchedPairs: user.memoryGame.matchedPairs, flips: user.memoryGame.flips,
+            firstPick: user.memoryGame.firstPick,
+        } : null,
         nextStep: nextStep(user),
         medcomStats: user.medcomStats,
         inspectorStats: user.inspectorStats,
@@ -5432,6 +5472,97 @@ app.post('/api/wheel/spin', requireTelegramAuth, (req, res) => {
     });
 });
 
+// ---- Міні-ігри ----
+
+// Швидкісна монетка: гравець ставить ТК, сервер кидає монетку (шанс і RNG —
+// тільки на сервері, клієнтська анімація суто для відчуття, не впливає на результат).
+app.post('/api/minigame/coinflip', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const stake = Math.floor(Number(req.body.stake));
+    if (!Number.isFinite(stake) || stake < ECONOMY.MINIGAME_STAKE_MIN || stake > ECONOMY.MINIGAME_STAKE_MAX) {
+        return res.status(400).json({ error: `Ставка від ${ECONOMY.MINIGAME_STAKE_MIN} до ${ECONOMY.MINIGAME_STAKE_MAX} ТК` });
+    }
+    if (user.balance < stake) return res.json({ success: false, message: 'Недостатньо ТК' });
+
+    const won = Math.random() < COINFLIP_WIN_CHANCE;
+    user.balance += won ? stake : -stake;
+    const unlocked = checkAchievements(user);
+    res.json({ success: true, won, stake, balance: user.balance, unlockedAchievements: unlocked });
+});
+
+// Колесо ризику 2.0: та сама ідея, але гравець сам обирає рівень азарту
+// (вищий множник = менший шанс), а не фіксовані 50/50.
+app.post('/api/minigame/risk', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const stake = Math.floor(Number(req.body.stake));
+    const tier = RISK_TIERS.find((t) => t.id === req.body.tierId);
+    if (!tier) return res.status(400).json({ error: 'Невідомий рівень ризику' });
+    if (!Number.isFinite(stake) || stake < ECONOMY.MINIGAME_STAKE_MIN || stake > ECONOMY.MINIGAME_STAKE_MAX) {
+        return res.status(400).json({ error: `Ставка від ${ECONOMY.MINIGAME_STAKE_MIN} до ${ECONOMY.MINIGAME_STAKE_MAX} ТК` });
+    }
+    if (user.balance < stake) return res.json({ success: false, message: 'Недостатньо ТК' });
+
+    const won = Math.random() < tier.chance;
+    user.balance += won ? Math.round(stake * tier.mult) - stake : -stake;
+    const unlocked = checkAchievements(user);
+    res.json({ success: true, won, stake, tierId: tier.id, mult: tier.mult, balance: user.balance, unlockedAchievements: unlocked });
+});
+
+// "Знайди пару": сервер тримає розклад карток у пам'яті гравця (не в
+// клієнті) — інакше клієнт міг би підглянути значення заздалегідь.
+app.post('/api/minigame/memory/start', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    if (user.memoryGame) return res.json({ success: false, message: 'У тебе вже є незавершена гра' });
+    if (user.balance < MEMORY_ENTRY_COST) return res.json({ success: false, message: 'Недостатньо ТК на вхід' });
+
+    user.balance -= MEMORY_ENTRY_COST;
+    const deck = shuffled([...MEMORY_ICONS, ...MEMORY_ICONS]);
+    user.memoryGame = { deck, revealed: deck.map(() => false), matchedPairs: 0, flips: 0, firstPick: null };
+    res.json({ success: true, cardsCount: deck.length, balance: user.balance });
+});
+
+app.post('/api/minigame/memory/flip', requireTelegramAuth, (req, res) => {
+    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+    const game = user.memoryGame;
+    if (!game) return res.json({ success: false, message: 'Спочатку почни гру' });
+    const index = Math.floor(Number(req.body.index));
+    if (!Number.isInteger(index) || index < 0 || index >= game.deck.length) {
+        return res.status(400).json({ error: 'Невірна картка' });
+    }
+    if (game.revealed[index] || index === game.firstPick) {
+        return res.json({ success: false, message: 'Ця картка вже відкрита' });
+    }
+
+    const value = game.deck[index];
+    if (game.firstPick === null) {
+        game.firstPick = index;
+        return res.json({ success: true, index, value, matched: false, waitingForSecond: true });
+    }
+
+    game.flips += 1;
+    const firstIndex = game.firstPick;
+    game.firstPick = null;
+    const matched = game.deck[firstIndex] === value;
+    if (matched) {
+        game.revealed[firstIndex] = true;
+        game.revealed[index] = true;
+        game.matchedPairs += 1;
+    }
+    const gameOver = game.matchedPairs === MEMORY_ICONS.length;
+    let reward = 0;
+    if (gameOver) {
+        reward = memoryRewardFor(game.flips);
+        user.balance += reward;
+        user.memoryGame = null;
+    }
+    const unlocked = gameOver ? checkAchievements(user) : [];
+    res.json({
+        success: true, index, value, matched, firstIndex, flips: game.flips,
+        matchedPairs: game.matchedPairs, gameOver, reward, balance: user.balance,
+        unlockedAchievements: unlocked,
+    });
+});
+
 // ==========================================
 // 8. ФРОНТЕНД (HTML/CSS/JS в одному файлі)
 // ==========================================
@@ -5816,6 +5947,11 @@ function buildHtml(botUsername) {
         .res-tier-2 { border-left: 3px solid #29b6f6; }
         .res-tier-3 { border-left: 3px solid #ab47bc; }
         .res-tier-4 { border-left: 3px solid var(--gold); }
+        .memory-card { aspect-ratio: 1; background: #2a2118; border: 1px solid #3a2f22; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; user-select: none; }
+        .memory-card.flipped { background: rgba(224,165,46,0.15); border-color: var(--gold); }
+        .memory-card.matched { background: rgba(57,255,20,0.12); border-color: #39ff14; opacity: 0.7; cursor: default; }
+        .risk-tier-btn { display: block; width: 100%; text-align: left; margin-bottom: 6px; }
+        .risk-tier-btn.active { border-color: var(--gold); background: rgba(224,165,46,0.15); }
         .recipe-card { background: rgba(255,255,255,0.04); border: 1px solid #2b2318; border-radius: 9px; padding: 11px; margin-bottom: 9px; }
         .recipe-card.ready { border-color: rgba(57,255,20,0.5); }
         .recipe-title { font-size: 14px; font-weight: 700; }
@@ -6038,6 +6174,7 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="openSkills()">🌳 Навички</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
         <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
+        <div class="tab" onclick="switchTab(event, 'minigames')">🎲 Міні-ігри</div>
         <div class="tab" onclick="switchTab(event, 'stars')">💎 Донат</div>
         <div class="tab" onclick="switchTab(event, 'top')">🏆 ТОП</div>
     </div>
@@ -6176,6 +6313,29 @@ function buildHtml(botUsername) {
         <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#b8a888; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
         <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(224,165,46,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
+    </div>
+
+    <div id="minigames" class="panel">
+        <p style="margin-top:0; color:#b8a888; font-size:12px;">Дрібні азартні розваги — не завʼязані на основну прокачку, суто заради адреналіну.</p>
+
+        <h3 class="stars-section-title">🪙 Швидкісна монетка</h3>
+        <p style="font-size:11px; color:#b8a888; margin:0 0 8px;">Ставка × 2 при виграші, шанс ${Math.round(COINFLIP_WIN_CHANCE * 100)}%.</p>
+        <input type="number" id="coinflip-stake" placeholder="Ставка (${ECONOMY.MINIGAME_STAKE_MIN}-${ECONOMY.MINIGAME_STAKE_MAX})" style="width:100%; padding:10px; box-sizing:border-box; background:#1c170f; border:1px solid #3a2f22; color:#fff; border-radius:5px; margin-bottom:8px;">
+        <button onclick="playCoinflip()">🎲 Кинути монетку</button>
+        <div id="coinflip-result" class="hidden" style="text-align:center; font-size:14px; margin-top:8px;"></div>
+
+        <h3 class="stars-section-title" style="margin-top:20px;">🎯 Колесо ризику 2.0</h3>
+        <p style="font-size:11px; color:#b8a888; margin:0 0 8px;">Обери рівень азарту — вищий множник, менший шанс.</p>
+        <div id="risk-tiers"></div>
+        <input type="number" id="risk-stake" placeholder="Ставка (${ECONOMY.MINIGAME_STAKE_MIN}-${ECONOMY.MINIGAME_STAKE_MAX})" style="width:100%; padding:10px; box-sizing:border-box; background:#1c170f; border:1px solid #3a2f22; color:#fff; border-radius:5px; margin:8px 0;">
+        <button onclick="playRisk()">🎯 Ризикнути</button>
+        <div id="risk-result" class="hidden" style="text-align:center; font-size:14px; margin-top:8px;"></div>
+
+        <h3 class="stars-section-title" style="margin-top:20px;">🃏 Знайди пару</h3>
+        <p style="font-size:11px; color:#b8a888; margin:0 0 8px;">Вхід ${MEMORY_ENTRY_COST} ТК, нагорода тим більша, чим менше спроб — до 3000 ТК за ідеальну пам'ять.</p>
+        <div id="memory-start-wrap"><button onclick="startMemoryGame()">🃏 Почати гру (${MEMORY_ENTRY_COST} ТК)</button></div>
+        <div id="memory-board" class="hidden" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-top:10px;"></div>
+        <div id="memory-status" style="text-align:center; font-size:12px; color:#b8a888; margin-top:6px;"></div>
     </div>
 
     <div id="stars" class="panel">
@@ -6656,6 +6816,10 @@ function buildHtml(botUsername) {
         const EXPEDITIONS = ${JSON.stringify(EXPEDITIONS)};
         const MAP_BUILDINGS = ${JSON.stringify(MAP_BUILDINGS)};
         const UKHYR_RANKS = ${JSON.stringify(UKHYR_RANKS)};
+        const RISK_TIERS = ${JSON.stringify(RISK_TIERS)};
+        const COINFLIP_WIN_CHANCE = ${JSON.stringify(COINFLIP_WIN_CHANCE)};
+        const MEMORY_ENTRY_COST = ${JSON.stringify(MEMORY_ENTRY_COST)};
+        const MEMORY_REWARD_TABLE = ${JSON.stringify(MEMORY_REWARD_TABLE)};
         const HEAT_TIERS = ${JSON.stringify(HEAT_TIERS)};
         const NOTICE_TYPES = ${JSON.stringify(NOTICE_TYPES)};
         // Каталоги для довідки механік — щоб її цифри читались із реальних даних
@@ -6702,6 +6866,7 @@ function buildHtml(botUsername) {
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
             adAirdropMult: 1, adConsentCount: 0,
             xp: 0, playerLevel: 1, ukhyr: 0,
+            memoryGame: null,
         };
 
         const ui = {
@@ -7308,6 +7473,22 @@ function buildHtml(botUsername) {
                     rows +
                     tip('Іконку збудованої споруди можна перетягнути на будь-яке місце на карті кнопкою «📍 Розмістити» — ' +
                         'це суто візуально, на ефект не впливає.');
+            }},
+
+            { id: 'minigames', tab: '🎲 Міні-ігри', title: 'Дрібний азарт, не завʼязаний на прогрес', build: () => {
+                return '<p class="codex-lead">Три невеликі розваги окремо від основної економіки — ставки й нагороди тут ' +
+                    'помірні, це не спосіб швидко розбагатіти.</p>' +
+                    block('🪙 Швидкісна монетка',
+                        'Ставка ' + fmtNum(ECONOMY.MINIGAME_STAKE_MIN) + '–' + fmtNum(ECONOMY.MINIGAME_STAKE_MAX) +
+                        ' ТК, шанс виграти ' + Math.round(COINFLIP_WIN_CHANCE * 100) + '% (трохи гірше за чесні 50/50 — ' +
+                        'заклад завжди в невеликому плюсі). Виграш — подвоєна ставка.') +
+                    block('🎯 Колесо ризику 2.0',
+                        RISK_TIERS.map(t => t.name + ' — ×' + t.mult + ' (' + Math.round(t.chance * 100) + '%)').join('<br>')) +
+                    block('🃏 Знайди пару',
+                        'Вхід ' + fmtNum(MEMORY_ENTRY_COST) + ' ТК, 4 пари карток. Нагорода залежить від кількості спроб: ' +
+                        MEMORY_REWARD_TABLE.map(t => (t.maxFlips === Infinity ? 'більше' : 'до ' + t.maxFlips) + ' спроб → ' + fmtNum(t.reward) + ' ТК').join(', ') + '.') +
+                    warn('Усі три — суто розвага. Жодна не дає постійних бонусів чи не впливає на розшук/рівень — ' +
+                        'тільки одноразовий ТК туди-сюди.');
             }},
 
             { id: 'district', tab: '🤝 Район', title: 'Люди навколо', build: () => {
@@ -8411,6 +8592,7 @@ function buildHtml(botUsername) {
                 state.xp = data.xp || 0;
                 state.playerLevel = data.playerLevel || 1;
                 state.ukhyr = data.ukhyr || 0;
+                state.memoryGame = data.memoryGame || null;
                 applyLevelGates();
                 state.nickname = data.nickname || null;
                 document.getElementById('username').innerText = state.nickname || user.first_name;
@@ -8730,6 +8912,7 @@ function buildHtml(botUsername) {
             if (tabId === 'gacha') renderCrates();
             if (tabId === 'storage') { renderStorage(); renderRecipes(); }
             if (tabId === 'storage-exp') renderExpeditions();
+            if (tabId === 'minigames') renderMinigames();
         };
 
         // ===== Магазин =====
@@ -10080,6 +10263,149 @@ function buildHtml(botUsername) {
                 updateUI(); renderWheel(); renderStorage(); renderRecipes();
             }, 4100);
         };
+
+        // ===== Міні-ігри =====
+        let selectedRiskTier = RISK_TIERS[0].id;
+        function renderMinigames() {
+            const tiersBox = document.getElementById('risk-tiers');
+            tiersBox.innerHTML = RISK_TIERS.map(t =>
+                '<button class="risk-tier-btn' + (t.id === selectedRiskTier ? ' active' : '') + '" onclick="selectRiskTier(\\'' + t.id + '\\')">' +
+                t.name + ' — ×' + t.mult + ' (' + Math.round(t.chance * 100) + '% шанс)</button>'
+            ).join('');
+            renderMemoryState();
+        }
+        window.selectRiskTier = (tierId) => { selectedRiskTier = tierId; renderMinigames(); };
+
+        window.playCoinflip = async () => {
+            const stake = Math.floor(Number(document.getElementById('coinflip-stake').value));
+            if (!stake) return tg.showAlert('Введи ставку');
+            const res = await apiFetch('/api/minigame/coinflip', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, stake })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance;
+            const box = document.getElementById('coinflip-result');
+            box.classList.remove('hidden');
+            box.innerHTML = data.won
+                ? '<span style="color:#39ff14;">🎉 Виграв +' + fmtNum(data.stake) + ' ТК!</span>'
+                : '<span style="color:#ff8a8a;">💸 Програв ' + fmtNum(data.stake) + ' ТК</span>';
+            tg.HapticFeedback.notificationOccurred(data.won ? 'success' : 'error');
+            if (data.unlockedAchievements && data.unlockedAchievements.length) { data.unlockedAchievements.forEach(a => state.achievements.push(a.id)); renderAchievements(); }
+            updateUI();
+        };
+
+        window.playRisk = async () => {
+            const stake = Math.floor(Number(document.getElementById('risk-stake').value));
+            if (!stake) return tg.showAlert('Введи ставку');
+            const res = await apiFetch('/api/minigame/risk', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, stake, tierId: selectedRiskTier })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance;
+            const box = document.getElementById('risk-result');
+            box.classList.remove('hidden');
+            box.innerHTML = data.won
+                ? '<span style="color:#39ff14;">🎉 Виграв ×' + data.mult + '!</span>'
+                : '<span style="color:#ff8a8a;">💸 Програв ' + fmtNum(data.stake) + ' ТК</span>';
+            tg.HapticFeedback.notificationOccurred(data.won ? 'success' : 'error');
+            if (data.unlockedAchievements && data.unlockedAchievements.length) { data.unlockedAchievements.forEach(a => state.achievements.push(a.id)); renderAchievements(); }
+            updateUI();
+        };
+
+        window.startMemoryGame = async () => {
+            const res = await apiFetch('/api/minigame/memory/start', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id })
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            state.balance = data.balance;
+            state.memoryGame = { cardsCount: data.cardsCount, revealed: new Array(data.cardsCount).fill(false), matchedPairs: 0, flips: 0, firstPick: null };
+            updateUI();
+            renderMemoryState();
+        };
+
+        let memoryFlipping = false; // блокує подвійний тап, поки чекаємо відповідь сервера
+        window.flipMemoryCard = async (index) => {
+            if (memoryFlipping || !state.memoryGame) return;
+            const g = state.memoryGame;
+            if (g.revealed[index] || index === g.firstPick) return;
+            memoryFlipping = true;
+            const res = await apiFetch('/api/minigame/memory/flip', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, index })
+            });
+            const data = await res.json();
+            memoryFlipping = false;
+            if (!data.success) { tg.showAlert(data.message || 'Помилка'); return; }
+
+            if (data.waitingForSecond) {
+                g.firstPick = index;
+                g.firstValue = data.value;
+                renderMemoryState();
+                return;
+            }
+
+            g.flips = data.flips;
+            g.matchedPairs = data.matchedPairs;
+            const firstIndex = data.firstIndex;
+            const firstValue = g.firstValue;
+            g.firstPick = null;
+            if (data.matched) {
+                g.revealed[firstIndex] = true;
+                g.revealed[index] = true;
+                renderMemoryState();
+            } else {
+                // Коротко показуємо обидві картки (сервер уже порахував матч,
+                // це суто клієнтська анімація), потім ховаємо назад.
+                renderMemoryState({ [firstIndex]: firstValue, [index]: data.value });
+                memoryFlipping = true;
+                setTimeout(() => { memoryFlipping = false; renderMemoryState(); }, 900);
+            }
+            if (data.gameOver) {
+                state.balance = data.balance;
+                state.memoryGame = null;
+                tg.HapticFeedback.notificationOccurred('success');
+                setTimeout(() => tg.showAlert('🃏 Готово за ' + data.flips + ' спроб! +' + fmtNum(data.reward) + ' ТК'), 950);
+                if (data.unlockedAchievements && data.unlockedAchievements.length) { data.unlockedAchievements.forEach(a => state.achievements.push(a.id)); renderAchievements(); }
+                updateUI();
+            }
+        };
+
+        // tempPeek — {index: value} для короткого показу картки, що не збіглась.
+        function renderMemoryState(tempPeek) {
+            const startWrap = document.getElementById('memory-start-wrap');
+            const board = document.getElementById('memory-board');
+            const status = document.getElementById('memory-status');
+            const g = state.memoryGame;
+            if (!g) {
+                startWrap.classList.remove('hidden');
+                board.classList.add('hidden');
+                status.innerText = '';
+                return;
+            }
+            startWrap.classList.add('hidden');
+            board.classList.remove('hidden');
+            status.innerText = 'Спроб: ' + g.flips + ' · Пар знайдено: ' + g.matchedPairs + '/4';
+            board.innerHTML = '';
+            for (let i = 0; i < g.cardsCount; i++) {
+                const div = document.createElement('div');
+                const matched = g.revealed[i];
+                const peeking = tempPeek && (i in tempPeek);
+                const isFirstPick = i === g.firstPick;
+                div.className = 'memory-card' + (matched ? ' matched' : ((peeking || isFirstPick) ? ' flipped' : ''));
+                if (matched) div.textContent = '✓';
+                else if (peeking) div.textContent = tempPeek[i];
+                else if (isFirstPick) div.textContent = g.firstValue;
+                else div.textContent = '';
+                if (!matched && !peeking) div.onclick = () => flipMemoryCard(i);
+                board.appendChild(div);
+            }
+        }
 
         // ===== Щоденна нагорода =====
         window.claimDaily = async () => {
