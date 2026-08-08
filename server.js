@@ -4020,7 +4020,7 @@ function buildHtml(botUsername) {
     <div id="shop" class="panel">
         <p style="margin-top:0; color:#9db0c2; font-size:12px;">Апгрейди купуються нескінченно — кожен наступний рівень дорожчий.</p>
         <div id="upgrades-list"></div>
-        <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
+        <button onclick="buyEnergyDrink()"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили, макс ${ECONOMY.ENERGY_DRINK_MAX_PER_WINDOW}/5хв) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #26313d;">Еволюція:</h3>
         <div id="location-shop-list"></div>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #26313d;">Компаньйони:</h3>
@@ -6737,13 +6737,20 @@ function buildHtml(botUsername) {
 
         // ===== Магазин =====
         // Апгрейди кліку/пасиву тепер багаторівневі й купуються через buyUpgrade() на сервері.
-        window.buy = (item, price) => {
-            if (state.balance < price) return tg.showAlert('Недостатньо ТК!');
-            state.balance -= price;
-            if (item === 'energy_drink') state.energy = state.maxEnergy;
-            tg.HapticFeedback.notificationOccurred('success');
-            updateUI();
-            saveState();
+        // Енергетик — теж серверна покупка (2026-08-09, ліміт 2/5хв), не клієнтське списання.
+        window.buyEnergyDrink = async () => {
+            try {
+                let res = await apiFetch('/api/energy/refill', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id })
+                });
+                let data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+                state.balance = data.balance;
+                state.energy = data.energy;
+                tg.HapticFeedback.notificationOccurred('success');
+                updateUI();
+            } catch (e) { tg.showAlert('Помилка покупки'); }
         };
 
         // Переїзд у новий схрон — тепер серверна, валідована покупка (ціна в ТК +

@@ -16,6 +16,28 @@ module.exports = function registerEconomyRoutes(app, deps) {
         COINFLIP_WIN_CHANCE, RISK_TIERS,
     } = deps;
 
+    // ---- Енергетик: разова покупка повного реgenу енергії ----
+    // Раніше це було чисто клієнтське списання (жодної серверної перевірки
+    // взагалі) — тепер валідовано й обмежено (2026-08-09): не більше
+    // ENERGY_DRINK_MAX_PER_WINDOW за ENERGY_DRINK_WINDOW_MS, інакше сама ціна
+    // не заважає просто спамити відновлення й обходити ліміт енергії.
+    app.post('/api/energy/refill', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const now = Date.now();
+        if (!Array.isArray(user.energyDrinkLog)) user.energyDrinkLog = [];
+        user.energyDrinkLog = user.energyDrinkLog.filter((t) => now - t < ECONOMY.ENERGY_DRINK_WINDOW_MS);
+        if (user.energyDrinkLog.length >= ECONOMY.ENERGY_DRINK_MAX_PER_WINDOW) {
+            const waitMs = ECONOMY.ENERGY_DRINK_WINDOW_MS - (now - user.energyDrinkLog[0]);
+            return res.json({ success: false, message: `Не більше ${ECONOMY.ENERGY_DRINK_MAX_PER_WINDOW} за 5 хв. Зачекай ${Math.ceil(waitMs / 1000)}с` });
+        }
+        if (user.balance < ECONOMY.ENERGY_DRINK_PRICE) return res.json({ success: false, message: 'Недостатньо ТК' });
+
+        user.balance -= ECONOMY.ENERGY_DRINK_PRICE;
+        user.energy = user.maxEnergy;
+        user.energyDrinkLog.push(now);
+        res.json({ success: true, balance: user.balance, energy: user.energy, maxEnergy: user.maxEnergy });
+    });
+
     // ---- Кладовка: стан складу, апгрейд місткості, продаж ресурсів ----
     app.get('/api/storage', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
