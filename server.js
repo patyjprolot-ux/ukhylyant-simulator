@@ -407,6 +407,23 @@ app.get('/api/admin/backup', (req, res) => {
         exportedAt: Date.now(), playerCount: usersDB.size, clanCount: clansDB.size,
     });
 });
+
+// Розсилка повідомлення від розробника всім гравцям — той самий admin-токен,
+// що й бекап. sendPush уже ковтає власні помилки (заблокував бота, невірний
+// id), тому один поганий id не зупиняє розсилку іншим.
+app.post('/api/admin/broadcast', (req, res) => {
+    if (!BOT_TOKEN || req.get('x-admin-token') !== BOT_TOKEN) {
+        return res.status(403).json({ error: 'forbidden' });
+    }
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'no message' });
+    let sent = 0;
+    for (const user of usersDB.values()) {
+        sendPush(user.id, message);
+        sent++;
+    }
+    res.json({ success: true, sent });
+});
 setInterval(saveData, 20000);
 
 function getUser(id, name) {
