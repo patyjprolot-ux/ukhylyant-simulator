@@ -3986,7 +3986,7 @@ function buildHtml(botUsername) {
             <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
         </div>
         <div class="action-tiles">
-            <button class="action-tile" onclick="openRoom()"><span class="action-tile-icon">📜</span>Кімната</button>
+            <button class="action-tile" onclick="openRoom()"><span class="action-tile-icon">🎨</span>Гардероб</button>
             <button class="action-tile" onclick="openMap()"><span class="action-tile-icon">🗺️</span>Карта</button>
             <button class="action-tile" onclick="openCodex()"><span class="action-tile-icon">❓</span>Довідка</button>
             <button class="action-tile" onclick="openNotices()">
@@ -4534,7 +4534,10 @@ function buildHtml(botUsername) {
         </div>
         <div class="tabs-container">
             <div class="tab active" onclick="switchRoomTab(event, 'room-wardrobe')">🎨 Гардероб</div>
-            <div class="tab" onclick="switchRoomTab(event, 'room-shop')">🛋 Речі кімнати</div>
+            <!-- Кастомізація кімнати (декор) тимчасово прихована — розділяємо з
+                 кастомізацією персонажа, поки що лишаємо тільки гардероб. Нічого не
+                 видалено, просто клас hidden, легко повернути одним рядком. -->
+            <div class="tab hidden" onclick="switchRoomTab(event, 'room-shop')">🛋 Речі кімнати</div>
         </div>
         <div id="room-wardrobe" class="panel active">
             <p style="margin-top:0; color:#9db0c2; font-size:12px;">Суто косметика — не впливає на економіку, лише стиль.</p>
