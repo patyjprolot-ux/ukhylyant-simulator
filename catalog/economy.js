@@ -26,12 +26,14 @@ const ECONOMY = {
     ENERGY_REGEN_PER_TICK: 0.1,
     ENERGY_PER_CLICK: 2,
 
-    // --- Еволюція схрону ---
-    BASEMENT_PRICE: 1500,
-    BALKAN_PRICE: 6000,
-    TISA_PRICE: 25000,
-    ABROAD_PRICE: 90000,
-    BUNKER_PRICE: 350000,
+    // --- Еволюція схрону (v2.2 «Дуга ухилянта», 8 рівнів, 2026-08-08) ---
+    COUCH_PRICE: 1500,
+    ZAKARPATTIA_PRICE: 6000,
+    CABIN_PRICE: 25000,
+    TENT_PRICE: 90000,
+    SIZO_PRICE: 350000,
+    POLAND_PRICE: 1200000,
+    MANSION_PRICE: 4000000,
 
     // --- Кладовка (склад ресурсів) ---
     STORAGE_BASE_CAPACITY: 60,
@@ -44,7 +46,7 @@ const ECONOMY = {
     // Скидає прогрес заради постійного множника доходу. Дає грі нескінченну глибину:
     // без цього після бункера робити нічого. Очки рахуються від сумарно заробленого
     // за все життя (корінь — щоб кожне наступне очко давалось відчутно важче).
-    PRESTIGE_UNLOCK_LEVEL: 6,
+    PRESTIGE_UNLOCK_LEVEL: 8,
     PRESTIGE_EARN_PER_POINT: 500000,
     PRESTIGE_BONUS_PER_POINT: 0.10,
 

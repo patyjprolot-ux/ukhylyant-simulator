@@ -284,8 +284,9 @@ const ACHIEVEMENTS = [
     { id: 'cosmetics_15', name: 'Гардеробний барон', desc: 'Придбай 15 предметів гардеробу', reward: 6000, check: (u) => u.ownedCosmetics.length >= 15 },
     { id: 'cosmetics_30', name: 'Ходяча вітрина', desc: 'Придбай 30 предметів гардеробу', reward: 15000, check: (u) => u.ownedCosmetics.length >= 30 },
     { id: 'room_all', name: 'Затишний барліг', desc: 'Обстав кімнату всіма речами', reward: 6000, check: (u) => u.ownedRoomItems.length >= ROOM_ITEMS.length },
-    { id: 'level_5', name: 'За кордоном', desc: 'Досягни 5 рівня схрону', reward: 6000, check: (u) => u.level >= 5 },
-    { id: 'level_6', name: 'Найвищий пост', desc: 'Досягни 6 рівня схрону', reward: 20000, check: (u) => u.level >= 6 },
+    { id: 'level_5', name: 'Під кордоном', desc: 'Досягни 5 рівня схрону', reward: 6000, check: (u) => u.level >= 5 },
+    { id: 'level_6', name: 'Гість закордонної тюрми', desc: 'Досягни 6 рівня схрону', reward: 20000, check: (u) => u.level >= 6 },
+    { id: 'level_8', name: 'Легалізовано', desc: 'Досягни 8 рівня схрону (маєток)', reward: 60000, check: (u) => u.level >= 8 },
     { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 800, check: (u) => !!u.clanId },
     { id: 'referral_5', name: 'Мережа перевізників', desc: 'Здай 5 друзів', reward: 3000, check: (u) => u.refCount >= 5 },
     // --- Кладовка, ресурси, крафт ---
@@ -3342,7 +3343,13 @@ function buildHtml(botUsername) {
     <style>
         :root { --bg: #171310; --panel-bg: #221c15; --text: #f5ead6; --accent: #9c5330; --accent2: #e0a52e; --btn: #2a2118; --gold: #f0b93f; }
         html { background: var(--bg); min-height: 100%; }
-        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Nunito', 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg); color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; }
+        body { margin: 0; padding: 10px; padding-top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); font-family: 'Nunito', 'Segoe UI', sans-serif; font-size: 16px; background: transparent; color: var(--text); overflow-x: hidden; user-select: none; height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }
+        /* Фон усього застосунку — картинка поточної локації (рівень схрону), під
+           шапкою/вкладками. Base-колір під нею лишається на випадок, поки картинка
+           вантажиться. Затемнення поверх — інакше деталізовані нові фони (loc8-*)
+           заб'ють читабельність тексту/кнопок, які раніше стояли на суцільному кольорі. */
+        #app-bg { position: fixed; inset: 0; z-index: -1; background: var(--bg) center/cover no-repeat; }
+        #app-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(15,11,7,0.72), rgba(15,11,7,0.82)); }
         header, .tabs-container { flex-shrink: 0; }
 
         header { background: rgba(23,17,10,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(224,165,46,0.35); box-shadow: 0 0 18px rgba(224,165,46,0.15), inset 0 0 25px rgba(156,83,48,0.05); }
@@ -3592,7 +3599,7 @@ function buildHtml(botUsername) {
         .tab { padding: 7px 9px; background: var(--btn); border: 1px solid rgba(224,165,46,0.15); text-align: center; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 11px; color: #c2ab86; white-space: nowrap; }
         .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(156,83,48,0.6), 0 0 20px rgba(224,165,46,0.4); }
 
-        .panel { display: none; background: rgba(255,255,255,0.04); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(224,165,46,0.2); box-sizing: border-box; }
+        .panel { display: none; background: rgba(20,15,10,0.6); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(224,165,46,0.2); box-sizing: border-box; backdrop-filter: blur(2px); }
         /* Верхньорівневі панелі розтягуються на весь простір, що лишився під шапкою й
            вкладками (замість фіксованих 50vh, через які знизу лишалось порожнє місце). */
         .panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -3901,6 +3908,7 @@ function buildHtml(botUsername) {
     </style>
 </head>
 <body>
+    <div id="app-bg"></div>
     <div id="splash-screen"><span>Завантаження...</span></div>
     <header>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
@@ -3975,11 +3983,13 @@ function buildHtml(botUsername) {
         <div id="upgrades-list"></div>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Еволюція:</h3>
-        <button onclick="buy('basement', ${ECONOMY.BASEMENT_PRICE})"><img class="btn-icon" src="/images/location-2-basement.webp" alt="">Переїзд у Підвал (Lvl 2) | ${ECONOMY.BASEMENT_PRICE} 🪙</button>
-        <button onclick="buy('balkan', ${ECONOMY.BALKAN_PRICE})"><img class="btn-icon" src="/images/location-3-balkan.webp" alt="">Балканська хатинка (Lvl 3) | ${ECONOMY.BALKAN_PRICE} 🪙</button>
-        <button onclick="buy('tisa', ${ECONOMY.TISA_PRICE})"><img class="btn-icon" src="/images/location-3-boat.webp" alt="">Човен на Тисі (Lvl 4) | ${ECONOMY.TISA_PRICE} 🪙</button>
-        <button onclick="buy('abroad', ${ECONOMY.ABROAD_PRICE})"><img class="btn-icon" src="/images/location-5-abroad.webp" alt="">Закордон (Lvl 5) | ${ECONOMY.ABROAD_PRICE} 🪙</button>
-        <button onclick="buy('bunker', ${ECONOMY.BUNKER_PRICE})"><img class="btn-icon" src="/images/location-6-bunker.webp" alt="">Президентський бункер (Lvl 6) | ${ECONOMY.BUNKER_PRICE} 🪙</button>
+        <button onclick="buy('couch', ${ECONOMY.COUCH_PRICE})"><img class="btn-icon" src="/images/loc8-2-couch.webp" alt="">Бабусин диван (Lvl 2) | ${ECONOMY.COUCH_PRICE} 🪙</button>
+        <button onclick="buy('zakarpattia', ${ECONOMY.ZAKARPATTIA_PRICE})"><img class="btn-icon" src="/images/loc8-3-zakarpattia.webp" alt="">Двір на Закарпатті (Lvl 3) | ${ECONOMY.ZAKARPATTIA_PRICE} 🪙</button>
+        <button onclick="buy('cabin', ${ECONOMY.CABIN_PRICE})"><img class="btn-icon" src="/images/loc8-4-cabin.webp" alt="">Хатина в лісі (Lvl 4) | ${ECONOMY.CABIN_PRICE} 🪙</button>
+        <button onclick="buy('tent', ${ECONOMY.TENT_PRICE})"><img class="btn-icon" src="/images/loc8-5-tent.webp" alt="">Палатка під кордоном (Lvl 5) | ${ECONOMY.TENT_PRICE} 🪙</button>
+        <button onclick="buy('sizo', ${ECONOMY.SIZO_PRICE})"><img class="btn-icon" src="/images/loc8-6-sizo.webp" alt="">СІЗО закордоном (Lvl 6) | ${ECONOMY.SIZO_PRICE} 🪙</button>
+        <button onclick="buy('poland', ${ECONOMY.POLAND_PRICE})"><img class="btn-icon" src="/images/loc8-7-poland.webp" alt="">Квартира в Польщі (Lvl 7) | ${ECONOMY.POLAND_PRICE} 🪙</button>
+        <button onclick="buy('mansion', ${ECONOMY.MANSION_PRICE})"><img class="btn-icon" src="/images/loc8-8-mansion-interior.webp" alt="">Легалізація — маєток (Lvl 8) | ${ECONOMY.MANSION_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #3a2f22;">Компаньйони:</h3>
         <div id="pets-list"></div>
     </div>
@@ -4178,7 +4188,7 @@ function buildHtml(botUsername) {
             <div class="help-step"><b>5. Стеж за розшуком</b><br>Смуга під енергією — <b>розшук</b>. Що активніший ти — то більше тобою цікавляться: разом росте і дохід (до ×2), і шанс облави (до ×4.5). Сам вирішуй, на якому рівні жити. Тап по смузі — вся твоя справа.</div>
             <div class="help-step"><b>6. Повістки (📬 у шапці)</b><br>Приходять із таймером, навіть коли гра закрита. Можна відкупитись, показати липову довідку, зіграти в медкомісію, сховатись — або проігнорувати й отримати штраф.</div>
             <div class="help-step"><b>7. Друзі — теж механіка</b><br>Тап по гравцю в 🏆 ТОП відкриває порівняння профілів і кнопку <b>«здати»</b>. Здав — йому прилетить повістка. Здали тебе — маєш одне розслідування з трьох підозрюваних. Вгадаєш — забереш частину його балансу, помилишся — невинний образиться і отримає безкоштовний дзвінок на тебе.</div>
-            <div class="help-step"><b>8. Ціль гри</b><br>Дійти до бункера й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
+            <div class="help-step"><b>8. Ціль гри</b><br>Дійти до маєтку й <b>легалізуватись</b> (вкладка 😈): скидаєш прогрес, але отримуєш довідки — назавжди +10% доходу за кожну.</div>
             <button onclick="closeHelp()">Зрозуміло</button>
             <button class="secondary" onclick="closeHelp(); openCodex();">📖 Повна довідка механік</button>
         </div>
@@ -4642,6 +4652,7 @@ function buildHtml(botUsername) {
             heatWrap: document.getElementById('heat-wrap'), heatFill: document.getElementById('heat-fill'),
             heatTierLabel: document.getElementById('heat-tier-label'), heatValue: document.getElementById('heat-value'),
             noticesBadge: document.getElementById('notices-badge'), energyLock: document.getElementById('energy-lock'),
+            appBg: document.getElementById('app-bg'),
         };
 
         // ===== Розшук (heat) =====
@@ -4704,6 +4715,13 @@ function buildHtml(botUsername) {
             ui.clkImg.classList.remove('hidden');
             ui.clkEmoji.classList.add('hidden');
             if (ui.clkImg.getAttribute('src') !== CLICKER_BADGE_IMG) ui.clkImg.src = CLICKER_BADGE_IMG;
+            // Фон усього застосунку — картинка поточного рівня схрону. Пишемо в DOM
+            // лише при зміні (як і clkImg вище) — applyLocation() кличеться з updateUI(),
+            // а той крутиться в гарячому 100мс-циклі.
+            if (ui.appBg && loc.img && ui.appBg.dataset.loc !== loc.img) {
+                ui.appBg.style.backgroundImage = "url('" + loc.img + "')";
+                ui.appBg.dataset.loc = loc.img;
+            }
         }
 
         function updateUI() {
@@ -6683,11 +6701,13 @@ function buildHtml(botUsername) {
             const levelBefore = state.level;
             state.balance -= price;
             if (item === 'energy_drink') state.energy = state.maxEnergy;
-            if (item === 'basement' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'balkan' && state.level < 3) { state.level = 3; state.maxEnergy = LOCATIONS[2].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'tisa' && state.level < 4) { state.level = 4; state.maxEnergy = LOCATIONS[3].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'abroad' && state.level < 5) { state.level = 5; state.maxEnergy = LOCATIONS[4].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'bunker' && state.level < 6) { state.level = 6; state.maxEnergy = LOCATIONS[5].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'couch' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'zakarpattia' && state.level < 3) { state.level = 3; state.maxEnergy = LOCATIONS[2].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'cabin' && state.level < 4) { state.level = 4; state.maxEnergy = LOCATIONS[3].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'tent' && state.level < 5) { state.level = 5; state.maxEnergy = LOCATIONS[4].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'sizo' && state.level < 6) { state.level = 6; state.maxEnergy = LOCATIONS[5].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'poland' && state.level < 7) { state.level = 7; state.maxEnergy = LOCATIONS[6].maxEnergy; state.energy = state.maxEnergy; }
+            if (item === 'mansion' && state.level < 8) { state.level = 8; state.maxEnergy = LOCATIONS[7].maxEnergy; state.energy = state.maxEnergy; }
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
             saveState();
@@ -7336,7 +7356,7 @@ function buildHtml(botUsername) {
 
             let action;
             if (!unlocked) {
-                action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону (бункер)</button>';
+                action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону (маєток)</button>';
             } else if (avail < 1) {
                 const need = Math.pow((pts + 1), 2) * ECONOMY.PRESTIGE_EARN_PER_POINT;
                 const left = Math.max(0, need - (state.totalEarned || 0));
