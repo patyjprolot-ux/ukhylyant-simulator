@@ -56,15 +56,7 @@ let HTML_CONTENT = ''; // формується після старту (щоб �
 // 2. ЕКОНОМІКА ТА КОНФІГ ГРИ
 // (єдине джерело правди для цін/нагород — і бек, і фронт орієнтуються на ці числа)
 // ==========================================
-// Довідник "id -> запис" із порожнім прототипом. Це принципово: id приходять
-// прямо з тіла запиту, і на звичайному об'єкті CATALOG['constructor'] повернув
-// би функцію з Object.prototype — далі код читав би в неї .quests/.cost і падав
-// у 500. З null-прототипом невідомий ключ завжди undefined.
-function byId(list) {
-    const map = Object.create(null);
-    for (const item of list) map[item.id] = item;
-    return map;
-}
+const { byId } = require('./lib/utils');
 
 // ==========================================
 // Дані/каталоги, винесені в data/*.js (Фаза 1 модуляризації, 2026-08-08)
@@ -86,250 +78,7 @@ const { REVENGE_LINES, PROMO_CODES, LEGACY_ASSET_PRICES } = require('./catalog/m
 const { WHEEL_SEGMENTS, RISK_TIERS, MEMORY_ICONS, MEMORY_REWARD_TABLE } = require('./catalog/minigames');
 const { UKHYR_RANKS } = require('./catalog/ukhyr');
 
-const ECONOMY = {
-    // --- Апгрейди магазину: ЕШЕЛОННА система (v2.0 «Вертикаль», журнал 2026-08-07) ---
-    // Стара UPGRADE_GROWTH (чисто експоненційна ціна проти лінійного ефекту) видалена —
-    // математично неминуча стіна за будь-якого growth>1, відкат числа лікує симптом,
-    // не причину. Замість неї: ешелони по TIER_SIZE рівнів. Усередині ешелону ціна
-    // росте м'яко (IN_TIER_GROWTH), перехід у новий ешелон — окрема "гейт"-подія за
-    // ТК (через звичайну ціну рівня) + ресурси (TIER_GATES нижче), і множить ефект
-    // рівня на TIER_EFFECT_MULT. Дохід і ціна відтоді ростуть одним законом.
-    TIER_SIZE: 10,
-    TIER_COST_MULT: 22,
-    IN_TIER_GROWTH: 1.35,
-    TIER_EFFECT_MULT: 2.2,
-    HAT_PRICE: 40, HAT_CLICK_BONUS: 1,
-    JAM_PRICE: 150, JAM_PASSIVE_BONUS: 1,
-    THERMOS_PRICE: 900, THERMOS_CLICK_BONUS: 3,
-    GENERATOR_PRICE: 2200, GENERATOR_PASSIVE_BONUS: 4,
-    ENERGY_DRINK_PRICE: 120,
-
-    // --- Енергія: головний обмежувач темпу ---
-    // Раніше регенерація була +2 за тік (20/сек!) — бак наповнювався за 5 секунд і
-    // енергія взагалі нічого не обмежувала. Тепер ~1/сек: 100 енергії = 50 кліків,
-    // повне відновлення ~100 секунд. Саме це робить прогрес повільним і осмисленим.
-    ENERGY_REGEN_PER_TICK: 0.1,
-    ENERGY_PER_CLICK: 2,
-
-    // --- Еволюція схрону ---
-    BASEMENT_PRICE: 1500,
-    BALKAN_PRICE: 6000,
-    TISA_PRICE: 25000,
-    ABROAD_PRICE: 90000,
-    BUNKER_PRICE: 350000,
-
-    // --- Кладовка (склад ресурсів) ---
-    STORAGE_BASE_CAPACITY: 60,
-    STORAGE_CAPACITY_PER_LEVEL: 40,
-    STORAGE_UPGRADE_BASE: 800,
-    STORAGE_UPGRADE_GROWTH: 1.68,
-    STORAGE_MAX_LEVEL: 20,
-
-    // --- Престиж ("Легалізація") ---
-    // Скидає прогрес заради постійного множника доходу. Дає грі нескінченну глибину:
-    // без цього після бункера робити нічого. Очки рахуються від сумарно заробленого
-    // за все життя (корінь — щоб кожне наступне очко давалось відчутно важче).
-    PRESTIGE_UNLOCK_LEVEL: 6,
-    PRESTIGE_EARN_PER_POINT: 500000,
-    PRESTIGE_BONUS_PER_POINT: 0.10,
-
-    REVENGE_UNLOCK_RAIDS: 3,
-    REVENGE_REWARD_MIN: 80,
-    REVENGE_REWARD_MAX: 220,
-    VIP_PRICE_STARS: 500,
-    NICKNAME_CHANGE_PRICE_STARS: 1000, // перша зміна ніка безкоштовна, кожна наступна — за ⭐
-    DONATE_AMOUNTS: [50, 100, 250, 500], // Stars — чиста підтримка розробників, без ігрових бонусів
-    DAILY_REWARDS: [400, 550, 700, 900, 1200, 1600, 4000], // індекс = поточний день серії - 1, індекс 6 = День 7 (джекпот)
-    REFERRAL_REWARD: 1500,
-    RAID_CHANCE: 0.1,
-    RAID_INTERVAL_MS: 45000,
-    RAID_DURATION_S: 10,
-    RAID_CLICKS_NEEDED: 50,
-    QTE_KNOCK_CHANCE: 0.15,
-    QTE_KNOCK_INTERVAL_MS: 30000,
-    QTE_KNOCK_DURATION_S: 3,
-    QTE_KNOCK_PENALTY_PCT: 0.15,
-    AIRDROP_CHANCE: 0.25,
-    // --- Згода на рекламні повідомлення в чаті ---
-    AD_CONSENT_BONUS: 3000,
-    // Кожен, хто погодився, трохи піднімає шанс аірдропу ВСІМ — то й сенс питати:
-    // чим більше друзів дало згоду, тим частіше падає халява в грі загалом.
-    AD_CONSENT_AIRDROP_BONUS_PER_PLAYER: 0.004,
-    AD_CONSENT_AIRDROP_BONUS_CAP: 0.5,
-    AIRDROP_INTERVAL_MS: 20000,
-    AIRDROP_MIN: 60,
-    AIRDROP_MAX: 180,
-    CLAN_PASSIVE_BONUS: 0.05,
-    // Скарбниця клану: учасники скидаються ТК, клан росте в рівні, і бонус до пасиву
-    // росте разом із ним. Дає сенс гуртуватись, а не просто числитись у списку.
-    CLAN_LEVEL_COST: 60000,
-    CLAN_BONUS_PER_LEVEL: 0.02,
-    CLAN_MAX_LEVEL: 15,
-    OFFLINE_CAP_SECONDS: 8 * 3600,
-    OFFLINE_MIN_SECONDS: 30,
-    PET_GOOSE_CLICK_MULT: 1.15,
-    PET_CAT_ENERGY_MULT: 1.3,
-    PET_NEIGHBOR_RAID_MULT: 0.9,
-
-    // --- Розшук (heat): другий ресурс, протилежний за знаком до ТК ---
-    // Чим активніший і багатший гравець, тим більше ним цікавляться: разом росте і
-    // дохід, і шанс облави. Гравець сам обирає, на якому рівні ризику жити — саме
-    // це створює стиль гри, якого не давала одна лише енергія.
-    HEAT_MAX: 100,
-    HEAT_PER_100_CLICKS: 0.5,
-    HEAT_EXPEDITION_PER_LEVEL: 2,
-    HEAT_EXPEDITION_CAP: 8,
-    HEAT_MARKET_SALE_MIN: 50000,
-    HEAT_MARKET_SALE: 3,
-    HEAT_CONTRABAND_CRATE: 4,
-    HEAT_NEW_LOCATION: 5,
-    HEAT_MEDCOM_FAIL: 15,
-    HEAT_NEIGHBOR_MULT: 0.85,     // компаньйон "Сусідка-пліткарка" гасить приріст
-    HEAT_DECAY_MINUTES: 12,       // -1 heat за кожні 12 хв реального часу
-    HEAT_DECAY_DAILY_CAP: 42,     // але не більше -42 за добу, щоб "просто не грати" не було стратегією
-    HEAT_BRIBE_DISCOUNT: 20,
-    HEAT_SPRAVKA_DISCOUNT: 35,
-    HEAT_LOG_SIZE: 20,
-
-    // --- Повістки: випадковий штраф замінено на рішення з таймером ---
-    NOTICE_MAX_ACTIVE: 3,
-    NOTICE_INTERVAL_MIN_H: 4,
-    NOTICE_INTERVAL_MAX_H: 8,
-    NOTICE_BRIBE_BASE: 1200,
-    NOTICE_HIDE_SUCCESS: 0.55,
-    NOTICE_HIDE_FAIL_MULT: 1.5,
-    NOTICE_MEDCOM_SUCCESS: 0.55,  // заглушка до Фази 2 (там буде міні-гра зі збиранням діагнозу)
-    NOTICE_PUSH_BEFORE_MIN: 30,
-    NOTICE_SEASON_POINTS: 2,
-    NOTICE_TICK_MS: 5 * 60 * 1000,
-
-    // --- PvP "Здати сусіда" ---
-    // Головна соціальна механіка: єдине, що друзі можуть зробити ОДИН ОДНОМУ.
-    // Усі обмеження нижче — навмисні запобіжники проти булінгу й спаму, бо це гра
-    // для компанії друзів, а не арена.
-    SNITCH_COST_TK: 3000,
-    SNITCH_COST_RES: 'sim',              // ліва сімка, щоб дзвінок був анонімний
-    SNITCH_DAILY_LIMIT: 3,
-    SNITCH_MIN_LEVEL_GAP: 2,             // не можна бити тих, хто на 2+ рівні нижче
-    SNITCH_SAME_TARGET_COOLDOWN_H: 6,
-    SNITCH_HEAT: 15,
-    SNITCH_RAT_REVEAL_CHANCE: 0.35,      // Щур-розвідник одразу палить стукача
-    SNITCH_SUSPECTS: 3,
-    SNITCH_STEAL_PCT: 0.30,
-    // Стеля крадіжки за рівнем схрону. Без неї 30% балансу гравця, який збирав на
-    // бункер, — це знищення вечора гри, тобто образа, а не драма.
-    SNITCH_STEAL_CAP_PER_LEVEL: 8000,
-    SNITCH_CAUGHT_SEASON_POINTS: 5,
-    SNITCH_HISTORY_SIZE: 10,
-
-    // --- Медкомісія: збираємо "діагноз" із карток симптомів ---
-    MEDCOM_HAND_SIZE: 5,
-    MEDCOM_PICK: 3,
-    MEDCOM_BASE_SKEPTICISM: 100,   // + поточний heat: чим ти помітніший, тим менше віри
-    MEDCOM_REROLL_COST: 800,
-    MEDCOM_REROLL_MAX: 2,
-    MEDCOM_STAMP_BONUS: 25,
-    MEDCOM_MEDS_BONUS: 15,
-    MEDCOM_MEDS_QTY: 3,
-    MEDCOM_CAT_BONUS: 10,          // Кіт-антистрес: виглядаєш переконливо змученим
-    MEDCOM_REPEAT_PENALTY: 20,     // "ви вже приходили з цим" — змушує варіювати
-    MEDCOM_DEFER_H: 12,
-    MEDCOM_SEASON_POINTS: 3,
-
-    // --- Інспектори ТЦК (боси) ---
-    INSPECTOR_SPAWN_CHANCE: 0.12,
-    INSPECTOR_COOLDOWN_H: 6,
-    INSPECTOR_ENERGY_PER_CLICK: 3,
-    INSPECTOR_BATCH_MS: 500,
-    INSPECTOR_MAX_CPS: 30,         // анти-чіт: більше 30 кліків/сек не буває навіть у автоклікера
-    INSPECTOR_WEAKNESS_MULT: 2,
-    INSPECTOR_LOSE_HEAT: 10,
-    INSPECTOR_BRIBE_WINDOW_MIN: 30, // "за сесію був хабар" = хабар за останні 30 хв
-    INSPECTOR_SPEED_CPS: 6,
-    INSPECTOR_CHARM_MIN_PRICE: 2000, // косметика тіру 3+ визначається ціною
-
-    // --- Блокпост при переїзді в новий схрон ---
-    CHECKPOINT_PIGEON_BONUS: 0.15,   // Голуб-курʼєр знає обʼїзні
-    CHECKPOINT_HEAT_DOCS: 20,
-    CHECKPOINT_HEAT_BABA: 10,
-    CHECKPOINT_RESOURCE_LOSS: 0.30,
-
-    // --- Дерево навичок (за довідки легалізації) ---
-    SKILL_RESET_COST_TK: 500000,     // перше скидання безкоштовне
-    SKILL_HEAT_GAIN_CUT: 0.15,       // Тихіше води
-    SKILL_ESCAPE_BONUS: 0.20,        // Знаю прохідні двори
-    SKILL_SNITCH_FAIL_CHANCE: 0.30,  // Дві сімки
-    SKILL_BRIBE_CUT: 0.30,           // Свій у ЖЕКу
-    SKILL_RAID_WARNING_SEC: 10,      // Чуйка
-    SKILL_DECAY_MULT: 2,             // Привид району
-    SKILL_SELL_BONUS: 0.12,          // Знайомий перекуп
-    SKILL_CRATE_DISCOUNT: 0.15,      // Оптова закупка
-    SKILL_CLAN_MULT: 1.5,            // Кум у сільраді
-    SKILL_RESOURCE_BONUS: 0.25,      // Свої люди
-    SKILL_CRAFT_FREE_CHANCE: 0.20,   // Схема
-    SKILL_MAX_ENERGY_BONUS: 25,      // Загартований
-    SKILL_REGEN_BONUS: 0.40,         // Друге дихання
-    SKILL_CLICK_BONUS: 0.30,         // Мозоль
-    SKILL_PENALTY_CUT: 0.50,         // Незламний
-    // Аудит балансу (2026-08-07): раніше клік коштував 1 енергії замість 2 (повне
-    // подвоєння кліків на баку) — надто сильно для 3-ї з 6 навичок гілки. 1.5
-    // лишає відчутний, але не ламаючий баланс ефект (+33% кліків замість +100%).
-    SKILL_LIGHTHAND_ENERGY_COST: 1.5, // Легка рука
-
-    // --- Міні-ігри ---
-    MINIGAME_STAKE_MIN: 100,
-    MINIGAME_STAKE_MAX: 20000,
-
-    // --- Офлайн-звіт ---
-    OFFLINE_REPORT_MIN_MS: 15 * 60 * 1000, // показуємо, лише якщо не було 15+ хвилин
-    OFFLINE_LOG_SIZE: 12,
-
-    // --- Репутація з районом ---
-    REP_MAX: 100,
-    REP_TOLIK_SELL_BONUS: 0.40,   // преміум-лот біржі на 100 репи
-    REP_OKSANA_HEAT_CUT: 0.20,    // -20% приросту розшуку на 100 репи
-    REP_NINA_MAX_ENERGY: 50,      // "Бабусина заготовка" на 100 репи
-
-    // --- Сезони й ліги ---
-    LEAGUE_PROMOTE: 8,            // топ-8 групи піднімаються
-    LEAGUE_RELEGATE: 8,           // дно-8 падають
-    SEASON_MIN_POINTS: 1,         // з нулем очок нікуди не рухаємо: гравець просто не грав
-    SEASON_HEAT_DAILY_SP: 5,      // доба з розшуком > 60
-    SEASON_HEAT_THRESHOLD: 60,
-    SEASON_EXPEDITION_SP: 3,      // × рівень вилазки
-    SEASON_RAID_SP: 1,            // вижив в облаві
-    SEASON_CRAFT_SP: 8,           // крафт предмета тіру 3+
-    SEASON_PRESTIGE_SP: 100,
-
-    // --- Війна ОСББ ---
-    WAR_POINTS_RAID: 2,
-    WAR_POINTS_EXPEDITION: 3,
-    WAR_POINTS_SNITCH: 10,        // стук на ворога — головна тактика війни
-    WAR_POINTS_INSPECTOR: 25,
-    WAR_POINTS_PER_DONATION: 10000, // 10k у скарбницю = +1 очко
-    WAR_SNITCH_DISCOUNT: 0.5,     // під час війни стук на ворога вдвічі дешевший
-    WAR_TREASURY_PRIZE: 0.20,
-    WAR_BUFF_DAYS: 7,
-    WAR_BUFF_PASSIVE: 0.10,
-
-    // --- Облава на район (кооп-бос) ---
-    DISTRICT_HEAT_TRIGGER: 400,   // сумарний розшук клану
-    DISTRICT_WINDOW_H: 6,
-    // hpMax рахуємо від РЕАЛЬНОЇ сили клану, а не від кількості учасників:
-    // за 6 годин один гравець накопичує тисячі кліків, і плоскі 40k×учасників
-    // помирали б за десять хвилин.
-    DISTRICT_HP_PER_CLICK_POWER: 1200,
-    DISTRICT_HP_FLOOR: 150000,
-    DISTRICT_WIN_TK: 25000,
-    DISTRICT_WIN_HEAT: -30,
-    DISTRICT_WIN_SP: 15,
-    DISTRICT_LOSE_BALANCE_PCT: 0.12,
-    DISTRICT_LOSE_HEAT: 10,
-
-    // --- Автоклікер «Бабуся клікає за тебе» ---
-    GRANNY_MINUTES: 30,
-    GRANNY_CPS: 3,
-};
+const ECONOMY = require('./catalog/economy');
 
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
 // карток брала базовий скептицизм 100, але на високому heat уже не вистачало —
@@ -440,22 +189,7 @@ const RECIPE_BY_ID = byId(RECIPES);
 // кожна, будуються незалежно від конкретної клітинки на карті (сама сітка на фоні —
 // візуальний контекст + орієнтири-посилання на вилазки, не окрема система координат).
 
-const MAP_BUILDING_BY_ID = byId(MAP_BUILDINGS);
-function mapBuildingLevel(user, buildingId) { return (user.mapBuildings && user.mapBuildings[buildingId]) || 0; }
-function mapBuildingEffect(user, buildingId) {
-    const level = mapBuildingLevel(user, buildingId);
-    if (level <= 0) return null;
-    return MAP_BUILDING_BY_ID[buildingId].levels[level - 1];
-}
-// Той самий підхід, що heatRaidMult/petMult: множник шансу облави.
-function mapRaidMult(user) {
-    const eff = mapBuildingEffect(user, 'tower');
-    return eff ? (1 - eff.raidCut) : 1;
-}
-function mapProtectPct(user) {
-    const eff = mapBuildingEffect(user, 'cache');
-    return eff ? eff.protectPct : 0;
-}
+const { MAP_BUILDING_BY_ID, mapBuildingLevel, mapBuildingEffect, mapRaidMult, mapProtectPct } = require('./lib/mechanics/map');
 
 // Вилазки — офлайн-механіка: відправив персонажа й чекаєш реальний час. Дає ресурси
 // без кліків, але з ризиком спалитись (тоді здобич втрачено). Довші вилазки — більше
@@ -1182,90 +916,10 @@ function addResource(user, resId, amount, { bonus = true } = {}) {
 
 // Базова ціна кожного апгрейда — в одному місці, щоб формула ціни не розповзалась
 // між поодинокою купівлею і купівлею пачкою.
-const UPGRADE_BASE = {
-    hat: ECONOMY.HAT_PRICE, jam: ECONOMY.JAM_PRICE,
-    thermos: ECONOMY.THERMOS_PRICE, generator: ECONOMY.GENERATOR_PRICE,
-};
-const UPGRADE_BASE_EFFECT = {
-    hat: ECONOMY.HAT_CLICK_BONUS, jam: ECONOMY.JAM_PASSIVE_BONUS,
-    thermos: ECONOMY.THERMOS_CLICK_BONUS, generator: ECONOMY.GENERATOR_PASSIVE_BONUS,
-};
-
-// Гейти ешелонів: щоб купити рівень 11/21/31/…, мало заплатити ТК за сам рівень —
-// треба ще "пробити" ешелон ресурсами. Індекс 0 = гейт у ешелон 1 (після рівня 10),
-// індекс 1 = гейт у ешелон 2 (після 20) і т.д. Ешелон 6+ — остання таблиця ×1.6^(tier-5).
-// coins із журналу = валюта (cash, тір 3), batt = battery, med = meds.
-const TIER_GATES = {
-    hat: [
-        { paper: 10, tape: 8 },
-        { paper: 24, tape: 18, scrap: 6 },
-        { paper: 40, tape: 30, cash: 4 },
-        { cash: 8, stamp: 3 },
-        { cash: 16, stamp: 8, phone: 1 },
-    ],
-    jam: [
-        { cans: 12, battery: 8 },
-        { cans: 26, battery: 18, wood: 10 },
-        { cans: 40, meds: 10, sausage: 8 },
-        { cash: 8, stamp: 3 },
-        { cash: 16, stamp: 8, phone: 1 },
-    ],
-    thermos: [
-        { meds: 6, sausage: 6 },
-        { meds: 14, sausage: 12, fuel: 8 },
-        { meds: 24, fuel: 16, sim: 5 },
-        { cash: 10, stamp: 4 },
-        { cash: 20, stamp: 10, phone: 1 },
-    ],
-    generator: [
-        { wood: 10, scrap: 8 },
-        { wood: 24, scrap: 16, brick: 10 },
-        { fuel: 20, scrap: 24, brick: 16 },
-        { cash: 12, stamp: 5 },
-        { cash: 24, stamp: 12, phone: 1 },
-    ],
-};
-function upgTier(level) { return Math.floor(level / ECONOMY.TIER_SIZE); }
-function upgInTier(level) { return level % ECONOMY.TIER_SIZE; }
-// Ціна купівлі рівня (level+1), коли поточний (уже куплений) рівень = level.
-// Аудит балансу (2026-08-07): TIER_GATES (ресурсні "ворота" між ешелонами) описані
-// лише до 5-го ешелону (рівень 50) і далі самі себе пом'якшують ×1.6/ешелон
-// (tierGateCost нижче). Але ціна САМОГО рівня в ТК досі множилась на
-// TIER_COST_MULT^tier (22^tier) без жодної межі — на 10-му ешелоні це вже ×22^10,
-// астрономічне число практично назавжди зупиняє прогрес. Дзеркалимо той самий
-// підхід ×1.6/ешелон за межею 5-го, щоб зростання не було необмеженим.
-function tierCostMultCapped(tier) {
-    const cap = 5;
-    if (tier <= cap) return Math.pow(ECONOMY.TIER_COST_MULT, tier);
-    return Math.pow(ECONOMY.TIER_COST_MULT, cap) * Math.pow(1.6, tier - cap);
-}
-function upgCost(base, level) {
-    return Math.round(base * tierCostMultCapped(upgTier(level)) * Math.pow(ECONOMY.IN_TIER_GROWTH, upgInTier(level)));
-}
-// Скільки додає ОДИН рівень апгрейда, коли поточний (до купівлі) рівень = level.
-function upgEffectPerLevel(baseEffect, level) {
-    return baseEffect * Math.pow(ECONOMY.TIER_EFFECT_MULT, upgTier(level));
-}
-// Вартість ресурсів, щоб пробити ешелон tier (1-based: 1 = гейт після рівня 10).
-function tierGateCost(key, tier) {
-    const gates = TIER_GATES[key];
-    if (tier <= gates.length) return gates[tier - 1];
-    const last = gates[gates.length - 1];
-    const mult = Math.pow(1.6, tier - gates.length);
-    const scaled = {};
-    for (const [res, qty] of Object.entries(last)) scaled[res] = Math.ceil(qty * mult);
-    return scaled;
-}
-// Чи гейт потрібен ПРЯМО ЗАРАЗ (гравець стоїть рівно на межі ешелону, наступний
-// рівень уже належить новому ешелону) і чи він уже пробитий.
-function upgradeGateInfo(user, key) {
-    const owned = (user.upgrades && user.upgrades[key]) || 0;
-    if (owned === 0 || owned % ECONOMY.TIER_SIZE !== 0) return null;
-    const tier = owned / ECONOMY.TIER_SIZE;
-    const unlocked = (user.upgTiersUnlocked && user.upgTiersUnlocked[key]) || 0;
-    if (unlocked >= tier) return null;
-    return { tier, cost: tierGateCost(key, tier) };
-}
+const {
+    UPGRADE_BASE, UPGRADE_BASE_EFFECT, TIER_GATES,
+    upgTier, upgInTier, tierCostMultCapped, upgCost, upgEffectPerLevel, tierGateCost, upgradeGateInfo,
+} = require('./lib/mechanics/economy');
 
 // Скільки рівнів апгрейда гравець потягне за N спроб і скільки це коштує.
 // maxLevels = Infinity означає "все, що по кишені". Ціна росте геометрично,
@@ -1301,102 +955,12 @@ function hasActiveShield(user) {
     return !!user.permanentShield || (user.shieldUntil || 0) > Date.now();
 }
 
-// ==========================================
-// РІВЕНЬ УХИЛЯНТА (v2.1) — onboarding-гейт, НЕ економічна система.
-// Ширший за user.level ("рівень схрону", лишається як є). Керує лише тим,
-// які вкладки/кнопки клієнт показує — нічого з відкритого раніше не дає
-// безкоштовної переваги (усе й так платні механіки), тому сервер тут не
-// захищає економіку, тільки рахує цифру.
-// ==========================================
-// Скільки XP треба НАКОПИЧИТИ (кумулятивно з нуля), щоб дійти рівня l.
-function xpForLevel(l) { return Math.round(40 * Math.pow(l, 1.5)); }
-// Який рівень відповідає сумарному XP (лінійний пошук — рівнів мало, до ~50).
-function playerLevelForXP(xp) {
-    let level = 1;
-    while (xpForLevel(level + 1) <= xp) level++;
-    return level;
-}
-// Єдина точка нарахування XP — піднімає user.playerLevel, повертає скільки
-// рівнів здобуто за раз (0, якщо просто додалось XP без переходу).
-function addXP(user, amount) {
-    if (!amount) return 0;
-    user.xp = (user.xp || 0) + amount;
-    const newLevel = playerLevelForXP(user.xp);
-    const gained = Math.max(0, newLevel - (user.playerLevel || 1));
-    if (gained > 0) user.playerLevel = newLevel;
-    return gained;
-}
-// Ухирація — суто рейтингова метрика для лідерборду (не валюта, нічого не купує).
-function addUkhyr(user, amount) {
-    if (!amount) return;
-    user.ukhyr = (user.ukhyr || 0) + amount;
-}
-
-function ukhyrRank(points) {
-    let rank = UKHYR_RANKS[0];
-    for (const r of UKHYR_RANKS) { if ((points || 0) >= r.threshold) rank = r; }
-    return rank.title;
-}
+const { xpForLevel, playerLevelForXP, addXP, addUkhyr, ukhyrRank } = require('./lib/mechanics/levels');
 
 // ==========================================
 // РОЗШУК (HEAT) ТА ПОВІСТКИ
 // ==========================================
-function heatTierOf(heat) {
-    const h = Math.max(0, Math.min(ECONOMY.HEAT_MAX, heat || 0));
-    return HEAT_TIERS.find((t) => h <= t.max) || HEAT_TIERS[HEAT_TIERS.length - 1];
-}
-
-function heatIncomeMult(user) { return heatTierOf(user.heat).incomeMult; }
-function heatRaidMult(user) { return heatTierOf(user.heat).raidMult; }
-
-// Єдина точка зміни heat — щоб кожна подія потрапила в лог "Твоєї справи" і щоб
-// компаньйон-пліткарка гасив приріст в одному місці, а не в кожному виклику.
-function changeHeat(user, delta, reason) {
-    if (!delta) return 0;
-    // Поки діє відстрочка, розшук НЕ РОСТЕ (спад працює). Це і є ціна безпеки:
-    // за два тижні "Помічника депутата" heat падає до нуля разом із множником
-    // доходу. Не "виправляй" це — на трейд-офі тримається вся Система 1.
-    if (delta > 0 && (user.deferUntil || 0) > Date.now()) return 0;
-    if (delta > 0 && user.petId === 'neighbor') delta *= ECONOMY.HEAT_NEIGHBOR_MULT;
-    if (delta > 0 && hasSkill(user, 'quiet')) delta *= (1 - ECONOMY.SKILL_HEAT_GAIN_CUT);
-    // Оксана замовила за тебе слівце — про тебе згадують рідше.
-    if (delta > 0 && repMaxed(user, 'oksana')) delta *= (1 - ECONOMY.REP_OKSANA_HEAT_CUT);
-    const before = user.heat || 0;
-    const after = Math.max(0, Math.min(ECONOMY.HEAT_MAX, before + delta));
-    user.heat = after;
-    const applied = Math.round((after - before) * 10) / 10;
-    if (applied !== 0 && reason) {
-        user.heatLog.unshift({ t: Date.now(), delta: applied, reason });
-        if (user.heatLog.length > ECONOMY.HEAT_LOG_SIZE) user.heatLog.length = ECONOMY.HEAT_LOG_SIZE;
-    }
-    return applied;
-}
-
-// Згасання рахується ліниво від lastHeatDecay, а не таймером на кожного гравця:
-// про тебе забувають і поки гра закрита. Денний кап не дає "залягти на тиждень"
-// і повернутись із чистою репутацією — забування має бути повільнішим за життя.
-function decayHeat(user) {
-    const now = Date.now();
-    const last = user.lastHeatDecay || now;
-    // «Привид району» не прискорює час, а подвоює те, що встигло списатись за
-    // кожен крок — інакше довелось би окремо пересувати lastHeatDecay.
-    const perStep = hasSkill(user, 'ghost') ? ECONOMY.SKILL_DECAY_MULT : 1;
-    const steps = Math.floor((now - last) / (ECONOMY.HEAT_DECAY_MINUTES * 60000)) * perStep;
-    if (steps <= 0) return 0;
-
-    // Час "з'їдаємо" повністю, навіть якщо впираємось у денний кап — інакше залишок
-    // накопичився б і назавтра миттєво обнулив увесь heat.
-    user.lastHeatDecay = last + (steps / perStep) * ECONOMY.HEAT_DECAY_MINUTES * 60000;
-
-    const today = new Date().toDateString();
-    if (user.heatDecayDate !== today) { user.heatDecayDate = today; user.heatDecayToday = 0; }
-    const allowed = Math.max(0, ECONOMY.HEAT_DECAY_DAILY_CAP - (user.heatDecayToday || 0));
-    const applied = Math.min(steps, allowed, user.heat || 0);
-    if (applied <= 0) return 0;
-    user.heat = Math.max(0, (user.heat || 0) - applied);
-    user.heatDecayToday = (user.heatDecayToday || 0) + applied;
-    return applied;
-}
+const { heatTierOf, heatIncomeMult, heatRaidMult, changeHeat, decayHeat } = require('./lib/mechanics/heat');
 
 function noticeBribeCost(user, type) {
     const tierIndex = NOTICE_TYPES.indexOf(type) + 1;
@@ -3648,8 +3212,7 @@ app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
 });
 
 // ---- Репутація з районом ----
-function repOf(user, npcId) { return (user.reputation || {})[npcId] || 0; }
-function repMaxed(user, npcId) { return repOf(user, npcId) >= ECONOMY.REP_MAX; }
+const { repOf, repMaxed } = require('./lib/mechanics/reputation');
 
 // Квест дня обирається детерміновано від дати й id NPC — в усіх гравців він
 // однаковий і його не можна «перекрутити», перезайшовши в гру.
@@ -3849,16 +3412,7 @@ app.post('/api/skills/reset', requireTelegramAuth, (req, res) => {
 // локації: постійні бонуси з крафту («Бенкет на районі», «Розширений бак») теж
 // зашиті прямо в user.maxEnergy, і перерахунок мовчки стер би їх назавжди.
 // skillEnergyBonus пам'ятає, скільки саме зараз дали навички, щоб зняти рівно стільки.
-function applySkillLimits(user) {
-    const want = hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0;
-    const had = user.skillEnergyBonus || 0;
-    if (want !== had) {
-        user.maxEnergy = Math.max(1, (user.maxEnergy || 100) + (want - had));
-        user.skillEnergyBonus = want;
-        if (user.energy > user.maxEnergy) user.energy = user.maxEnergy;
-    }
-    return user.maxEnergy;
-}
+const { applySkillLimits } = require('./lib/mechanics/skills');
 
 // ---- Відстрочки ----
 function defermentActive(user) {
@@ -4021,9 +3575,7 @@ app.post('/api/checkpoint/pass', requireTelegramAuth, (req, res) => {
 // ---- Інспектори ТЦК (боси) ----
 // Навички з дерева престижу — Фаза 6. Поки їх немає, функція чесно повертає false,
 // і Генерал Півник лишається видимим, але заблокованим.
-function hasSkill(user, skillId) {
-    return !!(user.skills && user.skills[skillId]);
-}
+const { hasSkill } = require('./lib/mechanics/skills');
 
 function inspectorAvailable(user, insp) {
     if ((user.heat || 0) < insp.unlockHeat) return false;
