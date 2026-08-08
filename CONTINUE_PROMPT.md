@@ -401,6 +401,43 @@ season/war/district — сотні рядків взаємопов'язаної 
 винести в `lib/mechanics/*.js` ОКРЕМИМ кроком перед самими роутами
 security.js — той самий підхід, що спрацював для storage.js тут.
 
+**Ще один крок зроблено (2026-08-08):**
+4. ✅ `routes/economy.js` — 17 роутів (storage×3, prestige×2, expedition×2,
+   crate/open, craft, upgrade/buy+breakTier, revenge, market×2, wheel/spin,
+   4× minigame). `lib/mechanics/expeditions.js` виділено окремо (той самий
+   привід, що storage.js: `expeditionSnapshot` потрібен і `/api/user`,
+   який ще НЕ винесено). Живий smoke-тест: promo → storage upgrade →
+   crate open → upgrade/buy → coinflip → wheel → market get/buy/sell →
+   memory/start → craft/prestige error-гілки. `server.js`: 9052 → 8512.
+
+**Підготовлено, АЛЕ ЩЕ НЕ ПІДКЛЮЧЕНО (2026-08-08):**
+`routes/social.js` — лідерборд, nickname/set+requestChange, profile,
+snitch, investigation/*, clan/* (6 роутів) — файл написаний і лежить у
+`routes/social.js`, але `server.js` досі містить ОРИГІНАЛЬНІ версії цих
+роутів (нічого не видалено, нічого не підключено). Це свідомо: зупинився
+на ніч, а `server.js` мав лишитись у гарантовано робочому, перевіреному
+стані — жодного ризику лишити гру наполовину зламаною.
+
+**Наступного разу почни звідси:**
+1. Видалити з `server.js` оригінали: `/api/leaderboard`, `validateNickname`
+   лишити на місці (потрібна і `/api/save`, яка ще в server.js),
+   `/api/nickname/set`, `/api/nickname/requestChange`, `publicSnitchStats`/
+   `profileCard` (локальні хелпери — переносяться разом із роутами, вони
+   більше НІДЕ в server.js не використовуються — перевір grep перед
+   видаленням), `/api/profile`, `/api/snitch`, `/api/investigation`,
+   `/api/investigation/guess`, увесь блок `/api/clan/*` (6 роутів).
+2. Один `require('./routes/social')(app, {...})` виклик замість них —
+   deps перелічені на початку `routes/social.js`.
+3. `node -c`, живий smoke-тест (промо → нік → клан create/donate/join/leave
+   → лідерборд → профіль/стук на іншого тестового гравця), окремий коміт.
+4. Далі `routes/misc.js` (daily/promo/save/restore/user/invoice/
+   admin-backup/pet/cosmetic/room/quests), потім `routes/security.js`
+   (найважчий — прочитай нотатку про lib/mechanics/* перед ним вище).
+5. Коли всі домени готові — фінальна повна перевірка (не тільки по одному
+   домену, а весь ланцюжок дій підряд одним смоук-тестом) і ТІЛЬКИ ТОДІ
+   пуш на Render (`git push`) — користувач попросив зробити все спочатку,
+   пуш в кінці одним разом.
+
 **Фаза 5 (найризикованіша, робити останньою) — клієнтський HTML/CSS/JS.**
 `buildHtml()` — один величезний template literal, що вшиває серверні
 каталоги через `${JSON.stringify(X)}` прямо в код. Повне розділення на
