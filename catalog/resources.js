@@ -15,6 +15,10 @@ const RESOURCES = [
     { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
     { id: 'scrap', name: 'Металобрухт', emoji: '⚙️', tier: 2, sell: 175 },
     { id: 'brick', name: 'Цегла', emoji: '🧱', tier: 2, sell: 150 },
+    // Нові тіри 1-2 (2026-08-08) — трохи розширити асортимент тіньової біржі
+    // (MARKET_ASSETS бере всі ресурси тір<=3 автоматично, окремо нічого не треба).
+    { id: 'coffee', name: 'Кава', emoji: '☕', tier: 1, sell: 45 },
+    { id: 'coal', name: 'Вугілля', emoji: '⛏️', tier: 2, sell: 140 },
     { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
     { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
     { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
@@ -36,6 +40,7 @@ const CRATES = [
             { type: 'res', res: 'battery', min: 1, max: 3, weight: 18 },
             { type: 'res', res: 'tape', min: 1, max: 2, weight: 12 },
             { type: 'res', res: 'wood', min: 1, max: 3, weight: 14 },
+            { type: 'res', res: 'coffee', min: 1, max: 3, weight: 13 },
             { type: 'coins', min: 300, max: 900, weight: 8 },
             { type: 'res', res: 'meds', min: 1, max: 1, weight: 2 },
             { type: 'res', res: 'shard', min: 1, max: 1, weight: 1 },
@@ -74,6 +79,7 @@ const CRATES = [
             { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
             { type: 'res', res: 'scrap', min: 2, max: 5, weight: 9 },
             { type: 'res', res: 'brick', min: 2, max: 5, weight: 9 },
+            { type: 'res', res: 'coal', min: 2, max: 6, weight: 9 },
             { type: 'granny', weight: 6 },
             { type: 'cosmetic', weight: 8 },
             { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
