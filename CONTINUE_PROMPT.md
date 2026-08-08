@@ -322,15 +322,16 @@ curl-smoke-тест (ідентична поведінка до/після). Б�
 git tag `pre-modularization-monolith` (запушено) + `/api/admin/backup`
 знімок живих даних у `backups/`.
 
-**Фаза 2 — чисті серверні функції-механіки (без Express).**
-`lib/mechanics/heat.js` (changeHeat, heatTierOf, heatIncomeMult,
-heatRaidMult), `lib/mechanics/economy.js` (upgCost, upgEffectPerLevel,
-tierGateCost, upgradeGateInfo, tierCostMultCapped), `lib/mechanics/skills.js`
-(hasSkill, applySkillLimits), `lib/mechanics/levels.js` (addXP, addUkhyr,
-xpForLevel, playerLevelForXP, ukhyrRank — сьогоднішній додаток),
-`lib/mechanics/map.js` (mapBuildingLevel, mapBuildingEffect, mapRaidMult,
-mapProtectPct). Кожна функція бере `user`/`ECONOMY` як параметр, не лізе в
-`usersDB` напряму — тому переносяться майже механічно.
+**Фаза 2 — ✅ ВИКОНАНО (2026-08-08).** `ECONOMY` теж перенесено в
+`catalog/economy.js` (відкладене з Фази 1 — стало природним передумовою,
+щоб механіки-модулі могли чисто require() її без циклічних залежностей).
+`lib/utils.js` (byId), `lib/mechanics/{skills,reputation,heat,economy,
+levels,map}.js` — усі функції з таблиці плюс похідні дані (UPGRADE_BASE,
+TIER_GATES, MAP_BUILDING_BY_ID). `server.js`: 10 040 → 9 593 рядки.
+`ACHIEVEMENTS` і далі свідомо в `server.js` (замикання читають
+`clanContributionOf()`/`SKILL_BY_ID` — рантайм-похідні, не чисті дані).
+Верифіковано живим smoke-тестом кожної перенесеної функції через реальний
+ендпоінт.
 
 **Фаза 3 — модель користувача.**
 `lib/user-store.js`: `createFreshUser`, `migrateUser`, `getUser`, `usersDB`,
