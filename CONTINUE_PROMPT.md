@@ -308,15 +308,19 @@ Hotspot-координати орієнтирів (`top`/`left` у %) підіб
 план розбиття на модулі (не виконувати зараз — окремий захід). План
 розбиття на 5 фаз, від найменш ризикованого до найбільш:
 
-**Фаза 1 (найбезпечніша) — чисті дані/каталоги, без логіки.**
-Винести в `data/*.js` (CommonJS, `module.exports`): `ECONOMY`, `RESOURCES`,
-`CRATES`, `RECIPES`, `EXPEDITIONS`, `LOCATIONS`, `PETS`, `COSMETICS`,
-`QUESTS`, `ACHIEVEMENTS`, `MAP_BUILDINGS`, `HEAT_TIERS`, `NOTICE_TYPES`,
-`SKILL_BRANCHES`, `REPUTATION_NPCS`, `LEAGUES`, `DEFERMENTS`,
-`CHECKPOINT_CHOICES`, `INSPECTORS`, `SYMPTOMS`, `UKHYR_RANKS`. Жодних змін
-поведінки — просто `const ECONOMY = require('./data/economy')` замість
-інлайн-об'єкта. Найкращий перший крок: нульовий ризик, легко звірити
-(`JSON.stringify` до/після рефакторингу мають збігтись байт-в-байт).
+**Фаза 1 — ✅ ВИКОНАНО (2026-08-08).** 27 чистих каталогів винесено в
+`catalog/*.js` (16 файлів, згруповано по домену — не `data/`, та назва вже
+зайнята рантайм-збереженням гри `data/gamedata.json`, і `data/` повністю в
+`.gitignore` — мало не запушило порожню директорію й зламало б деплой
+`MODULE_NOT_FOUND`, спіймано до коміту). `ECONOMY` і `ACHIEVEMENTS`
+свідомо лишено в `server.js`: `ECONOMY` — надто наскрізна залежність, щоб
+виносити зараз; `ACHIEVEMENTS.check()` — замикання, що читають
+`clanContributionOf()`/`SKILL_BY_ID` (рантайм-похідні, не чисті дані) —
+винести можна тільки через factory-функцію, залишено для пізнішої фази.
+Верифіковано: `node -c` на всіх файлах, повний локальний запуск, живий
+curl-smoke-тест (ідентична поведінка до/після). Бекап перед стартом:
+git tag `pre-modularization-monolith` (запушено) + `/api/admin/backup`
+знімок живих даних у `backups/`.
 
 **Фаза 2 — чисті серверні функції-механіки (без Express).**
 `lib/mechanics/heat.js` (changeHeat, heatTierOf, heatIncomeMult,
