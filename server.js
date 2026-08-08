@@ -66,6 +66,26 @@ function byId(list) {
     return map;
 }
 
+// ==========================================
+// Дані/каталоги, винесені в data/*.js (Фаза 1 модуляризації, 2026-08-08)
+// ==========================================
+const { SYMPTOMS, INSPECTORS, TROPHIES } = require('./catalog/inspectors');
+const { DEFERMENTS, CHECKPOINT_CHOICES, REPUTATION_NPCS, LEAGUES } = require('./catalog/social');
+const { SKILL_BRANCHES } = require('./catalog/skills');
+const { SEASON_COSMETICS, COSMETICS } = require('./catalog/cosmetics');
+const { HEAT_TIERS, NOTICE_TYPES } = require('./catalog/heat');
+const { RESOURCES, CRATES } = require('./catalog/resources');
+const { RECIPES } = require('./catalog/recipes');
+const { MAP_BUILDINGS } = require('./catalog/map');
+const { EXPEDITIONS, PET_EXPEDITION } = require('./catalog/expeditions');
+const { LOCATIONS } = require('./catalog/locations');
+const { PETS } = require('./catalog/pets');
+const { QUESTS } = require('./catalog/quests');
+const { ROOM_ITEMS } = require('./catalog/room-items');
+const { REVENGE_LINES, PROMO_CODES, LEGACY_ASSET_PRICES } = require('./catalog/misc');
+const { WHEEL_SEGMENTS, RISK_TIERS, MEMORY_ICONS, MEMORY_REWARD_TABLE } = require('./catalog/minigames');
+const { UKHYR_RANKS } = require('./catalog/ukhyr');
+
 const ECONOMY = {
     // --- Апгрейди магазину: ЕШЕЛОННА система (v2.0 «Вертикаль», журнал 2026-08-07) ---
     // Стара UPGRADE_GROWTH (чисто експоненційна ціна проти лінійного ефекту) видалена —
@@ -314,60 +334,12 @@ const ECONOMY = {
 // Картки для медкомісії. Переконливість (power) підібрана так, щоб трійка топових
 // карток брала базовий скептицизм 100, але на високому heat уже не вистачало —
 // саме тоді й потрібні бонуси з кладовки.
-const SYMPTOMS = [
-    { id: 'ploskostopist', name: 'Плоскостопість 3 ступеня', emoji: '🦶', power: 45, weight: 12 },
-    { id: 'skolioz', name: 'Сколіоз як у знака питання', emoji: '🦴', power: 50, weight: 11 },
-    { id: 'alergiya', name: 'Алергія на камуфляж', emoji: '🤧', power: 35, weight: 12 },
-    { id: 'tysk', name: 'Тиск 200 на 140 (виміряв сам)', emoji: '🩸', power: 40, weight: 12 },
-    { id: 'zir', name: 'Мінус вісім (окуляри забув)', emoji: '👓', power: 42, weight: 12 },
-    { id: 'panika', name: 'Панічні атаки в чергах', emoji: '😰', power: 55, weight: 9 },
-    { id: 'sluh', name: 'Не чую, коли кличуть на імʼя', emoji: '👂', power: 38, weight: 12 },
-    { id: 'sertse', name: 'Серце розбите (довідка від колишньої)', emoji: '💔', power: 25, weight: 12 },
-    { id: 'gryzha', name: 'Грижа, яку видно тільки мені', emoji: '🩹', power: 48, weight: 10 },
-    { id: 'hronichna', name: 'Хронічна втома від новин', emoji: '😵', power: 30, weight: 12 },
-    { id: 'ruka', name: 'Рука не піднімається (принципово)', emoji: '🤲', power: 44, weight: 11 },
-    { id: 'spravzhnye', name: 'Справжня медична карта', emoji: '📋', power: 90, weight: 1 },
-];
+
 const SYMPTOM_BY_ID = byId(SYMPTOMS);
 
 // Інспектори ТЦК — іменовані боси, що приходять на високому розшуку. Кожен смішний
 // характером, а не тим, що він "ворог": об'єкт жарту — абсурд бюрократії.
-const INSPECTORS = [
-    {
-        id: 'valik', emoji: '🧔', name: 'Валік Настирливий', hp: 3000,
-        unlockHeat: 30, window: 90, weakness: 'bribe',
-        weaknessHint: 'Бере на слабо тих, хто вже сьогодні "вирішував питання"',
-        reward: { tk: 12000, res: { sim: 2 }, sp: 10 },
-        taunt: '«Та я на хвилинку, документи глянути»',
-    },
-    {
-        id: 'sanych', emoji: '🕶️', name: 'Санич Мовчазний', hp: 12000,
-        unlockHeat: 50, window: 75, weakness: 'speed',
-        weaknessHint: 'Ламається від напору: тримай 6+ кліків за секунду',
-        reward: { tk: 45000, res: { stamp: 1 }, sp: 20 },
-        taunt: '«...» (він просто дивиться)',
-    },
-    {
-        id: 'lyuda', emoji: '💅', name: 'Люда з паспортного', hp: 40000,
-        unlockHeat: 65, window: 60, weakness: 'charm',
-        weaknessHint: 'Поважає солідних: вдягни щось дороге з гардеробу',
-        reward: { tk: 150000, res: { cash: 10 }, sp: 35 },
-        taunt: '«Молодой человек, вы в очереди последний?»',
-    },
-    {
-        id: 'pivnyk', emoji: '🎖️', name: 'Генерал Півник', hp: 250000,
-        unlockHeat: 85, window: 45, weakness: null, cooldownH: 7 * 24,
-        // 250k HP за 45 секунд непрохідні, поки кліки в боях витрачають енергію:
-        // повного бака вистачає на ~66 кліків. Це навмисний ендгейм-гейт за навичкою
-        // "Марафонець" (Фаза 6), а не баг — тому бос показується заблокованим, а не
-        // ховається зовсім.
-        requiresSkill: 'marathon',
-        lockedHint: 'Ти ще не в тій ваговій категорії. Потрібна навичка «Марафонець»',
-        weaknessHint: 'Слабкостей немає. Тільки ти і твій палець',
-        reward: { tk: 600000, res: { ticket: 1 }, sp: 50 },
-        taunt: '«Я 30 років у системі. Ти — 30 хвилин у бункері»',
-    },
-];
+
 const INSPECTOR_BY_ID = byId(INSPECTORS);
 
 // Відстрочки — паралельна прогресія до Білого Квитка. Одна активна за раз.
@@ -378,169 +350,35 @@ const INSPECTOR_BY_ID = byId(INSPECTORS);
 // ні. За два тижні "Помічника депутата" heat падає до нуля разом із множником
 // доходу. Безпека коштує грошей: обережний заробляє в базовому темпі, ризиковий
 // тримає heat 90 і має подвійний дохід ціною постійних облав.
-const DEFERMENTS = [
-    {
-        id: 'student', emoji: '🎓', name: 'Студентський заочки', hours: 24,
-        cost: { tk: 18000 },
-        flavor: 'Вступив на «Богословʼя». Пара раз на місяць, і та онлайн',
-    },
-    {
-        id: 'opikun', emoji: '🧓', name: 'Догляд за бабусею', hours: 12,
-        cost: { res: { cans: 10, meds: 2 } },
-        flavor: 'Бабуся здорова як бик, але ти дуже переживаєш',
-    },
-    {
-        id: 'health', emoji: '🩺', name: 'Довідка по здоровʼю', hours: 48,
-        cost: { res: { meds: 5, stamp: 1 } },
-        flavor: 'Печатка справжня. Все інше — ні',
-    },
-    {
-        id: 'bron', emoji: '🏭', name: 'Бронь від підприємства', hours: 72,
-        cost: { clanLevel: 5 },
-        flavor: 'ОСББ офіційно визнано критичною інфраструктурою',
-    },
-    {
-        id: 'batko', emoji: '👶', name: 'Багатодітний батько', hours: 7 * 24,
-        cost: { stars: 100 },
-        flavor: 'Троє. Ну, майже. Ну, планується',
-    },
-    {
-        id: 'deputat', emoji: '🎩', name: 'Помічник депутата', hours: 14 * 24,
-        cost: { res: { phone: 1, cash: 20 } },
-        flavor: 'Помічник помічника помічника. На громадських засадах',
-    },
-];
+
 const DEFERMENT_BY_ID = byId(DEFERMENTS);
 
 // Блокпост: переїзд у новий схрон більше не просто транзакція. Шанси показані
 // гравцю відкрито — той самий чесний підхід, що й у ящиках.
-const CHECKPOINT_CHOICES = [
-    {
-        id: 'docs', emoji: '📄', name: 'Показати документи', chance: 0.60,
-        fail: 'heat_notice', failText: '+20 розшуку і повістка просто тут, на місці',
-    },
-    {
-        id: 'field', emoji: '🌾', name: 'Обʼїхати полем', chance: 0.45,
-        fail: 'resources', failText: 'Загубиш 30% випадкових ресурсів із кладовки',
-    },
-    {
-        id: 'baba', emoji: '🧓', name: '«Я до баби, вона хворіє»', chance: 0.40,
-        fail: 'heat', failText: '+10 розшуку',
-        // Репутація з Бабою Ніною — Фаза 6. Поки її немає, працює базовий шанс.
-        bonusWithNinaRep: 0.75, ninaRepRequired: 50,
-    },
-];
+
 const CHECKPOINT_BY_ID = byId(CHECKPOINT_CHOICES);
 
 // Дерево навичок ухилянта. Кожна довідка з легалізації = 1 очко. Довідки
 // ПРОДОВЖУЮТЬ давати свій +10% доходу — навички це бонус зверху, не заміна.
 // Всередині гілки навички беруться послідовно: щоб дійти до шостої, треба взяти
 // п'ять попередніх. Тобто повна гілка = 6 довідок (~18 млн сумарного заробітку).
-const SKILL_BRANCHES = [
-    {
-        id: 'cunning', emoji: '🦊', name: 'Хитрість', desc: 'Виживання: менше уваги, дешевші хабарі',
-        skills: [
-            { id: 'quiet', name: 'Тихіше води', desc: '−15% до приросту розшуку' },
-            { id: 'yards', name: 'Знаю прохідні двори', desc: 'Втекти з облави на 20% легше' },
-            { id: 'twosims', name: 'Дві сімки', desc: '30% шанс, що стук на тебе провалиться' },
-            { id: 'zhek', name: 'Свій у ЖЕКу', desc: 'Хабарі дешевші на 30%' },
-            { id: 'sense', name: 'Чуйка', desc: 'Попередження за 10 секунд до облави' },
-            { id: 'ghost', name: 'Привид району', desc: 'Розшук спадає вдвічі швидше' },
-        ],
-    },
-    {
-        id: 'ties', emoji: '🤝', name: 'Звʼязки', desc: 'Економіка: більше ресурсів і дешевші покупки',
-        skills: [
-            { id: 'dealer', name: 'Знайомий перекуп', desc: '+12% до ціни продажу на біржі' },
-            { id: 'bulk', name: 'Оптова закупка', desc: 'Ящики за ТК дешевші на 15%' },
-            { id: 'burrow', name: 'Друга нора', desc: 'Дві вилазки одночасно' },
-            { id: 'kum', name: 'Кум у сільраді', desc: 'Клановий бонус ×1.5' },
-            { id: 'ourpeople', name: 'Свої люди', desc: '+25% ресурсів з усіх джерел' },
-            { id: 'scheme', name: 'Схема', desc: '20% шанс не витратити ресурси на крафт' },
-        ],
-    },
-    {
-        id: 'endurance', emoji: '💪', name: 'Витривалість', desc: 'Темп: більше енергії й сильніший клік',
-        skills: [
-            { id: 'hardened', name: 'Загартований', desc: '+25 до максимальної енергії' },
-            { id: 'secondwind', name: 'Друге дихання', desc: 'Відновлення енергії +40%' },
-            { id: 'lighthand', name: 'Легка рука', desc: 'Клік коштує 1.5 енергії замість 2' },
-            { id: 'callus', name: 'Мозоль', desc: '+30% до сили кліку' },
-            // Ця навичка — навмисний ключ до Генерала Півника: без неї 250k терпіння
-            // за 45 секунд фізично не зняти.
-            { id: 'marathon', name: 'Марафонець', desc: 'Кліки в боях із босами не витрачають енергію' },
-            { id: 'unbroken', name: 'Незламний', desc: 'Штрафи від облав менші вдвічі' },
-        ],
-    },
-];
+
 // Репутація з районом: чотири NPC, у кожного щоденний квест і постійний перк
 // на 100 репутації. Квести рахуються з уже наявних денних лічильників.
 //
 // Волонтерка Оксана тут не для галочки: наявність персонажа, якому вигідно
 // ДОПОМАГАТИ, робить сатиру не однобокою і рятує гру від відчуття, що вона
 // тупо прославляє ухиляння. Її гілка має бути реально корисною.
-const REPUTATION_NPCS = [
-    {
-        id: 'nina', emoji: '🧓', name: 'Баба Ніна',
-        about: 'Знає всіх у дворі й усе про всіх. Підгодовує і прикриває.',
-        quests: [
-            { id: 'nina_cans', text: 'Занеси бабі 5 консервів', type: 'donate', res: 'cans', target: 5, rep: 15 },
-            { id: 'nina_meds', text: 'Занеси бабі 2 упаковки ліків', type: 'donate', res: 'meds', target: 2, rep: 15 },
-            { id: 'nina_quiet', text: 'Посидь удома: жодної вилазки за добу', type: 'metric', metric: 'expeditionsToday', max: 0, rep: 12 },
-        ],
-        perk: 'Рецепт «Бабусина заготовка»: +50 до макс. енергії назавжди',
-    },
-    {
-        id: 'tolik', emoji: '💰', name: 'Перекуп Толік',
-        about: 'Купує все. Продає все. Питань не задає, але й ціну не завищує.',
-        quests: [
-            { id: 'tolik_volume', text: 'Наторгуй на біржі на 50 000 ТК', type: 'metric', metric: 'dailyTradeVolume', target: 50000, rep: 15 },
-            { id: 'tolik_paper', text: 'Назбирай 20 ресурсів за добу', type: 'metric', metric: 'dailyResources', target: 20, rep: 12 },
-            { id: 'tolik_trades', text: 'Зроби 5 угод на біржі', type: 'metric', metric: 'dailyTrades', target: 5, rep: 12 },
-        ],
-        perk: 'Преміум-лот: ще +40% до ціни продажу на біржі',
-    },
-    {
-        id: 'mykola', emoji: '👮', name: 'Дільничний Микола',
-        about: 'Формально при виконанні. Фактично — теж людина, і теж стомився.',
-        quests: [
-            { id: 'mykola_raids', text: 'Переживи 2 облави за добу', type: 'metric', metric: 'dailyRaids', target: 2, rep: 15 },
-            { id: 'mykola_bribe', text: 'Виріши питання по-хорошому (1 хабар)', type: 'metric', metric: 'dailyBribes', target: 1, rep: 15 },
-            { id: 'mykola_quiet', text: 'Протримай розшук нижче 30', type: 'metric', metric: 'heatNow', max: 30, rep: 12 },
-        ],
-        perk: '«Прикриття»: одне безкоштовне зняття повістки на добу',
-    },
-    {
-        id: 'oksana', emoji: '🎗️', name: 'Волонтерка Оксана',
-        about: 'Возить туди, куди ти дуже не хочеш. Просить небагато і завжди дякує.',
-        quests: [
-            { id: 'oksana_meds', text: 'Здай на волонтерку 3 упаковки ліків', type: 'donate', res: 'meds', target: 3, rep: 18 },
-            { id: 'oksana_cans', text: 'Здай на волонтерку 10 консервів', type: 'donate', res: 'cans', target: 10, rep: 15 },
-            { id: 'oksana_fuel', text: 'Здай на волонтерку 5 каністр пального', type: 'donate', res: 'fuel', target: 5, rep: 20 },
-        ],
-        perk: 'Титул «Не такий вже й падлюка» і постійні −20% до приросту розшуку',
-    },
-];
+
 const NPC_BY_ID = byId(REPUTATION_NPCS);
 
 // Ліги. Лідерборд за балансом — це «хто довше грає»; ліги ж щотижня обнуляються,
 // тому новачок має реальний шанс, а сезонний титул не купиш за ⭐ ніколи.
-const LEAGUES = [
-    { id: 0, emoji: '🛋️', name: 'Ліга Дивана' },
-    { id: 1, emoji: '🕳️', name: 'Ліга Підвалу' },
-    { id: 2, emoji: '🏔️', name: 'Ліга Балкан' },
-    { id: 3, emoji: '🚣', name: 'Ліга Тиси' },
-    { id: 4, emoji: '🛂', name: 'Ліга Кордону' },
-    { id: 5, emoji: '🏛️', name: 'Ліга Бункера' },
-];
+
 
 // Сезонна косметика: НІКОЛИ не продається за ⭐ і не випадає з ящиків. Тільки
 // виграти. Це головна валюта статусу в грі для друзів.
-const SEASON_COSMETICS = [
-    { id: 'season_crown', slot: 'hat', name: 'Корона ухилянта сезону', emoji: '👑', seasonOnly: true, price: 0 },
-    { id: 'season_shades', slot: 'face', name: 'Окуляри чемпіона', emoji: '🕶️', seasonOnly: true, price: 0 },
-    { id: 'season_cape', slot: 'neck', name: 'Мантія непіймання', emoji: '🧥', seasonOnly: true, price: 0 },
-];
+
 
 const SKILL_BY_ID = Object.create(null);
 for (const br of SKILL_BRANCHES) {
@@ -549,40 +387,12 @@ for (const br of SKILL_BRANCHES) {
 
 // Рівні розшуку. Головний трейд-оф гри: високий heat = вдвічі більший дохід, але
 // вчетверо частіші облави. Порядок важливий — шукаємо перший тір, у чий `max` влазить heat.
-const HEAT_TIERS = [
-    { max: 10, emoji: '😴', name: 'Ніхто тебе не знає', raidMult: 0.4, incomeMult: 1.00, flavor: 'Ти навіть у списках не значишся' },
-    { max: 30, emoji: '📋', name: 'У списках', raidMult: 1.0, incomeMult: 1.08, flavor: 'Хтось десь щось про тебе записав' },
-    { max: 55, emoji: '🚪', name: 'Дільничний питає', raidMult: 1.6, incomeMult: 1.20, flavor: 'Сусіди кажуть, тебе шукали' },
-    { max: 75, emoji: '📢', name: 'Оголошено в розшук', raidMult: 2.4, incomeMult: 1.40, flavor: 'Твоє фото висить у ТЦК' },
-    { max: 90, emoji: '📁', name: 'Персональна справа', raidMult: 3.2, incomeMult: 1.65, flavor: 'Тобі присвятили окрему папку' },
-    { max: 100, emoji: '👑', name: 'Легенда району', raidMult: 4.5, incomeMult: 2.00, flavor: 'Про тебе знімають сюжет' },
-];
+
 
 // Типи повісток — від найм'якшої до найжорсткішої. Порядок задає і "тір" для ціни
 // хабаря, і зважений вибір: чим вищий heat, тим більший шанс на жорсткі типи
 // (wLow — вага при heat 0, wHigh — при heat 100, між ними лінійна інтерполяція).
-const NOTICE_TYPES = [
-    {
-        id: 'sms', emoji: '📱', name: 'СМС-повістка', ttlH: 6, heatOnExpire: 10, balancePct: 0.05,
-        flavor: 'Есемеска з незнайомого номера. Може, спам? Може, й ні.', wLow: 40, wHigh: 8,
-    },
-    {
-        id: 'rezerv', emoji: '📲', name: 'Push із Резерв+', ttlH: 8, heatOnExpire: 12, balancePct: 0.08, heatExtra: 10,
-        flavor: 'Додаток сам оновився і сам себе відкрив. Зручно.', wLow: 25, wHigh: 14,
-    },
-    {
-        id: 'poshta', emoji: '✉️', name: 'Лист рекомендованим', ttlH: 12, heatOnExpire: 15, balancePct: 0.10,
-        flavor: 'Листоноша дзвонив тричі. Ти тричі не чув.', wLow: 25, wHigh: 18,
-    },
-    {
-        id: 'ruky', emoji: '🤝', name: 'Вручення в руки', ttlH: 3, heatOnExpire: 25, balancePct: 0.18, energyLockMin: 30,
-        flavor: 'Перехопили біля під\'їзду. Довелось потиснути руку.', wLow: 8, wHigh: 32,
-    },
-    {
-        id: 'blokpost', emoji: '🚧', name: 'Повістка на блокпосту', ttlH: 1, heatOnExpire: 35, balancePct: 0.25, resourceLoss: 3,
-        flavor: 'Зупинили, переписали, вручили. Дуже ввічливо.', wLow: 2, wHigh: 28,
-    },
-];
+
 const NOTICE_BY_ID = byId(NOTICE_TYPES);
 
 // ==========================================
@@ -593,185 +403,14 @@ const NOTICE_BY_ID = byId(NOTICE_TYPES);
 // `sell` — за скільки ТК можна здати одиницю перекупу (швидкі гроші, але крафт вигідніший).
 // `img` — намальована іконка (використовується в анімації відкривання ящика);
 // де картинки ще немає, показується emoji.
-const RESOURCES = [
-    { id: 'cans', name: 'Консерви', emoji: '🥫', img: '/images/gacha-tushonka.webp', tier: 1, sell: 25 },
-    { id: 'battery', name: 'Батарейки', emoji: '🔋', img: '/images/gacha-powerbank.webp', tier: 1, sell: 30 },
-    { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 20 },
-    { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 35 },
-    // Будматеріали. Тір 1-2, зараз ідуть на крафт міцніших щитів/бонусів; коли
-    // прийде окрема карта території — ті самі ресурси стануть валютою будівництва
-    // (вежа спостереження/схованка/тайник), без міграції даних.
-    { id: 'wood', name: 'Деревина', emoji: '🪵', tier: 1, sell: 28 },
-    { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 130 },
-    { id: 'sausage', name: 'Домашня ковбаса', emoji: '🌭', img: '/images/gacha-premium-sausage.webp', tier: 2, sell: 145 },
-    { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 160 },
-    { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
-    { id: 'scrap', name: 'Металобрухт', emoji: '⚙️', tier: 2, sell: 175 },
-    { id: 'brick', name: 'Цегла', emoji: '🧱', tier: 2, sell: 150 },
-    { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
-    { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
-    { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
-    // Уламок пломби з донатного ящика. Випадає рідко зі звичайних ящиків і дає
-    // безкоштовний, але довгий шлях до платних ящиків: зібрав достатньо — склеїв.
-    { id: 'shard', name: 'Уламок пломби', emoji: '🧩', tier: 3, sell: 900 },
-    { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
-];
+
 const RESOURCE_BY_ID = byId(RESOURCES);
 
 // Ящики. `loot` — таблиця дропу з вагами (шанс = вага / сума ваг). Шанси показуються
 // гравцю у грі: чесний гача без прихованих ймовірностей.
 // type: 'res' (ресурс), 'coins' (валюта), 'energy' (повна енергія), 'cosmetic' (випадкова
 // невідкрита косметика), 'nothing' (порожньо — лише в найдешевших ящиках).
-const CRATES = [
-    {
-        id: 'cardboard', name: 'Картонна коробка', emoji: '📦', img: '/images/gacha-box-regular.webp',
-        price: 400, currency: 'coins',
-        desc: 'Знайдена біля смітника. Всередині — щось. Можливо, нічого.',
-        loot: [
-            { type: 'nothing', weight: 18 },
-            { type: 'res', res: 'paper', min: 1, max: 4, weight: 22 },
-            { type: 'res', res: 'cans', min: 1, max: 3, weight: 20 },
-            { type: 'res', res: 'battery', min: 1, max: 3, weight: 18 },
-            { type: 'res', res: 'tape', min: 1, max: 2, weight: 12 },
-            { type: 'res', res: 'wood', min: 1, max: 3, weight: 14 },
-            { type: 'coins', min: 300, max: 900, weight: 8 },
-            { type: 'res', res: 'meds', min: 1, max: 1, weight: 2 },
-            { type: 'res', res: 'shard', min: 1, max: 1, weight: 1 },
-        ],
-    },
-    {
-        id: 'humanitarian', name: 'Гуманітарний ящик', emoji: '🧰', img: '/images/gacha-box-regular.webp',
-        price: 2500, currency: 'coins',
-        desc: 'Офіційна гумдопомога. Хтось уже перебрав, але дещо лишилось.',
-        loot: [
-            { type: 'nothing', weight: 8 },
-            { type: 'res', res: 'cans', min: 3, max: 7, weight: 20 },
-            { type: 'res', res: 'battery', min: 3, max: 6, weight: 18 },
-            { type: 'res', res: 'tape', min: 2, max: 5, weight: 14 },
-            { type: 'res', res: 'meds', min: 1, max: 3, weight: 15 },
-            { type: 'res', res: 'fuel', min: 1, max: 2, weight: 10 },
-            { type: 'res', res: 'wood', min: 2, max: 5, weight: 12 },
-            { type: 'coins', min: 1500, max: 4000, weight: 8 },
-            { type: 'res', res: 'sausage', min: 1, max: 3, weight: 7 },
-            { type: 'energy', weight: 5 },
-            { type: 'res', res: 'sim', min: 1, max: 1, weight: 2 },
-            { type: 'res', res: 'shard', min: 1, max: 1, weight: 2 },
-        ],
-    },
-    {
-        id: 'parcel', name: 'Посилка від родичів', emoji: '🎁', img: '/images/gacha-box-elite.webp',
-        price: 9000, currency: 'coins',
-        desc: 'Тітка з-за кордону передала. Сало, ліки і трохи валюти.',
-        loot: [
-            { type: 'res', res: 'meds', min: 3, max: 8, weight: 20 },
-            { type: 'res', res: 'fuel', min: 2, max: 6, weight: 18 },
-            { type: 'res', res: 'sim', min: 2, max: 5, weight: 16 },
-            { type: 'res', res: 'sausage', min: 3, max: 8, weight: 14 },
-            { type: 'res', res: 'cans', min: 8, max: 15, weight: 12 },
-            { type: 'coins', min: 6000, max: 15000, weight: 12 },
-            { type: 'res', res: 'cash', min: 1, max: 2, weight: 10 },
-            { type: 'res', res: 'scrap', min: 2, max: 5, weight: 9 },
-            { type: 'res', res: 'brick', min: 2, max: 5, weight: 9 },
-            { type: 'granny', weight: 6 },
-            { type: 'cosmetic', weight: 8 },
-            { type: 'res', res: 'stamp', min: 1, max: 1, weight: 4 },
-            { type: 'res', res: 'shard', min: 1, max: 2, weight: 4 },
-        ],
-    },
-    {
-        id: 'contraband', name: 'Контрабандний контейнер', emoji: '🚢', img: '/images/gacha-box-elite.webp',
-        price: 60000, currency: 'coins',
-        desc: 'Приплив по Тисі. Питань не задаємо, вміст не коментуємо.',
-        // Ціна й ваги підкручені журналом v2.0 (розділ 6.5): ресурси тепер справді
-        // цінні (їдять ешелони апгрейдів), тому дорожче; ticket 5→1 — Білий Квиток
-        // мав ~4.3% з не-донатного ящика, тепер ~0.87%, лишається рідкісною фіналкою.
-        loot: [
-            { type: 'res', res: 'cash', min: 2, max: 6, weight: 22 },
-            { type: 'res', res: 'sim', min: 5, max: 12, weight: 18 },
-            { type: 'res', res: 'fuel', min: 6, max: 14, weight: 16 },
-            { type: 'coins', min: 25000, max: 60000, weight: 14 },
-            { type: 'res', res: 'stamp', min: 1, max: 3, weight: 12 },
-            { type: 'res', res: 'scrap', min: 4, max: 10, weight: 10 },
-            { type: 'res', res: 'brick', min: 4, max: 10, weight: 10 },
-            { type: 'cosmetic', weight: 10 },
-            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 1 },
-            // Єдине джерело "номера потрібної людини" за ігрову валюту — без нього
-            // не взяти найдовшу відстрочку.
-            { type: 'res', res: 'phone', min: 1, max: 1, weight: 2 },
-            { type: 'res', res: 'shard', min: 1, max: 3, weight: 6 },
-            { type: 'granny', weight: 4 },
-            { type: 'energy', weight: 3 },
-        ],
-    },
-    // --- Донатні ящики (за Telegram Stars). Жодного 'nothing' — за реальні гроші
-    // скам-результат нечесний. Різні цінові рівні під різні цілі гравця. ---
-    {
-        id: 'starter', name: 'Стартовий пакет', emoji: '🥡', img: '/images/gacha-box-regular.webp',
-        price: 25, currency: 'stars',
-        desc: 'Дешевий вхід. Трохи всього, щоб розкрутитись на старті.',
-        loot: [
-            { type: 'res', res: 'cans', min: 10, max: 20, weight: 24 },
-            { type: 'res', res: 'battery', min: 8, max: 16, weight: 22 },
-            { type: 'res', res: 'meds', min: 3, max: 8, weight: 20 },
-            { type: 'coins', min: 8000, max: 20000, weight: 18 },
-            { type: 'res', res: 'fuel', min: 3, max: 7, weight: 12 },
-            { type: 'res', res: 'cash', min: 1, max: 2, weight: 4 },
-        ],
-    },
-    {
-        id: 'elite', name: 'Елітний контейнер', emoji: '💎', img: '/images/gacha-box-elite.webp',
-        price: 75, currency: 'stars',
-        desc: 'Збалансований донат-ящик: ресурси середнього й високого тіру.',
-        loot: [
-            { type: 'res', res: 'cash', min: 4, max: 10, weight: 22 },
-            { type: 'res', res: 'stamp', min: 2, max: 5, weight: 20 },
-            { type: 'coins', min: 50000, max: 120000, weight: 18 },
-            { type: 'res', res: 'sim', min: 10, max: 20, weight: 14 },
-            { type: 'cosmetic', weight: 13 },
-            { type: 'res', res: 'ticket', min: 1, max: 2, weight: 13 },
-        ],
-    },
-    {
-        id: 'wardrobe', name: 'Модна валіза', emoji: '👗', img: '/images/gacha-box-elite.webp',
-        price: 150, currency: 'stars',
-        desc: 'ГАРАНТОВАНО рідкісна річ у гардероб + 30 000 ТК зверху. Для колекціонерів.',
-        // Таблиця навмисно з одного рядка: цей ящик не крутиться, він завжди видає
-        // косметику (див. guaranteedCosmetic у rollCrate). Показані шанси мають
-        // збігатися з тим, що реально відбувається.
-        guaranteedCosmetic: true,
-        loot: [
-            { type: 'cosmetic', weight: 100 },
-        ],
-    },
-    {
-        id: 'legendary', name: 'Легендарний схрон', emoji: '🏆', img: '/images/gacha-premium-jackpot.webp',
-        price: 250, currency: 'stars',
-        desc: 'Схрон самого начальника ТЦК. Тільки топові дропи, шанс на Білі Квитки.',
-        loot: [
-            { type: 'res', res: 'ticket', min: 2, max: 5, weight: 25 },
-            { type: 'res', res: 'stamp', min: 5, max: 12, weight: 22 },
-            { type: 'res', res: 'cash', min: 10, max: 25, weight: 20 },
-            { type: 'coins', min: 200000, max: 500000, weight: 18 },
-            { type: 'cosmetic', weight: 15 },
-            { type: 'res', res: 'phone', min: 1, max: 2, weight: 12 },
-        ],
-    },
-    // Трофейний ящик за ТК/⭐ не купується взагалі — тільки з перемоги у війні
-    // ОСББ або з відбитої облави на район. Тому й дроп без порожніх результатів.
-    {
-        id: 'trophy', name: 'Трофейний ящик', emoji: '🏆', price: 0, currency: 'trophy',
-        desc: 'Здобич із війни ОСББ. Не продається — тільки виграється.',
-        loot: [
-            { type: 'coins', min: 30000, max: 90000, weight: 26 },
-            { type: 'res', res: 'cash', min: 3, max: 8, weight: 20 },
-            { type: 'res', res: 'stamp', min: 1, max: 3, weight: 18 },
-            { type: 'res', res: 'sim', min: 4, max: 10, weight: 16 },
-            { type: 'cosmetic', weight: 12 },
-            { type: 'res', res: 'phone', min: 1, max: 1, weight: 5 },
-            { type: 'res', res: 'ticket', min: 1, max: 1, weight: 3 },
-        ],
-    },
-];
+
 const CRATE_BY_ID = byId(CRATES);
 
 // Щоденна акція: один ящик за ігрову валюту дешевший на DAILY_DEAL_OFF.
@@ -794,155 +433,13 @@ function cratePriceFor(crate, user = null) {
 
 // Крафт — головний спосіб перетворити ресурси на постійні бонуси. Навмисно дорожчий
 // за пряму купівлю апгрейдів, але дає те, що за валюту не купиш (щити, множники).
-const RECIPES = [
-    {
-        id: 'energy_pack', name: 'Саморобний енергопак', emoji: '🔌', img: '/images/gacha-premium-charge.webp',
-        cost: { battery: 6, tape: 3 },
-        desc: 'Повністю відновлює енергію',
-        effect: { type: 'energy' },
-    },
-    {
-        id: 'click_mod', name: 'Прокачаний мозоль', emoji: '💪',
-        cost: { tape: 10, battery: 8, cans: 5 },
-        desc: '+4 до сили кліку (назавжди)',
-        effect: { type: 'click', amount: 4 },
-    },
-    {
-        id: 'passive_scheme', name: 'Схема з гумштабом', emoji: '📋',
-        cost: { paper: 15, cans: 12, meds: 4 },
-        desc: '+5 до пасивного доходу (назавжди)',
-        effect: { type: 'passive', amount: 5 },
-    },
-    {
-        id: 'fake_note', name: 'Липова довідка', emoji: '📄',
-        cost: { paper: 20, stamp: 1, meds: 5 },
-        desc: 'Щит від облав на 2 години',
-        effect: { type: 'shield', hours: 2 },
-    },
-    {
-        // Аудит балансу (2026-08-07): ресурсний кошт (fuel12+sim8+cash3) ≈ 5 620 ТК
-        // за поточними цінами продажу, тому первісні 40 000 ТК давали чистий
-        // арбітраж ×7 без ризику — краще за будь-яку іншу дію в грі. Знижено до
-        // 9 000 (маржа ×1.6, як у звичайного вигідного крафту, не безкінечний друк грошей).
-        id: 'smuggle_kit', name: 'Набір контрабандиста', emoji: '🎒',
-        cost: { fuel: 12, sim: 8, cash: 3 },
-        desc: 'Продається перекупу за 9 000 ТК',
-        effect: { type: 'coins', amount: 9000 },
-    },
-    {
-        id: 'feast', name: 'Бенкет на районі', emoji: '🍽️',
-        cost: { sausage: 10, cans: 20, meds: 3 },
-        desc: 'Наївся від душі: +30 до максимальної енергії',
-        effect: { type: 'maxEnergy', amount: 30 },
-    },
-    {
-        id: 'bribe_basket', name: 'Кошик "для вирішення питання"', emoji: '🧺',
-        cost: { sausage: 15, cash: 4, stamp: 2 },
-        desc: 'Щит від облав на 8 годин',
-        effect: { type: 'shield', hours: 8 },
-    },
-    {
-        id: 'energy_tank', name: 'Розширений бак', emoji: '🛢️',
-        cost: { fuel: 20, tape: 15, cash: 2 },
-        desc: '+25 до максимальної енергії (назавжди)',
-        effect: { type: 'maxEnergy', amount: 25 },
-    },
-    {
-        id: 'golden_stamp', name: 'Золота печатка', emoji: '🏅',
-        cost: { stamp: 8, cash: 10, ticket: 1 },
-        desc: '+15 до сили кліку та +20 до пасиву (назавжди)',
-        effect: { type: 'combo', click: 15, passive: 20 },
-    },
-    // --- Будматеріали (wood/scrap/brick): середній тір крафту, споживає ресурси
-    // з нової вилазки "Розбір руїн" і оновлених ящиків. Ті самі три ресурси пізніше
-    // стануть валютою будівництва на карті території. ---
-    {
-        id: 'reinforced_hideout', name: 'Зміцнена криївка', emoji: '🪜',
-        cost: { wood: 28, brick: 14, scrap: 8 },
-        desc: '+28 до максимальної енергії (назавжди)',
-        effect: { type: 'maxEnergy', amount: 28 },
-    },
-    {
-        id: 'scrap_generator', name: 'Генератор з металобрухту', emoji: '⚙️',
-        cost: { scrap: 15, wood: 10 },
-        desc: '+8 до пасивного доходу (назавжди)',
-        effect: { type: 'passive', amount: 8 },
-    },
-    {
-        id: 'brick_wall', name: 'Цегляна стіна', emoji: '🧱',
-        cost: { brick: 20, scrap: 8 },
-        desc: 'Щит від облав на 5 годин',
-        effect: { type: 'shield', hours: 5 },
-    },
-    {
-        id: 'white_ticket', name: 'Справжній Білий Квиток', emoji: '🎫',
-        cost: { ticket: 5, stamp: 15, cash: 25 },
-        desc: 'ПОСТІЙНИЙ імунітет до облав. Фінальна ціль гри.',
-        effect: { type: 'permanent_shield' },
-    },
-    // --- Склеювання донатних ящиків з уламків пломб ---
-    // Довгий безкоштовний шлях до платних ящиків. Ціни підібрані так, щоб це був
-    // саме шлях, а не заміна: уламки випадають рідко, і на легендарний схрон їх
-    // треба стільки, що швидше пограти, ніж накопичити.
-    {
-        id: 'glue_starter', name: 'Склеїти Стартовий пакет', emoji: '🥡',
-        cost: { shard: 10, tape: 5 },
-        desc: 'Стартовий пакет із уламків. Той самий вміст, що й за 25 ⭐.',
-        effect: { type: 'crate', crateId: 'starter' },
-    },
-    {
-        id: 'glue_elite', name: 'Склеїти Елітний контейнер', emoji: '💎',
-        cost: { shard: 25, tape: 10, cash: 3 },
-        desc: 'Елітний контейнер із уламків. Той самий вміст, що й за 75 ⭐.',
-        effect: { type: 'crate', crateId: 'elite' },
-    },
-    {
-        id: 'glue_fashion', name: 'Склеїти Модну валізу', emoji: '👗',
-        cost: { shard: 45, stamp: 3, cash: 6 },
-        desc: 'Модна валіза з уламків. Гарантована річ у гардероб.',
-        effect: { type: 'crate', crateId: 'wardrobe' },
-    },
-    {
-        id: 'glue_legendary', name: 'Склеїти Легендарний схрон', emoji: '🏆',
-        cost: { shard: 75, stamp: 8, cash: 15, phone: 1 },
-        desc: 'Легендарний схрон із уламків. Тільки топовий дроп.',
-        effect: { type: 'crate', crateId: 'legendary' },
-    },
-];
+
 const RECIPE_BY_ID = byId(RECIPES);
 
 // Карта території: захисні споруди за будматеріали (wood/scrap/brick), 3 рівні
 // кожна, будуються незалежно від конкретної клітинки на карті (сама сітка на фоні —
 // візуальний контекст + орієнтири-посилання на вилазки, не окрема система координат).
-const MAP_BUILDINGS = [
-    {
-        id: 'tower', name: 'Вежа спостереження', emoji: '🗼', img: '/images/map-tower.webp',
-        desc: 'Знижує шанс облави',
-        levels: [
-            { cost: { wood: 15, scrap: 5 }, raidCut: 0.10 },
-            { cost: { wood: 30, scrap: 12, brick: 5 }, raidCut: 0.20 },
-            { cost: { wood: 50, scrap: 25, brick: 15 }, raidCut: 0.30 },
-        ],
-    },
-    {
-        id: 'hideout', name: 'Схованка', emoji: '🕳️', img: '/images/map-hideout.webp',
-        desc: 'Ріже грошовий штраф за протухлою повісткою',
-        levels: [
-            { cost: { brick: 15, scrap: 5 }, penaltyCut: 0.10 },
-            { cost: { brick: 30, scrap: 12, wood: 5 }, penaltyCut: 0.20 },
-            { cost: { brick: 50, scrap: 25, wood: 15 }, penaltyCut: 0.30 },
-        ],
-    },
-    {
-        id: 'cache', name: 'Тайник', emoji: '📦', img: '/images/map-cache.webp',
-        desc: 'Захищає частину ресурсів від блокпоста й крадіжки',
-        levels: [
-            { cost: { wood: 10, brick: 10, scrap: 5 }, protectPct: 0.15 },
-            { cost: { wood: 20, brick: 20, scrap: 12 }, protectPct: 0.30 },
-            { cost: { wood: 35, brick: 35, scrap: 25 }, protectPct: 0.45 },
-        ],
-    },
-];
+
 const MAP_BUILDING_BY_ID = byId(MAP_BUILDINGS);
 function mapBuildingLevel(user, buildingId) { return (user.mapBuildings && user.mapBuildings[buildingId]) || 0; }
 function mapBuildingEffect(user, buildingId) {
@@ -963,47 +460,7 @@ function mapProtectPct(user) {
 // Вилазки — офлайн-механіка: відправив персонажа й чекаєш реальний час. Дає ресурси
 // без кліків, але з ризиком спалитись (тоді здобич втрачено). Довші вилазки — більше
 // здобичі й більший ризик. Одночасно може бути тільки одна.
-const EXPEDITIONS = [
-    {
-        id: 'dumpster', name: 'Рейд по смітниках', emoji: '🗑️', minutes: 30, minLevel: 1, risk: 0.10,
-        desc: 'Швидко й майже безпечно. Багато не назбираєш.',
-        loot: [{ res: 'paper', min: 4, max: 10 }, { res: 'cans', min: 3, max: 8 }, { res: 'tape', min: 1, max: 4 }],
-    },
-    {
-        id: 'market', name: 'Вилазка на ринок', emoji: '🏪', minutes: 120, minLevel: 2, risk: 0.18,
-        desc: 'Треба показатись людям. Ризик, що впізнають.',
-        loot: [{ res: 'cans', min: 8, max: 18 }, { res: 'battery', min: 5, max: 12 }, { res: 'meds', min: 2, max: 5 }],
-    },
-    {
-        id: 'ruins', name: 'Розбір руїн', emoji: '🪚', minutes: 180, minLevel: 2, risk: 0.20,
-        desc: 'Розібраний будинок на околиці. Довше ринку, зате несеш будматеріали, а не барахло.',
-        loot: [{ res: 'wood', min: 6, max: 14 }, { res: 'brick', min: 3, max: 8 }, { res: 'scrap', min: 2, max: 5 }],
-    },
-    {
-        // Аудит балансу (2026-08-07): за старими цифрами ця вилазка давала ~7.8 ТК/хв,
-        // а "Поїздка до баби в село" (коротша, безпечніша, той самий minLevel) — ~8.9
-        // ТК/хв: довша й ризикованіша місія програвала коротшій, тому сенсу її обирати
-        // не було. Здобич піднято, щоб вищий ризик реально компенсувався вищим доходом.
-        id: 'warehouse', name: 'Нічний склад', emoji: '🏭', minutes: 480, minLevel: 3, risk: 0.25,
-        desc: 'Вісім годин у чужому складі. Здобич серйозна.',
-        loot: [{ res: 'meds', min: 9, max: 20 }, { res: 'fuel', min: 7, max: 17 }, { res: 'sim', min: 4, max: 11 }],
-    },
-    {
-        id: 'village', name: 'Поїздка до баби в село', emoji: '🚜', minutes: 240, minLevel: 3, risk: 0.15,
-        desc: 'Чотири години, майже безпечно. Баба нагодує і дасть із собою.',
-        loot: [{ res: 'sausage', min: 5, max: 12 }, { res: 'cans', min: 10, max: 22 }, { res: 'meds', min: 2, max: 6 }],
-    },
-    {
-        id: 'border', name: 'Прогулянка до кордону', emoji: '🌲', minutes: 720, minLevel: 5, risk: 0.35,
-        desc: 'Дванадцять годин лісом. Найризикованіше, але й найцінніше.',
-        loot: [{ res: 'cash', min: 2, max: 6 }, { res: 'stamp', min: 1, max: 3 }, { res: 'fuel', min: 8, max: 20 }],
-    },
-    {
-        id: 'tcc_office', name: 'Нічний візит у ТЦК', emoji: '🏢', minutes: 600, minLevel: 6, risk: 0.45,
-        desc: 'Десять годин. Найбезумніша ідея в грі — і єдиний спосіб дістати печатки пачками.',
-        loot: [{ res: 'stamp', min: 4, max: 10 }, { res: 'ticket', min: 1, max: 2 }, { res: 'cash', min: 5, max: 12 }],
-    },
-];
+
 const EXPEDITION_BY_ID = byId(EXPEDITIONS);
 
 // 4 етапи еволюції схованки. `img` — квадратна картинка для головної кнопки-клікера
@@ -1011,155 +468,27 @@ const EXPEDITION_BY_ID = byId(EXPEDITIONS);
 // (персонаж стоїть анфас у правій третині кадру, ліва частина — кімната з місцем
 // під декор). Поки roomImg не заданий для локації — екран "Кімната" підставляє img
 // замість неї (буде виглядати не ідеально, це очікувано до генерації нової картинки).
-const LOCATIONS = [
-    { level: 1, name: 'Бабусин Диван', img: '/images/location-1-couch.webp', roomImg: '/images/room-1-couch.webp', maxEnergy: 100 },
-    { level: 2, name: 'Вологий Підвал', img: '/images/location-2-basement.webp', roomImg: '/images/room-2-basement.webp', maxEnergy: 150 },
-    { level: 3, name: 'Балканська хатинка', img: '/images/location-3-balkan.webp', roomImg: '/images/room-3-balkan.webp', maxEnergy: 220 },
-    { level: 4, name: 'Човен на Тисі', img: '/images/location-3-boat.webp', maxEnergy: 300 },
-    { level: 5, name: 'Закордон (Гуманітарний коридор)', emoji: '🛂', img: '/images/location-5-abroad.webp', roomImg: '/images/room-5-abroad.webp', maxEnergy: 400 },
-    { level: 6, name: 'Президентський бункер', emoji: '🏛️', img: '/images/location-6-bunker.webp', roomImg: '/images/room-6-bunker.webp', maxEnergy: 500 },
-];
+
 
 // Компаньйони — пасивні мультиплікатори, екіпірується один одночасно.
-const PETS = [
-    { id: 'neighbor', name: 'Сусідка-пліткарка', img: '/images/pet-neighbor.webp', bg: '/images/pet-neighbor-bg.webp', price: 3000, desc: '-10% до шансу облави (попереджає завчасно)' },
-    { id: 'goose', name: 'Бойовий Гусак', img: '/images/pet-goose.webp', bg: '/images/pet-goose-bg.webp', price: 8000, desc: '+15% до сили кліку' },
-    { id: 'cat', name: 'Кіт-антистрес', img: '/images/pet-cat.webp', bg: '/images/pet-cat-bg.webp', price: 6000, desc: '+30% до швидкості відновлення енергії' },
-    { id: 'dog', name: 'Двірняга-нюхач', img: '/images/pet-dog.webp', bg: '/images/pet-dog-bg.webp', price: 15000, desc: '+40% здобичі з вилазок (винюхує краще)' },
-    { id: 'rat', name: 'Щур-розвідник', img: '/images/pet-rat.webp', bg: '/images/pet-rat-bg.webp', price: 25000, desc: '-50% до ризику спалитись на вилазці' },
-    { id: 'pigeon', name: 'Голуб-курʼєр', emoji: '🕊️', bg: '/images/pet-pigeon-bg.webp', price: 40000, desc: 'Вилазки тривають на 25% менше часу' },
-];
+
 // Множники компаньйонів для вилазок (усе інше — у ECONOMY.PET_*).
-const PET_EXPEDITION = {
-    dog: { lootMult: 1.4 },
-    rat: { riskMult: 0.5 },
-    pigeon: { timeMult: 0.75 },
-};
+
 
 // Гардероб — суто косметичні CSS/emoji-оверлеї на персонажі (без нових зображень),
 // по одному предмету на слот одночасно. Жодного впливу на економіку.
-const COSMETICS = [
-    // Головні убори
-    { id: 'cap', slot: 'hat', name: 'Кепка контрабандиста', emoji: '🧢', img: '/images/cosmetic-hat-cap.webp', price: 800 },
-    { id: 'ushanka', slot: 'hat', name: 'Вушанка діда', emoji: '🪖', img: '/images/cosmetic-hat-ushanka.webp', price: 1200 },
-    { id: 'strawhat', slot: 'hat', name: 'Дачний бриль', emoji: '👒', img: '/images/cosmetic-hat-strawhat.webp', price: 900 },
-    { id: 'helmet', slot: 'hat', name: 'Каска "про всяк випадок"', emoji: '⛑️', img: '/images/cosmetic-hat-helmet.webp', price: 1800 },
-    { id: 'tophat', slot: 'hat', name: 'Циліндр авторитету', emoji: '🎩', img: '/images/cosmetic-hat-tophat.webp', price: 2500 },
-    { id: 'gradcap', slot: 'hat', name: 'Диплом "поважної причини"', emoji: '🎓', img: '/images/cosmetic-hat-gradcap.webp', price: 3000 },
-    { id: 'crown', slot: 'hat', name: 'Корона Мажора', emoji: '👑', img: '/images/cosmetic-hat-crown.webp', price: 5000 },
-    { id: 'bucket', slot: 'hat', name: 'Каска з відра', emoji: '🪣', img: '/images/cosmetic-hat-bucket.webp', price: 600 },
-    { id: 'bush', slot: 'hat', name: 'Кущ-камуфляж', emoji: '🪴', img: '/images/cosmetic-hat-bush.webp', price: 1100 },
-    { id: 'pumpkin', slot: 'hat', name: 'Гарбузовий шолом', emoji: '🎃', img: '/images/cosmetic-hat-pumpkin.webp', price: 1300 },
-    { id: 'mushroom', slot: 'hat', name: 'Капелюх-гриб', emoji: '🍄', img: '/images/cosmetic-hat-mushroom.webp', price: 1000 },
-    { id: 'sock_hat', slot: 'hat', name: 'Шкарпетка на голові', emoji: '🧦', price: 700 },
-    { id: 'target', slot: 'hat', name: 'Мішень (для адреналіну)', emoji: '🎯', img: '/images/cosmetic-hat-target.webp', price: 2200 },
-    { id: 'toiletpaper', slot: 'hat', name: 'Рулон замість шапки', emoji: '🧻', img: '/images/cosmetic-hat-toiletpaper.webp', price: 500 },
-    { id: 'umbrella_hat', slot: 'hat', name: 'Капелюх-парасолька', emoji: '☂️', img: '/images/cosmetic-hat-umbrella.webp', price: 1400 },
-    { id: 'coconut', slot: 'hat', name: 'Кокосовий шолом', emoji: '🥥', img: '/images/cosmetic-hat-coconut.webp', price: 1600 },
-    { id: 'icecube', slot: 'hat', name: 'Крижаний компрес на голові', emoji: '🧊', img: '/images/cosmetic-hat-icecube.webp', price: 900 },
-    // Маскування обличчя
-    { id: 'glasses', slot: 'face', name: 'Ботанічні окуляри', emoji: '👓', img: '/images/cosmetic-face-glasses.webp', price: 600 },
-    { id: 'clown', slot: 'face', name: 'Клоунський ніс', emoji: '🤡', img: '/images/cosmetic-face-clown.webp', price: 500 },
-    { id: 'mask', slot: 'face', name: 'Медична довідка-маска', emoji: '😷', img: '/images/cosmetic-face-mask.webp', price: 700 },
-    { id: 'sunglasses', slot: 'face', name: 'Чорні окуляри', emoji: '🕶️', img: '/images/cosmetic-face-sunglasses.webp', price: 1000 },
-    { id: 'disguise', slot: 'face', name: 'Маскування (вуса+окуляри)', emoji: '🥸', img: '/images/cosmetic-face-disguise.webp', price: 1800 },
-    { id: 'ninja', slot: 'face', name: 'Ніндзя-маскування', emoji: '🥷', img: '/images/cosmetic-face-ninja.webp', price: 2200 },
-    { id: 'oni', slot: 'face', name: 'Маска чорта', emoji: '👹', img: '/images/cosmetic-face-oni.webp', price: 2000 },
-    { id: 'tengu', slot: 'face', name: 'Маска гобліна', emoji: '👺', img: '/images/cosmetic-face-tengu.webp', price: 2000 },
-    { id: 'skull', slot: 'face', name: 'Маска смерті', emoji: '💀', img: '/images/cosmetic-face-skull.webp', price: 2600 },
-    { id: 'theater', slot: 'face', name: 'Театральна маска', emoji: '🎭', img: '/images/cosmetic-face-theater.webp', price: 1900 },
-    { id: 'goggles', slot: 'face', name: 'Захисні окуляри', emoji: '🥽', img: '/images/cosmetic-face-goggles.webp', price: 1100 },
-    { id: 'bear', slot: 'face', name: 'Маска ведмедя', emoji: '🐻', img: '/images/cosmetic-face-bear.webp', price: 1700 },
-    { id: 'wolf', slot: 'face', name: 'Маска вовка', emoji: '🐺', img: '/images/cosmetic-face-wolf.webp', price: 1700 },
-    { id: 'fox', slot: 'face', name: 'Маска лисиці', emoji: '🦊', img: '/images/cosmetic-face-fox.webp', price: 1700 },
-    { id: 'boar', slot: 'face', name: 'Маска кабана', emoji: '🐗', img: '/images/cosmetic-face-boar.webp', price: 1700 },
-    { id: 'pig', slot: 'face', name: 'Маска порося', emoji: '🐷', img: '/images/cosmetic-face-pig.webp', price: 1700 },
-    // Аксесуар на шию
-    { id: 'bowtie', slot: 'neck', name: 'Метелик "для солідності"', emoji: '🎀', img: '/images/cosmetic-neck-bowtie.webp', price: 700 },
-    { id: 'scarf', slot: 'neck', name: 'Шарф ухилянта', emoji: '🧣', img: '/images/cosmetic-neck-scarf.webp', price: 900 },
-    { id: 'tie', slot: 'neck', name: 'Діловий галстук', emoji: '👔', img: '/images/cosmetic-neck-tie.webp', price: 1500 },
-    { id: 'medal', slot: 'neck', name: 'Медаль "За хоробрість втечі"', emoji: '🎖️', img: '/images/cosmetic-neck-medal.webp', price: 3500 },
-    { id: 'chain', slot: 'neck', name: 'Золотий ланцюг авторитета', emoji: '🔗', price: 2400 },
-    { id: 'beads', slot: 'neck', name: 'Чотки на удачу', emoji: '📿', price: 1300 },
-    { id: 'sportmedal', slot: 'neck', name: 'Спортивна медаль', emoji: '🏅', price: 2000 },
-    { id: 'goldmedal', slot: 'neck', name: 'Золота медаль чемпіона', emoji: '🥇', price: 3000 },
-    { id: 'nazar', slot: 'neck', name: 'Амулет від зурочення', emoji: '🧿', price: 1600 },
-    { id: 'gem', slot: 'neck', name: 'Діамантовий кулон', emoji: '💎', price: 4500 },
-    { id: 'volunteer_ribbon', slot: 'neck', name: 'Волонтерська стрічка', emoji: '🎗️', price: 800 },
-    { id: 'bell', slot: 'neck', name: 'Дзвіночок (як у кота)', emoji: '🔔', price: 600 },
-    { id: 'headphones', slot: 'neck', name: 'Навушники на шиї', emoji: '🎧', price: 1900 },
-    { id: 'bone', slot: 'neck', name: 'Кістка на шнурку', emoji: '🦴', price: 700 },
-    // Рамки клікера (суцільне світіння) + дві анімовані
-    { id: 'frame_red', slot: 'frame', name: 'Червона рамка небезпеки', color: '#c3073f', price: 1500 },
-    { id: 'frame_gold', slot: 'frame', name: 'Золота рамка', color: '#ffd700', price: 2500 },
-    { id: 'frame_neon', slot: 'frame', name: 'Неонова рамка', color: '#e0a52e', price: 2000 },
-    { id: 'frame_pink', slot: 'frame', name: 'Рожева рамка', color: '#9c5330', price: 1800 },
-    { id: 'frame_toxic', slot: 'frame', name: 'Токсична рамка', color: '#39ff14', price: 2000 },
-    { id: 'frame_royal', slot: 'frame', name: 'Королівська рамка', color: '#9c27b0', price: 2800 },
-    { id: 'frame_ice', slot: 'frame', name: 'Крижана рамка', color: '#7df9ff', price: 1700 },
-    { id: 'frame_blood', slot: 'frame', name: 'Кривава рамка', color: '#8b0000', price: 1600 },
-    { id: 'frame_lime', slot: 'frame', name: 'Лаймова рамка', color: '#ccff00', price: 1800 },
-    { id: 'frame_amber', slot: 'frame', name: 'Бурштинова рамка', color: '#ffbf00', price: 1900 },
-    { id: 'frame_violet', slot: 'frame', name: 'Фіолетова рамка', color: '#6a00ff', price: 2100 },
-    { id: 'frame_white', slot: 'frame', name: 'Біла рамка', color: '#f5f5f5', price: 1500 },
-    { id: 'frame_teal', slot: 'frame', name: "М'ятна рамка", color: '#00ffab', price: 1900 },
-    { id: 'frame_magenta', slot: 'frame', name: 'Магентова рамка', color: '#d500f9', price: 2200 },
-    { id: 'frame_steel', slot: 'frame', name: 'Сталева рамка', color: '#90a4ae', price: 1400 },
-    { id: 'frame_rainbow', slot: 'frame', name: 'Веселкова рамка (анімована)', color: 'rainbow', price: 6000 },
-    { id: 'frame_siren', slot: 'frame', name: 'Сирена (анімована)', color: 'siren', price: 5500 },
-    // Сезонні нагороди живуть у тому ж каталозі, щоб їх бачив гардероб і кімната,
-    // але позначені seasonOnly — магазин їх не показує, купити не можна.
-    ...SEASON_COSMETICS,
-];
+
 
 // Щоденні квести — прогрес рахується з опівночі (questsDate), окремо від lifetime-лічильників.
-const QUESTS = [
-    { id: 'q_clicks', name: 'Розігрів', desc: 'Зроби 200 кліків сьогодні', target: 200, reward: 350, metric: 'dailyClicks' },
-    { id: 'q_trade', name: 'Спекулянт', desc: 'Заверши 3 угоди на біржі сьогодні', target: 3, reward: 300, metric: 'dailyTrades' },
-    { id: 'q_gacha', name: 'Розпакування', desc: 'Відкрий 2 ящики сьогодні', target: 2, reward: 400, metric: 'dailyBoxes' },
-    { id: 'q_raid', name: 'Втікач', desc: 'Переживи 1 облаву сьогодні', target: 1, reward: 350, metric: 'dailyRaids' },
-    { id: 'q_craft', name: 'Умілі руки', desc: 'Скрафти 1 предмет сьогодні', target: 1, reward: 600, metric: 'dailyCrafts' },
-    { id: 'q_res', name: 'Мародер', desc: 'Назбирай 25 ресурсів сьогодні', target: 25, reward: 500, metric: 'dailyResources' },
-    // Квести під механіки розширення: без них нові системи не мали щоденної причини
-    // в них заходити, і гравець повертався б до тих самих кліків.
-    { id: 'q_notice', name: 'Паперова робота', desc: 'Зніми 2 повістки сьогодні', target: 2, reward: 900, metric: 'dailyNotices' },
-    { id: 'q_medcom', name: 'На прийом', desc: 'Пройди медкомісію сьогодні', target: 1, reward: 1200, metric: 'dailyMedcom' },
-    { id: 'q_inspector', name: 'Небажаний гість', desc: 'Здихайся інспектора сьогодні', target: 1, reward: 2500, metric: 'dailyInspectors' },
-    { id: 'q_expedition', name: 'Нічна зміна', desc: 'Заверши вилазку сьогодні', target: 1, reward: 800, metric: 'dailyExpeditions' },
-];
+
 
 // Речі для декору кімнати — можна володіти й показувати одразу кількома (на відміну від
 // гардеробу персонажа, де один предмет на слот). Кожна річ має фіксовану позицію в кімнаті.
-const ROOM_ITEMS = [
-    { id: 'lamp', name: 'Лампа затишку', emoji: '💡', price: 500, pos: 'top-left' },
-    { id: 'poster', name: 'Постер альпійських краєвидів', emoji: '🖼️', price: 400, pos: 'top-center' },
-    { id: 'tv', name: 'Старий телевізор', emoji: '📺', price: 1200, pos: 'top-right' },
-    { id: 'plant', name: 'Вазон з фікусом', emoji: '🪴', price: 600, pos: 'mid-left' },
-    { id: 'clock', name: 'Годинник із зозулею', emoji: '🕰️', price: 800, pos: 'mid-right' },
-    { id: 'radio', name: 'Радіоприймач', emoji: '📻', price: 700, pos: 'bottom-left' },
-    { id: 'rug', name: 'Килимок для конспірації', img: '/images/qte-rug.webp', price: 900, pos: 'bottom-center' },
-    { id: 'suitcase', name: 'Тривожна валізка', emoji: '🧳', price: 1100, pos: 'bottom-right' },
-    // Другий ряд декору — дорожчий, для тих, хто вже обставився
-    { id: 'fridge', name: 'Холодильник із запасами', emoji: '🧊', price: 2500, pos: 'mid-center' },
-    { id: 'guitar', name: 'Гітара для нудьги', emoji: '🎸', price: 1800, pos: 'top-far-left' },
-    { id: 'books', name: 'Стос книжок "про запас"', emoji: '📚', price: 1400, pos: 'mid-far-left' },
-    { id: 'cactus', name: 'Кактус-мовчун', emoji: '🌵', price: 1600, pos: 'bottom-far-left' },
-    { id: 'trophy', name: 'Кубок "Найкращий син"', emoji: '🏆', price: 3200, pos: 'top-far-right' },
-    { id: 'safe', name: 'Сейф із заначкою', emoji: '🔐', price: 5000, pos: 'mid-far-right' },
-];
+
 
 // Дрібна ненасильницька помста інспектору — розблоковується після кількох виживаних
 // облав (ECONOMY.REVENGE_UNLOCK_RAIDS), 1 раз/день, суто флейвор-текст + маленька нагорода.
-const REVENGE_LINES = [
-    'Ти підмінив його ручку на ту, що не пише — підписання паперів зірвано на пів дня.',
-    'Ти переклеїв табличку на його кабінеті на "ВИХІД" — тепер до нього ніхто не потрапляє.',
-    'Ти анонімно надіслав йому коробку гуманітарки — а там самі діряві шкарпетки.',
-    'Ти поставив його будильник на 5 ранку — тепер він теж не виспався.',
-    'Ти пригостив його чаєм з дуже гострим перцем — засідання довелося перенести.',
-    'Ти розповів йому довгу історію про сусідку-пліткарку — він забув, навіщо приходив.',
-    'Ти сховав його улюблену печатку — папери почекають до понеділка.',
-    'Ти включив йому на телефоні будильник із гуком гусака на повну гучність.',
-];
+
 
 // Тіньова біржа торгує СПРАВЖНІМИ ресурсами з кладовки (раніше це були окремі
 // абстрактні товари, ніяк не повʼязані з рештою гри). Курс гуляє кожні 3 хв, тож
@@ -1170,16 +499,7 @@ const MARKET_ASSETS = RESOURCES
     .map((r) => ({ id: r.id, name: r.name, emoji: r.emoji, img: r.img, basePrice: r.sell }));
 
 // Колесо Зради та Перемоги — 1 безкоштовний прокрут/день, результат обирає сервер.
-const WHEEL_SEGMENTS = [
-    { label: '150 🪙', type: 'balance', amount: 150, weight: 24, color: '#4a3f30' },
-    { label: '300 🪙', type: 'balance', amount: 300, weight: 18, color: '#c3073f' },
-    { label: 'Нічого', type: 'none', amount: 0, weight: 18, color: '#2a2a2d' },
-    { label: 'Ресурс', type: 'resource', tier: 1, weight: 14, color: '#2e7d32' },
-    { label: '700 🪙', type: 'balance', amount: 700, weight: 12, color: '#4a3f30' },
-    { label: 'Енергія', type: 'energy', amount: 0, weight: 8, color: '#2b5c8f' },
-    { label: 'Рідкісний ресурс', type: 'resource', tier: 2, weight: 5, color: '#6a1b9a' },
-    { label: 'ДЖЕКПОТ 5000', type: 'balance', amount: 5000, weight: 1, color: '#ffd700' },
-];
+
 
 // --- Міні-ігри (маленькі додаткові механіки, не завʼязані на основну
 // прогресію — суто розвага з невеликим ризиком/зиском) ---
@@ -1190,23 +510,13 @@ const COINFLIP_WIN_CHANCE = 0.47;
 
 // Колесо ризику 2.0: три рівні азарту, кожен трохи в мінус гравцю в
 // середньому (0.9/0.9/0.8 EV), щоб не стало новим золотим рецептом.
-const RISK_TIERS = [
-    { id: 'safe', name: 'Обережно', mult: 1.5, chance: 0.60 },
-    { id: 'medium', name: 'Середньо', mult: 3, chance: 0.30 },
-    { id: 'extreme', name: 'Відчайдушно', mult: 10, chance: 0.08 },
-];
+
 
 // Картонна карточна гра "Знайди пару": 4 пари (8 карток), нагорода залежить
 // від кількості спроб — чим краща памʼять, тим більший зиск.
-const MEMORY_ICONS = ['🥫', '🔋', '📄', '💊'];
+
 const MEMORY_ENTRY_COST = 200;
-const MEMORY_REWARD_TABLE = [
-    { maxFlips: 6, reward: 3000 },
-    { maxFlips: 8, reward: 2000 },
-    { maxFlips: 12, reward: 1000 },
-    { maxFlips: 16, reward: 500 },
-    { maxFlips: Infinity, reward: 200 },
-];
+
 function memoryRewardFor(flips) {
     return MEMORY_REWARD_TABLE.find((t) => flips <= t.maxFlips).reward;
 }
@@ -1315,21 +625,10 @@ const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id
 
 // Трофеї — окрема від досягнень колекція: їх не «наклікаєш», кожен треба в когось
 // відібрати. Id мають збігатися з тим, що пишеться в user.trophies.
-const TROPHIES = [
-    { id: 'detective', emoji: '🕵️', name: 'Вирахував стукача', desc: 'Розкрив того, хто на тебе доніс' },
-    ...INSPECTORS.map((i) => ({ id: 'insp_' + i.id, emoji: i.emoji, name: 'Спекався: ' + i.name, desc: i.taunt })),
-];
+
 
 // Коди для друзів/тестувальників — повністю байпасять монетизацію.
-const PROMO_CODES = {
-    MAMYN_SYNOK: { type: 'vip' },
-    TISA_SWIMMER: { type: 'balance', amount: 5000 },
-    FREE_STARS: { type: 'balance', amount: 10000 }, // символічний бонус ТК; реальні Telegram Stars неможливо і не можна видати кодом
-    NEVYCHERPNO: { type: 'infinite_money' }, // читерський код для тестів/жарту — ставить баланс у практично нескінченне число
-    OBNULYUVACH: { type: 'reset' }, // повністю скидає прогрес гравця (в т.ч. знімає "нескінченний" баланс) до чистого старту
-    // Одноразово по одному з кожного донатного ящика (ті самі, що за Stars).
-    KATOK: { type: 'crate_bundle', crateIds: ['starter', 'elite', 'wardrobe', 'legendary'], once: true },
-};
+
 
 // ==========================================
 // 3. "БАЗА ДАНИХ" (у пам'яті процесу — навмисно просто, це жартівливий проєкт для друзів)
@@ -1719,7 +1018,7 @@ usersDB.forEach((u) => migrateUser(u));
 // лежали в user.portfolio. Тепер біржа торгує справжніми ресурсами з кладовки, і ті
 // товари зникли — тому повертаємо гравцю їхню вартість монетами, щоб вкладене не
 // згоріло мовчки. Базові ціни зафіксовані тут, бо в коді їх уже немає.
-const LEGACY_ASSET_PRICES = { buckwheat: 100, salt: 50, tushonka: 300 };
+
 function migrateLegacyPortfolio(user) {
     if (!user.portfolio) { user.portfolio = {}; return; }
     let refund = 0;
@@ -2032,17 +1331,7 @@ function addUkhyr(user, amount) {
     if (!amount) return;
     user.ukhyr = (user.ukhyr || 0) + amount;
 }
-const UKHYR_RANKS = [
-    { threshold: 0, title: 'Щойно розпочав' },
-    { threshold: 500, title: 'Ухилянт початкового рівня' },
-    { threshold: 1500, title: 'В тіні закону' },
-    { threshold: 4000, title: 'Легенда двору' },
-    { threshold: 9000, title: 'Майстер конспірації' },
-    { threshold: 18000, title: 'Легенда району' },
-    { threshold: 35000, title: 'Привид ТЦК' },
-    { threshold: 60000, title: 'Фантом кліків' },
-    { threshold: 100000, title: 'Міф ХХІ століття' },
-];
+
 function ukhyrRank(points) {
     let rank = UKHYR_RANKS[0];
     for (const r of UKHYR_RANKS) { if ((points || 0) >= r.threshold) rank = r; }
