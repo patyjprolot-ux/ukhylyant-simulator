@@ -19,6 +19,13 @@
 кімнат ("Переробка v2"). Зберігати як `room-1-troyeshchyna.png` ...
 `room-8-mansion.png`, потім конвертувати у WebP.
 
+**Статус (2026-08-08): 5 з 8 картинок згенеровано й збережені в
+`public/images/` як `loc8-1-troyeshchyna.webp`, `loc8-2-couch.webp`,
+`loc8-3-zakarpattia.webp`, `loc8-4-cabin.webp`, `loc8-5-tent.webp`.
+Лишилось: 6 (СІЗО закордоном), 7 (квартира в Польщі), 8 (маєток). Ще НЕ
+підключено в код — чекає на решту 3 картинок + рішення про фон усього
+застосунку (див. CONTINUE_PROMPT.md).**
+
 **1. Однушка на Троєщині**
 ```
 Wide 16:9 empty interior illustration, a cramped small Soviet-era one-room
