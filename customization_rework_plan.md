@@ -115,3 +115,66 @@ absurd comedic tone, no text, no watermark, centered composition
 Згенеруй ці 4 картинки (2 кімнати + 2 предмети), скинь мені у чат — я
 конвертую в WebP, підключу `roomImg` для локацій 4/6 у `server.js`, заміню
 старі icecube/toiletpaper і перевірю накладення гардеробу в браузері.
+
+---
+
+# v2 — Перехід на full-canvas шари (2026-08-08, СХВАЛЕНО, ще НЕ виконано)
+
+Замінює `top/left`-координати вище. Користувач приніс детальну архітектуру
+від ChatGPT — прийнято повністю: кожен предмет гардеробу стає ОКРЕМИМ
+transparent PNG на ТОМУ Ж canvas, що й базовий персонаж (не маленька іконка
+512×512, як зараз), накладається `position:absolute; inset:0` без
+координат. `character.json` (anchor-точки) + `wardrobe.json` (слоти/z-index/
+items) + `CharacterRenderer` (JS клас) — повна схема нижче.
+
+**Головна складність (чому це НЕ швидкий фікс):** усі 47 наявних предметів
+гардеробу намальовані як окремі іконки під СТАРУ систему — перехід означає
+перегенерувати їх ВСІ в новому форматі (той самий canvas, предмет уже точно
+позиційований відносно фігури). Це не одноразова генерація "разом" — кожен
+новий предмет треба звірити з базовим персонажем візуально (лягає рівно чи
+ні) і за потреби перегенерувати з уточненим промптом. Ітеративний процес,
+не один захід.
+
+## План виконання (по кроках, окремими сесіями)
+
+**Крок 0 — ВИКОНАНО.** `room-character.webp` = **414×1058 px**. Це
+canvas для АБСОЛЮТНО ВСІХ майбутніх предметів гардеробу (той самий розмір,
+інакше шари не суміщаються).
+
+**Крок 1 — пілотний предмет (перевірка підходу).** Обрати ОДИН існуючий
+капелюх (напр. `hat_cap`), згенерувати його в новому full-canvas форматі
+(промпт-шаблон нижче), перевірити в грі, чи лягає на персонажа без жодних
+CSS-координат. Тільки після успіху — переходити до масової перегенерації.
+
+**Крок 2 — міграція коду** (можна робити паралельно з кроком 1, ризику для
+живих гравців немає, поки стара система працює): додати `character.json`/
+`wardrobe.json`, `CharacterRenderer`, нову розмітку/CSS з шарового прикладу
+ChatGPT (вище в цьому файлі) — АЛЕ тримати стару `#room-cosmetic-*` систему
+робочою паралельно, перемкнутись тільки коли всі картинки перегенеровано
+(features flag/якщо є нові picture — новий рендер, інакше старий).
+
+**Крок 3 — масова перегенерація решти 46 предметів** — по одному
+слоту/партіями, з перевіркою кожної партії в браузері перед наступною.
+
+**Крок 4 — прибрати стару систему** (`#room-cosmetic-hat/face/neck`
+CSS-координати, старі 512×512 іконки) тільки після повної заміни.
+
+## Промпт-шаблон для нового предмета (full-canvas, приклад — капелюх)
+
+Підставити `<CANVAS_W>×<CANVAS_H>` з Кроку 0 і опис самого предмета.
+
+```
+Flat vector cel-shaded illustration of [ITEM DESCRIPTION], isolated on a
+fully transparent background, canvas size <CANVAS_W>x<CANVAS_H> pixels
+(portrait), the item precisely positioned and scaled as if worn by a
+standing cartoon character occupying the full height of this canvas
+(head near the top ~12% down, standing centered), do not draw any part
+of a person/body/face — only the item itself floating at the correct
+scale and position for that character, thick clean black outlines,
+dark satirical mobile-clicker art style similar to Hamster Kombat,
+crimson red and gold rim lighting on the item's edges only, no text,
+no watermark
+```
+
+**Статус: план схвалено користувачем, виконання не почато.** Наступна
+сесія починає з Кроку 0 (дізнатись точні пікселі room-character.webp).
