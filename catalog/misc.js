@@ -19,6 +19,17 @@ const PROMO_CODES = {
     OBNULYUVACH: { type: 'reset' }, // повністю скидає прогрес гравця (в т.ч. знімає "нескінченний" баланс) до чистого старту
     // Одноразово по одному з кожного донатного ящика (ті самі, що за Stars).
     KATOK: { type: 'crate_bundle', crateIds: ['starter', 'elite', 'wardrobe', 'legendary'], once: true },
+    // Читерські коди для тестів — миттєво переносять у вказаний рівень схрону
+    // (1-8), не чіпаючи баланс/ресурси. Можна вводити скільки завгодно разів,
+    // у будь-якому порядку, щоб подивитись на будь-яку локацію/фон.
+    SXRON1: { type: 'set_level', level: 1 },
+    SXRON2: { type: 'set_level', level: 2 },
+    SXRON3: { type: 'set_level', level: 3 },
+    SXRON4: { type: 'set_level', level: 4 },
+    SXRON5: { type: 'set_level', level: 5 },
+    SXRON6: { type: 'set_level', level: 6 },
+    SXRON7: { type: 'set_level', level: 7 },
+    SXRON8: { type: 'set_level', level: 8 },
 };
 
 const LEGACY_ASSET_PRICES = { buckwheat: 100, salt: 50, tushonka: 300 };

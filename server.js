@@ -1640,6 +1640,17 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
         usersDB.set(user.id, fresh);
         return res.json({ success: true, reset: true, message: '🔄 Прогрес повністю обнулено. Починай спочатку.', isVip: false, balance: 0 });
     }
+    if (promo.type === 'set_level') {
+        const loc = LOCATIONS.find((l) => l.level === promo.level);
+        if (!loc) return res.json({ success: false, message: 'Невірний код' });
+        user.level = loc.level;
+        user.maxEnergy = loc.maxEnergy;
+        user.energy = user.maxEnergy;
+        return res.json({
+            success: true, message: `🏚️ Телепорт: ${loc.name} (рівень ${loc.level})`,
+            level: user.level, maxEnergy: user.maxEnergy, energy: user.energy, balance: user.balance,
+        });
+    }
     res.json({ success: false, message: 'Невірний код' });
 });
 
@@ -8260,6 +8271,12 @@ function buildHtml(botUsername) {
                     } else {
                         state.balance = data.balance; state.isVip = data.isVip;
                         if (data.resources) { state.resources = data.resources; state.storageUsed = data.used; }
+                        // Код-телепорт схрону (SXRON1..SXRON8) — рівень/енергія міняються
+                        // одразу, applyLocation() усередині updateUI() підхопить і назву
+                        // локації, і фон усього застосунку.
+                        if (typeof data.level === 'number') state.level = data.level;
+                        if (typeof data.maxEnergy === 'number') state.maxEnergy = data.maxEnergy;
+                        if (typeof data.energy === 'number') state.energy = data.energy;
                         updateUI();
                         // Код на ящик — та сама анімація відкривання, що й у купленого.
                         if (data.crateBundle) { playCrateBundle(data.crateBundle); return; }
