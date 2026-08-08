@@ -6,6 +6,122 @@
 
 ---
 
+## Ідея на майбутнє: 8 локацій замість 6 (2026-08-08) — ⚠️ ТІЛЬКИ ПРОМПТИ,
+## код/баланс/level-гейти ще НЕ чіпали (див. CONTINUE_PROMPT.md)
+
+Запропонована користувачем нова дуга прогресії (замінює поточні 6 рівнів
+схрону): 1) Однушка на Троєщині → 2) Бабусин диван → 3) Двір на Закарпатті
+→ 4) Хатина в лісі → 5) Палатка під кордоном → 6) СІЗО закордоном →
+7) Квартира в Польщі → 8) Легалізація — маєток в Україні.
+
+Промпти нижче — чисті фони (16:9, без персонажа, права третина кадру
+порожня під композитинг), той самий підхід, що вже стоїть для 6 поточних
+кімнат ("Переробка v2"). Зберігати як `room-1-troyeshchyna.png` ...
+`room-8-mansion.png`, потім конвертувати у WebP.
+
+**1. Однушка на Троєщині**
+```
+Wide 16:9 empty interior illustration, a cramped small Soviet-era one-room
+apartment with peeling wallpaper, a single small window overlooking grey
+high-rise towers in the distance, a bare mattress on the floor, no person,
+no character anywhere in the image, completely empty room with nobody in
+it, the right third of the frame is left open bare floor space (a
+character will be composited in later, do not draw anyone there), flat
+vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**2. Бабусин диван** — вже намальовано (`room-1-couch.webp`), новий промпт
+не потрібен, просто переставляється на позицію 2 в новій нумерації.
+
+**3. Двір на Закарпатті**
+```
+Wide 16:9 empty exterior illustration, a rustic Carpathian mountain
+homestead courtyard with a wooden fence, a small haystack, and misty green
+hills in the background, warm late-afternoon light, no person, no
+character anywhere in the image, completely empty yard with nobody in it,
+the right third of the frame is left open bare ground space (a character
+will be composited in later, do not draw anyone there), flat vector
+game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**4. Хатина в лісі**
+```
+Wide 16:9 empty interior illustration, a small rough log cabin deep in a
+dark forest, visible through a single small window are dense pine trees
+at dusk, a simple wood-burning stove in the corner, no person, no
+character anywhere in the image, completely empty cabin with nobody in
+it, the right third of the frame is left open bare floor space (a
+character will be composited in later, do not draw anyone there), flat
+vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**5. Палатка під кордоном**
+```
+Wide 16:9 empty scene illustration, the inside of a small worn camping
+tent at night, the open tent flap reveals a dark treeline and a distant
+striped border fence under moonlight, a sleeping bag on the ground, no
+person, no character anywhere in the image, completely empty tent with
+nobody in it, the right third of the frame is left open bare ground space
+(a character will be composited in later, do not draw anyone there), flat
+vector game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**6. СІЗО закордоном**
+```
+Wide 16:9 empty interior illustration, a small bare foreign detention-cell
+room with a narrow barred window letting in cold light, a metal bunk bed
+frame against the wall, concrete floor, no person, no character anywhere
+in the image, completely empty cell with nobody in it, the right third of
+the frame is left open bare floor space (a character will be composited
+in later, do not draw anyone there), flat vector game-icon illustration,
+thick clean black outlines, cel-shaded flat colors, dark satirical
+mobile-clicker art style similar to Hamster Kombat, dark charcoal
+background, crimson red and gold rim lighting, slightly absurd comedic
+tone, no text, no watermark
+```
+
+**7. Квартира в Польщі**
+```
+Wide 16:9 empty interior illustration, a modest but tidy modern rented
+apartment room with a small IKEA-style bed and a window showing a generic
+European city street outside, clean minimal furnishing, no person, no
+character anywhere in the image, completely empty room with nobody in it,
+the right third of the frame is left open bare floor space (a character
+will be composited in later, do not draw anyone there), flat vector
+game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+**8. Легалізація — маєток в Україні**
+```
+Wide 16:9 empty interior illustration, a lavish oversized mansion living
+room with a giant chandelier, marble floor, and a huge window overlooking
+manicured gardens outside, ironically excessive luxury, no person, no
+character anywhere in the image, completely empty room with nobody in it,
+the right third of the frame is left open bare floor space (a character
+will be composited in later, do not draw anyone there), flat vector
+game-icon illustration, thick clean black outlines, cel-shaded flat
+colors, dark satirical mobile-clicker art style similar to Hamster Kombat,
+dark charcoal background, crimson red and gold rim lighting, slightly
+absurd comedic tone, no text, no watermark
+```
+
+---
+
 ## Карта міста / району (майбутня механіка, поки НЕ реалізована в коді)
 
 **Статус активів (2026-08-07): усі 5 готові й збережені в `public/images/`**
