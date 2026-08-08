@@ -333,10 +333,17 @@ TIER_GATES, MAP_BUILDING_BY_ID). `server.js`: 10 040 → 9 593 рядки.
 Верифіковано живим smoke-тестом кожної перенесеної функції через реальний
 ендпоінт.
 
-**Фаза 3 — модель користувача.**
-`lib/user-store.js`: `createFreshUser`, `migrateUser`, `getUser`, `usersDB`,
-`RESTORE_*_FIELDS`. Тут вже є залежність від Фази 1/2 (дефолтні значення
-беруть з ECONOMY, migrateUser викликає функції з Фази 2) — робити після них.
+**Фаза 3 — ✅ ВИКОНАНО (2026-08-08).** `lib/user-store.js`: usersDB/clansDB,
+диск (loadData/saveData), createFreshUser, migrateUser,
+installBalanceTracking, migrateLegacyPortfolio, displayName/nicknameTaken,
+pid-система. `getUser`/`syncHeatAndNotices` свідомо лишились у `server.js`
+(це оркестрація user-моделі + heat + notices, не сама модель).
+`RESTORE_*_FIELDS` теж лишились (специфічні для одного роуту `/api/restore`).
+`server.js`: 9 593 → 9 230 рядків. Кожну перенесену функцію звірено
+байт-в-байт через `diff` проти `git show HEAD:server.js` ДО видалення
+оригіналів — спіймано і свідомо збережено (не "виправлено") дублікат ключа
+`lastSeenAt` в `createFreshUser` (останній виграє = 0, не `Date.now()`) —
+чистий рефакторинг не мав права тихцем міняти поведінку.
 
 **Фаза 4 — Express-роути (найбільша й найризикованіша частина логіки).**
 Групувати по `routes/*.js` за доменом, не по одному файлу на ендпоінт:
