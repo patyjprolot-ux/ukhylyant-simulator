@@ -3360,10 +3360,10 @@ function buildHtml(botUsername) {
            вантажиться. Затемнення поверх — інакше деталізовані нові фони (loc8-*)
            заб'ють читабельність тексту/кнопок, які раніше стояли на суцільному кольорі. */
         #app-bg { position: fixed; inset: 0; z-index: -1; background: var(--bg) center/cover no-repeat; }
-        #app-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(15,11,7,0.72), rgba(15,11,7,0.82)); }
+        #app-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(8,12,17,0.25), rgba(8,12,17,0.5)); }
         header, .tabs-container { flex-shrink: 0; }
 
-        header { background: rgba(23,17,10,0.75); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(110,198,255,0.35); box-shadow: 0 0 18px rgba(110,198,255,0.15), inset 0 0 25px rgba(53,81,107,0.05); }
+        header { background: rgba(12,17,23,0.55); backdrop-filter: blur(3px); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; position: relative; border: 1px solid rgba(110,198,255,0.35); box-shadow: 0 0 18px rgba(110,198,255,0.15), inset 0 0 25px rgba(53,81,107,0.05); }
         header h2 { font-size: 19px; margin: 2px 0 6px; }
         .daily-btn { position: absolute; top: 10px; right: 10px; width: auto; margin-bottom: 0; background: var(--gold); color: #000; border: none; border-radius: 999px; padding: 5px 12px; font-weight: bold; font-size: 10px; cursor: pointer; box-shadow: 0 0 8px rgba(180,225,255,0.6); }
         .streak-note { position: absolute; top: 32px; right: 10px; font-size: 9px; color: #8ed4ffcc; }
@@ -3610,7 +3610,7 @@ function buildHtml(botUsername) {
         .tab { padding: 7px 12px; background: var(--btn); border: 1px solid rgba(110,198,255,0.15); text-align: center; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 11px; color: #8fa3b8; white-space: nowrap; font-family: inherit; }
         .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 0 12px rgba(53,81,107,0.6), 0 0 20px rgba(110,198,255,0.4); }
 
-        .panel { display: none; background: rgba(20,15,10,0.6); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(110,198,255,0.2); box-sizing: border-box; backdrop-filter: blur(2px); }
+        .panel { display: none; background: rgba(12,17,23,0.4); padding: 15px; border-radius: 12px; min-height: 38vh; overflow-y: auto; border: 1px solid rgba(110,198,255,0.2); box-sizing: border-box; backdrop-filter: blur(3px); }
         /* Верхньорівневі панелі розтягуються на весь простір, що лишився під шапкою й
            вкладками (замість фіксованих 50vh, через які знизу лишалось порожнє місце). */
         .panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -6661,7 +6661,7 @@ function buildHtml(botUsername) {
             { level: 7, selector: '.tab[onclick*="\\'gacha\\'"]', name: '📦 Ящики' },
             { level: 8, selector: '.tab[onclick*="openSkills"]', name: '🌳 Навички' },
             { level: 12, selector: '.action-tile[onclick*="openMap"]', name: '🗺️ Карта території' },
-            { level: 14, selector: '.tab[onclick*="\\'clan\\'"]', name: '🏘 Клани' },
+            { level: 3, selector: '.tab[onclick*="\\'clan\\'"]', name: '🏘 Клани' },
         ];
         function applyLevelGates() {
             for (const u of LEVEL_UNLOCKS) {
@@ -6748,26 +6748,35 @@ function buildHtml(botUsername) {
             } catch (e) { tg.showAlert('Помилка переїзду'); }
         };
 
+        // Картки локацій виглядають так само, як картки компаньйонів (.pet-card) —
+        // фон гри тепер сам по собі фонова картинка, тож ці картки додатково несуть
+        // ту саму картинку локації як власний фон, а не дрібну btn-icon-мініатюру.
         function renderLocationShop() {
             const list = document.getElementById('location-shop-list');
             if (!list) return;
             list.innerHTML = LOCATIONS.filter(l => l.level > 1).map(loc => {
+                const bg = ' style="background-image:url(\\'' + loc.img + '\\')"';
                 if (loc.level <= state.level) {
-                    return '<button disabled style="opacity:.5;">✅ ' + loc.name + ' (Lvl ' + loc.level + ')</button>';
+                    return '<div class="pet-card equipped"' + bg + '>' +
+                        '<div class="pet-title">✅ ' + loc.name + '</div>' +
+                        '<div class="pet-desc">Рівень ' + loc.level + ' — вже тут</div></div>';
                 }
                 if (loc.level > state.level + 1) {
                     // Ще не наступний по черзі — не зникає, лишається видимим і затемненим
                     // з замочком (той самий підхід, що LEVEL_UNLOCKS/.locked для вкладок).
-                    return '<button class="locked" disabled><img class="btn-icon" src="' + loc.img + '" alt="">' +
-                        loc.name + ' (Lvl ' + loc.level + ')</button>';
+                    return '<div class="pet-card locked"' + bg + '>' +
+                        '<div class="pet-title">' + loc.name + '</div>' +
+                        '<div class="pet-desc">Рівень ' + loc.level + ' — спочатку попередній</div></div>';
                 }
                 const resText = loc.resCost ? Object.entries(loc.resCost).map(([id, n]) => {
                     const have = (state.resources || {})[id] || 0;
                     const meta = RESOURCE_BY_ID[id];
                     return '<span style="color:' + (have >= n ? '#b9ffb0' : '#ff8a8a') + '">' + meta.emoji + n + '</span>';
                 }).join(' ') : '';
-                return '<button onclick="buyLocation(' + loc.level + ')"><img class="btn-icon" src="' + loc.img + '" alt="">' +
-                    loc.name + ' (Lvl ' + loc.level + ') | ' + fmtNum(loc.price || 0) + ' 🪙 ' + resText + '</button>';
+                return '<div class="pet-card"' + bg + '>' +
+                    '<div class="pet-title">' + loc.name + '</div>' +
+                    '<div class="pet-desc">Рівень ' + loc.level + ' · ' + fmtNum(loc.price || 0) + ' 🪙 ' + resText + '</div>' +
+                    '<button onclick="buyLocation(' + loc.level + ')">Переїхати</button></div>';
             }).join('');
         }
 
@@ -8391,6 +8400,9 @@ function buildHtml(botUsername) {
         // МЕХАНІКА ОБЛАВИ (БОС-ФАЙТ)
         // ==========================================
         setInterval(() => {
+            // З рівня 4 (Хатина в лісі) ти вже не в місті — нема паркану/базару, щоб
+            // тікати, тож облави міського типу більше не трапляються.
+            if ((state.level || 1) >= 4) return;
             // Шанс облави масштабується розшуком: на 91+ heat облави вчетверо частіші,
             // ніж у "тихого" гравця. Це друга половина трейд-офу до множника доходу.
             if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult() * mapRaidMult()) return;
@@ -8453,6 +8465,9 @@ function buildHtml(botUsername) {
         // QTE: СТУК У ДВЕРІ
         // ==========================================
         setInterval(() => {
+            // Та сама причина, що й для облав вище: з Хатини в лісі (рівень 4) нема
+            // міських дверей, у які могли б постукати.
+            if ((state.level || 1) >= 4) return;
             if (state.isVip || hasShield() || Math.random() > ECONOMY.QTE_KNOCK_CHANCE * heatRaidMult()) return;
 
             const overlay = document.getElementById('knock-screen');
