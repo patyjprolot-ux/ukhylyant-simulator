@@ -3986,7 +3986,11 @@ function buildHtml(botUsername) {
             <div class="heat-bar"><div id="heat-fill" class="heat-fill"></div></div>
         </div>
         <div class="action-tiles">
-            <button class="action-tile" onclick="openRoom()"><span class="action-tile-icon">🎨</span>Гардероб</button>
+            <button class="action-tile" onclick="openRoom()"><span class="action-tile-icon">🎨</span>Персонаж</button>
+            <!-- Кастомізація кімнати (декор) — окрема кнопка, тимчасово заблокована
+                 (не прибрана): клас locked дає той самий вигляд затемнення+замочок,
+                 що й LEVEL_UNLOCKS для вкладок. -->
+            <button class="action-tile locked" onclick="tg.showAlert('🔒 Кастомізація кімнати ще не готова')"><span class="action-tile-icon">🛋</span>Кімната</button>
             <button class="action-tile" onclick="openMap()"><span class="action-tile-icon">🗺️</span>Карта</button>
             <button class="action-tile" onclick="openCodex()"><span class="action-tile-icon">❓</span>Довідка</button>
             <button class="action-tile" onclick="openNotices()">
