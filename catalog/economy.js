@@ -26,14 +26,10 @@ const ECONOMY = {
     ENERGY_REGEN_PER_TICK: 0.1,
     ENERGY_PER_CLICK: 2,
 
-    // --- Еволюція схрону (v2.2 «Дуга ухилянта», 8 рівнів, 2026-08-08) ---
-    COUCH_PRICE: 1500,
-    ZAKARPATTIA_PRICE: 6000,
-    CABIN_PRICE: 25000,
-    TENT_PRICE: 90000,
-    SIZO_PRICE: 350000,
-    POLAND_PRICE: 1200000,
-    MANSION_PRICE: 4000000,
+    // --- Еволюція схрону: ціна/ресурси тепер живуть у catalog/locations.js
+    // (поля price/resCost на кожному рівні) — єдине джерело правди замість
+    // окремих *_PRICE констант тут, бо переїзд відтепер коштує і ресурси
+    // теж, а не тільки ТК (v2.2 «Дуга ухилянта», 2026-08-08). ---
 
     // --- Кладовка (склад ресурсів) ---
     STORAGE_BASE_CAPACITY: 60,

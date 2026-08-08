@@ -3784,6 +3784,11 @@ function buildHtml(botUsername) {
         #gacha-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14100a; border: 2px solid var(--accent2); padding: 30px; border-radius: 15px; z-index: 500; text-align: center; box-shadow: 0 0 40px rgba(110,198,255,0.5), 0 0 70px rgba(53,81,107,0.3); display: none; max-width: 80vw; }
         #gacha-icon { width: 120px; height: 120px; object-fit: contain; margin: 10px auto; display: block; }
         .hidden { display: none !important; }
+        /* Контент, недоступний за поточним рівнем ухилянта, більше не ЗНИКАЄ —
+           лишається на місці, затемнений і з замочком, щоб новачок бачив, що
+           попереду, замість порожньої вкладки нізвідки. */
+        .locked { position: relative; opacity: 0.4; filter: grayscale(0.7); cursor: not-allowed; }
+        .locked::after { content: '🔒'; position: absolute; top: -4px; right: -4px; font-size: 11px; filter: none; opacity: 1; text-shadow: 0 1px 2px #000; }
 
         #splash-screen { position: fixed; inset: 0; background: #000 url('/images/splash-banner.webp') center/cover no-repeat; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; }
         #splash-screen span { color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
@@ -3994,13 +3999,7 @@ function buildHtml(botUsername) {
         <div id="upgrades-list"></div>
         <button onclick="buy('energy_drink', ${ECONOMY.ENERGY_DRINK_PRICE})"><img class="btn-icon" src="/images/shop-energy.webp" alt="">Енергетик (Відновити сили) | ${ECONOMY.ENERGY_DRINK_PRICE} 🪙</button>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #26313d;">Еволюція:</h3>
-        <button onclick="buy('couch', ${ECONOMY.COUCH_PRICE})"><img class="btn-icon" src="/images/loc8-2-couch.webp" alt="">Бабусин диван (Lvl 2) | ${ECONOMY.COUCH_PRICE} 🪙</button>
-        <button onclick="buy('zakarpattia', ${ECONOMY.ZAKARPATTIA_PRICE})"><img class="btn-icon" src="/images/loc8-3-zakarpattia.webp" alt="">Двір на Закарпатті (Lvl 3) | ${ECONOMY.ZAKARPATTIA_PRICE} 🪙</button>
-        <button onclick="buy('cabin', ${ECONOMY.CABIN_PRICE})"><img class="btn-icon" src="/images/loc8-4-cabin.webp" alt="">Хатина в лісі (Lvl 4) | ${ECONOMY.CABIN_PRICE} 🪙</button>
-        <button onclick="buy('tent', ${ECONOMY.TENT_PRICE})"><img class="btn-icon" src="/images/loc8-5-tent.webp" alt="">Палатка під кордоном (Lvl 5) | ${ECONOMY.TENT_PRICE} 🪙</button>
-        <button onclick="buy('sizo', ${ECONOMY.SIZO_PRICE})"><img class="btn-icon" src="/images/loc8-6-sizo.webp" alt="">СІЗО закордоном (Lvl 6) | ${ECONOMY.SIZO_PRICE} 🪙</button>
-        <button onclick="buy('poland', ${ECONOMY.POLAND_PRICE})"><img class="btn-icon" src="/images/loc8-7-poland.webp" alt="">Квартира в Польщі (Lvl 7) | ${ECONOMY.POLAND_PRICE} 🪙</button>
-        <button onclick="buy('mansion', ${ECONOMY.MANSION_PRICE})"><img class="btn-icon" src="/images/loc8-8-mansion-interior.webp" alt="">Легалізація — маєток (Lvl 8) | ${ECONOMY.MANSION_PRICE} 🪙</button>
+        <div id="location-shop-list"></div>
         <h3 style="font-size:14px; margin: 15px 0 5px; border-bottom: 1px solid #26313d;">Компаньйони:</h3>
         <div id="pets-list"></div>
     </div>
@@ -6667,7 +6666,9 @@ function buildHtml(botUsername) {
         function applyLevelGates() {
             for (const u of LEVEL_UNLOCKS) {
                 document.querySelectorAll(u.selector).forEach((el) => {
-                    el.classList.toggle('hidden', (state.playerLevel || 1) < u.level);
+                    const locked = (state.playerLevel || 1) < u.level;
+                    el.classList.toggle('locked', locked);
+                    if (locked) el.dataset.reqLevel = u.level; else delete el.dataset.reqLevel;
                 });
             }
         }
@@ -6688,6 +6689,10 @@ function buildHtml(botUsername) {
 
         // ===== Навігація =====
         window.switchTab = (evt, tabId) => {
+            if (evt.currentTarget.classList.contains('locked')) {
+                tg.showAlert('🔒 Потрібен ' + evt.currentTarget.dataset.reqLevel + ' рівень ухилянта');
+                return;
+            }
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             evt.currentTarget.classList.add('active');
@@ -6706,26 +6711,65 @@ function buildHtml(botUsername) {
 
         // ===== Магазин =====
         // Апгрейди кліку/пасиву тепер багаторівневі й купуються через buyUpgrade() на сервері.
-        // Тут лишились разові покупки: енергетик і переїзди між локаціями.
         window.buy = (item, price) => {
             if (state.balance < price) return tg.showAlert('Недостатньо ТК!');
-            const levelBefore = state.level;
             state.balance -= price;
             if (item === 'energy_drink') state.energy = state.maxEnergy;
-            if (item === 'couch' && state.level < 2) { state.level = 2; state.maxEnergy = LOCATIONS[1].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'zakarpattia' && state.level < 3) { state.level = 3; state.maxEnergy = LOCATIONS[2].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'cabin' && state.level < 4) { state.level = 4; state.maxEnergy = LOCATIONS[3].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'tent' && state.level < 5) { state.level = 5; state.maxEnergy = LOCATIONS[4].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'sizo' && state.level < 6) { state.level = 6; state.maxEnergy = LOCATIONS[5].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'poland' && state.level < 7) { state.level = 7; state.maxEnergy = LOCATIONS[6].maxEnergy; state.energy = state.maxEnergy; }
-            if (item === 'mansion' && state.level < 8) { state.level = 8; state.maxEnergy = LOCATIONS[7].maxEnergy; state.energy = state.maxEnergy; }
             tg.HapticFeedback.notificationOccurred('success');
             updateUI();
             saveState();
-            // Переїзд — це подія, а не транзакція: на виїзді стоїть блокпост.
-            // Локація вже куплена, блокпост впливає лише на "ціну переїзду".
-            if (item !== 'energy_drink' && levelBefore !== state.level) openCheckpoint();
         };
+
+        // Переїзд у новий схрон — тепер серверна, валідована покупка (ціна в ТК +
+        // ресурси, catalog/locations.js), а не клієнтське списання: інакше підроблене
+        // /api/save з завищеним level давало б безкоштовний перехід. Можна купити
+        // лише НАСТУПНИЙ рівень по черзі (не перестрибнути одразу на далекий).
+        window.buyLocation = async (level) => {
+            try {
+                let res = await apiFetch('/api/location/buy', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, level })
+                });
+                let data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+                state.balance = data.balance;
+                if (typeof data.level === 'number') state.level = data.level;
+                if (typeof data.maxEnergy === 'number') state.maxEnergy = data.maxEnergy;
+                if (typeof data.energy === 'number') state.energy = data.energy;
+                if (data.resources) { state.resources = data.resources; state.storageUsed = data.used; }
+                syncLevel(data);
+                if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
+                tg.HapticFeedback.notificationOccurred('success');
+                updateUI();
+                renderLocationShop();
+                // Переїзд — це подія, а не транзакція: на виїзді стоїть блокпост.
+                // Локація вже куплена, блокпост впливає лише на "ціну переїзду".
+                openCheckpoint();
+            } catch (e) { tg.showAlert('Помилка переїзду'); }
+        };
+
+        function renderLocationShop() {
+            const list = document.getElementById('location-shop-list');
+            if (!list) return;
+            list.innerHTML = LOCATIONS.filter(l => l.level > 1).map(loc => {
+                if (loc.level <= state.level) {
+                    return '<button disabled style="opacity:.5;">✅ ' + loc.name + ' (Lvl ' + loc.level + ')</button>';
+                }
+                if (loc.level > state.level + 1) {
+                    // Ще не наступний по черзі — не зникає, лишається видимим і затемненим
+                    // з замочком (той самий підхід, що LEVEL_UNLOCKS/.locked для вкладок).
+                    return '<button class="locked" disabled><img class="btn-icon" src="' + loc.img + '" alt="">' +
+                        loc.name + ' (Lvl ' + loc.level + ')</button>';
+                }
+                const resText = loc.resCost ? Object.entries(loc.resCost).map(([id, n]) => {
+                    const have = (state.resources || {})[id] || 0;
+                    const meta = RESOURCE_BY_ID[id];
+                    return '<span style="color:' + (have >= n ? '#b9ffb0' : '#ff8a8a') + '">' + meta.emoji + n + '</span>';
+                }).join(' ') : '';
+                return '<button onclick="buyLocation(' + loc.level + ')"><img class="btn-icon" src="' + loc.img + '" alt="">' +
+                    loc.name + ' (Lvl ' + loc.level + ') | ' + fmtNum(loc.price || 0) + ' 🪙 ' + resText + '</button>';
+            }).join('');
+        }
 
         // ===== Компаньйони =====
         function renderPets() {
@@ -6851,6 +6895,11 @@ function buildHtml(botUsername) {
 
         // ===== Карта території: захисні споруди + орієнтири-посилання на вилазки =====
         window.openMap = () => {
+            const tile = document.querySelector('.action-tile[onclick*="openMap"]');
+            if (tile && tile.classList.contains('locked')) {
+                tg.showAlert('🔒 Потрібен ' + tile.dataset.reqLevel + ' рівень ухилянта');
+                return;
+            }
             document.getElementById('map-screen').classList.remove('hidden');
             renderMapBuildings();
             renderMapMarkers();
@@ -7593,6 +7642,7 @@ function buildHtml(botUsername) {
         };
 
         function renderUpgrades() {
+            renderLocationShop();
             const list = document.getElementById('upgrades-list');
             if (!list) return;
             const amount = state.buyAmount || 1;

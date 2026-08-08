@@ -52,6 +52,49 @@ module.exports = function registerEconomyRoutes(app, deps) {
         res.json({ success: true, earned, price, balance: user.balance, ...storageSnapshot(user) });
     });
 
+    // ---- Переїзд у новий схрон (еволюція локації) ----
+    // Ціна/ресурси — з catalog/locations.js (поля price/resCost на кожному рівні),
+    // валідуються й списуються тут (v2.2 «Дуга ухилянта», 2026-08-08). Раніше це
+    // було чисто клієнтське списання балансу — підроблений /api/save з завищеним
+    // level давав би безкоштовний перехід. Купити можна лише НАСТУПНИЙ рівень по
+    // черзі, не перестрибнути одразу на далекий.
+    app.post('/api/location/buy', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const nextLevel = (user.level || 1) + 1;
+        if (Number(req.body.level) !== nextLevel) {
+            return res.json({ success: false, message: 'Спочатку переїдь на попередній рівень' });
+        }
+        const loc = LOCATIONS.find((l) => l.level === nextLevel);
+        if (!loc) return res.json({ success: false, message: 'Ти вже на максимальному рівні' });
+        if (user.balance < (loc.price || 0)) return res.json({ success: false, message: 'Недостатньо ТК' });
+        for (const [resId, need] of Object.entries(loc.resCost || {})) {
+            if ((user.resources[resId] || 0) < need) {
+                return res.json({ success: false, message: `Не вистачає: ${RESOURCE_BY_ID[resId].name}` });
+            }
+        }
+
+        user.balance -= (loc.price || 0);
+        for (const [resId, need] of Object.entries(loc.resCost || {})) {
+            user.resources[resId] -= need;
+            if (user.resources[resId] <= 0) delete user.resources[resId];
+        }
+        user.level = loc.level;
+        user.maxEnergy = loc.maxEnergy;
+        user.energy = user.maxEnergy;
+        changeHeat(user, ECONOMY.HEAT_NEW_LOCATION, 'Переїзд у новий схрон');
+        const levelsGained = addXP(user, 150);
+        addUkhyr(user, 50);
+        const unlocked = checkAchievements(user);
+
+        res.json({
+            success: true, message: `Переїзд: ${loc.name}`,
+            level: user.level, maxEnergy: user.maxEnergy, energy: user.energy,
+            balance: user.balance, unlockedAchievements: unlocked,
+            xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
+            ...storageSnapshot(user), ...heatSnapshot(user),
+        });
+    });
+
     // ---- Престиж: "Легалізація" ----
     // Скидає економічний прогрес заради постійного множника доходу. Косметика, досягнення,
     // кладовка й компаньйони НЕ скидаються — інакше легалізуватись було б надто боляче.
