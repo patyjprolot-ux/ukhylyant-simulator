@@ -19,8 +19,11 @@ const LOCATIONS = [
       price: 6000, resCost: { wood: 12, tape: 6 } },
     { level: 4, name: 'Хатина в лісі', img: '/images/loc8-4-cabin.webp', roomImg: '/images/loc8-4-cabin.webp', maxEnergy: 230,
       price: 25000, resCost: { wood: 20, scrap: 10 } },
+    // 'route' (Маршрут через кордон) — рідкісний шанс-дроп із вилазки "Прогулянка
+    // до кордону" (minLevel 4, тобто доступна ще з попереднього рівня, інакше
+    // дедлок). Без нього не можна фізично перейти кордон.
     { level: 5, name: 'Палатка під кордоном', img: '/images/loc8-5-tent.webp', roomImg: '/images/loc8-5-tent.webp', maxEnergy: 300,
-      price: 90000, resCost: { scrap: 15, fuel: 8, brick: 8 } },
+      price: 90000, resCost: { scrap: 15, fuel: 8, brick: 8, route: 1 } },
     { level: 6, name: 'СІЗО закордоном', emoji: '🔒', img: '/images/loc8-6-sizo.webp', roomImg: '/images/loc8-6-sizo.webp', maxEnergy: 380,
       price: 350000, resCost: { cash: 6, stamp: 3 } },
     { level: 7, name: 'Квартира в Польщі', emoji: '🏢', img: '/images/loc8-7-poland.webp', roomImg: '/images/loc8-7-poland.webp', maxEnergy: 470,

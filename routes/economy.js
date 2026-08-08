@@ -231,6 +231,9 @@ module.exports = function registerEconomyRoutes(app, deps) {
 
         const gained = [];
         for (const entry of exp.loot) {
+            // entry.chance (необов'язкове поле) — рідкісний шанс-дроп замість
+            // гарантованої видачі (напр. 'route' з border-вилазки).
+            if (entry.chance !== undefined && Math.random() >= entry.chance) continue;
             const meta = RESOURCE_BY_ID[entry.res];
             const base = entry.min + Math.random() * (entry.max - entry.min);
             const qty = Math.max(1, Math.round(base * (pet.lootMult || 1)));

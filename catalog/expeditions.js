@@ -31,9 +31,17 @@ const EXPEDITIONS = [
         loot: [{ res: 'sausage', min: 5, max: 12 }, { res: 'cans', min: 10, max: 22 }, { res: 'meds', min: 2, max: 6 }],
     },
     {
-        id: 'border', name: 'Прогулянка до кордону', emoji: '🌲', minutes: 720, minLevel: 5, risk: 0.35,
-        desc: 'Дванадцять годин лісом. Найризикованіше, але й найцінніше.',
-        loot: [{ res: 'cash', min: 2, max: 6 }, { res: 'stamp', min: 1, max: 3 }, { res: 'fuel', min: 8, max: 20 }],
+        // minLevel 4, не 5 (2026-08-08): це джерело ресурсу 'route', потрібного
+        // саме для переїзду НА рівень 5 — інакше ніхто ніколи не зміг би туди
+        // потрапити (вилазка була б недоступна раніше за саму мету, для якої вона
+        // потрібна).
+        id: 'border', name: 'Прогулянка до кордону', emoji: '🌲', minutes: 720, minLevel: 4, risk: 0.35,
+        desc: 'Дванадцять годин лісом. Найризикованіше, але й найцінніше — іноді щастить знайти цілий маршрут через кордон.',
+        loot: [
+            { res: 'cash', min: 2, max: 6 }, { res: 'stamp', min: 1, max: 3 }, { res: 'fuel', min: 8, max: 20 },
+            // Малий шанс за спробу — реальна рідкість, не гарантований дроп.
+            { res: 'route', min: 1, max: 1, chance: 0.12 },
+        ],
     },
     {
         id: 'tcc_office', name: 'Нічний візит у ТЦК', emoji: '🏢', minutes: 600, minLevel: 6, risk: 0.45,
