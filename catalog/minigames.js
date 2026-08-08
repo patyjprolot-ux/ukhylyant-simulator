@@ -19,12 +19,16 @@ const RISK_TIERS = [
 
 const MEMORY_ICONS = ['🥫', '🔋', '📄', '💊'];
 
+// Вхід 200 ТК (MEMORY_ENTRY_COST, server.js). 2026-08-08: стара таблиця
+// (200-3000, найгірший результат = точний беззбиток) фактично не мала
+// програшу — навіть посередня гра давала кратний прибуток. Тепер лише
+// справді гарна пам'ять у плюсі, посередня — трохи в мінус, погана — відчутно.
 const MEMORY_REWARD_TABLE = [
-    { maxFlips: 6, reward: 3000 },
-    { maxFlips: 8, reward: 2000 },
-    { maxFlips: 12, reward: 1000 },
-    { maxFlips: 16, reward: 500 },
-    { maxFlips: Infinity, reward: 200 },
+    { maxFlips: 6, reward: 800 },
+    { maxFlips: 8, reward: 500 },
+    { maxFlips: 12, reward: 250 },
+    { maxFlips: 16, reward: 150 },
+    { maxFlips: Infinity, reward: 50 },
 ];
 
 module.exports = { WHEEL_SEGMENTS, RISK_TIERS, MEMORY_ICONS, MEMORY_REWARD_TABLE };
