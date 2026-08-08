@@ -13,10 +13,15 @@ const ECONOMY = {
     TIER_COST_MULT: 22,
     IN_TIER_GROWTH: 1.35,
     TIER_EFFECT_MULT: 2.2,
+    // 2026-08-08: THERMOS/GENERATOR раніше коштували СТРОГО гірше за ціною/ефект,
+    // ніж просто накупити більше HAT/JAM (900/3=300 ТК за одиницю кліку проти
+    // HAT-івських 40, 2200/4=550 за одиницю пасиву проти JAM-івських 150) — тобто
+    // жодної причини їх колись купувати. Тепер вони трохи ВИГІДНІШІ за ціною/ефект
+    // (35 і 130 за одиницю відповідно), як і личить "великій" пізній покупці.
     HAT_PRICE: 40, HAT_CLICK_BONUS: 1,
     JAM_PRICE: 150, JAM_PASSIVE_BONUS: 1,
-    THERMOS_PRICE: 900, THERMOS_CLICK_BONUS: 3,
-    GENERATOR_PRICE: 2200, GENERATOR_PASSIVE_BONUS: 4,
+    THERMOS_PRICE: 105, THERMOS_CLICK_BONUS: 3,
+    GENERATOR_PRICE: 520, GENERATOR_PASSIVE_BONUS: 4,
     ENERGY_DRINK_PRICE: 120,
 
     // --- Енергія: головний обмежувач темпу ---
