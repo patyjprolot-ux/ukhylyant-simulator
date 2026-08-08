@@ -1,31 +1,31 @@
 // Автоматично винесено з server.js (Фаза 1 модуляризації, 2026-08-08). Чисті дані, без логіки.
 
 const RESOURCES = [
-    { id: 'cans', name: 'Консерви', emoji: '🥫', img: '/images/gacha-tushonka.webp', tier: 1, sell: 25 },
-    { id: 'battery', name: 'Батарейки', emoji: '🔋', img: '/images/gacha-powerbank.webp', tier: 1, sell: 30 },
-    { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 20 },
-    { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 35 },
+    { id: 'cans', name: 'Консерви', emoji: '🥫', img: '/images/gacha-tushonka.webp', tier: 1, sell: 45 },
+    { id: 'battery', name: 'Батарейки', emoji: '🔋', img: '/images/gacha-powerbank.webp', tier: 1, sell: 55 },
+    { id: 'paper', name: 'Макулатура', emoji: '🧻', tier: 1, sell: 35 },
+    { id: 'tape', name: 'Скотч', emoji: '🩹', tier: 1, sell: 65 },
     // Будматеріали. Тір 1-2, зараз ідуть на крафт міцніших щитів/бонусів; коли
     // прийде окрема карта території — ті самі ресурси стануть валютою будівництва
     // (вежа спостереження/схованка/тайник), без міграції даних.
-    { id: 'wood', name: 'Деревина', emoji: '🪵', tier: 1, sell: 28 },
-    { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 130 },
-    { id: 'sausage', name: 'Домашня ковбаса', emoji: '🌭', img: '/images/gacha-premium-sausage.webp', tier: 2, sell: 145 },
-    { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 160 },
-    { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 200 },
-    { id: 'scrap', name: 'Металобрухт', emoji: '⚙️', tier: 2, sell: 175 },
-    { id: 'brick', name: 'Цегла', emoji: '🧱', tier: 2, sell: 150 },
+    { id: 'wood', name: 'Деревина', emoji: '🪵', tier: 1, sell: 50 },
+    { id: 'meds', name: 'Ліки', emoji: '💊', tier: 2, sell: 230 },
+    { id: 'sausage', name: 'Домашня ковбаса', emoji: '🌭', img: '/images/gacha-premium-sausage.webp', tier: 2, sell: 260 },
+    { id: 'fuel', name: 'Пальне', emoji: '⛽', tier: 2, sell: 290 },
+    { id: 'sim', name: 'Ліві сімки', emoji: '📱', tier: 2, sell: 360 },
+    { id: 'scrap', name: 'Металобрухт', emoji: '⚙️', tier: 2, sell: 320 },
+    { id: 'brick', name: 'Цегла', emoji: '🧱', tier: 2, sell: 270 },
     // Нові тіри 1-2 (2026-08-08) — трохи розширити асортимент тіньової біржі
     // (MARKET_ASSETS бере всі ресурси тір<=3 автоматично, окремо нічого не треба).
-    { id: 'coffee', name: 'Кава', emoji: '☕', tier: 1, sell: 45 },
-    { id: 'coal', name: 'Вугілля', emoji: '⛏️', tier: 2, sell: 140 },
-    { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 700 },
-    { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 1100 },
-    { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 1400 },
+    { id: 'coffee', name: 'Кава', emoji: '☕', tier: 1, sell: 80 },
+    { id: 'coal', name: 'Вугілля', emoji: '⛏️', tier: 2, sell: 250 },
+    { id: 'cash', name: 'Валюта', emoji: '💵', tier: 3, sell: 1250 },
+    { id: 'stamp', name: 'Печатка', emoji: '🔏', tier: 3, sell: 2000 },
+    { id: 'phone', name: 'Номер потрібної людини', emoji: '☎️', tier: 3, sell: 2500 },
     // Уламок пломби з донатного ящика. Випадає рідко зі звичайних ящиків і дає
     // безкоштовний, але довгий шлях до платних ящиків: зібрав достатньо — склеїв.
-    { id: 'shard', name: 'Уламок пломби', emoji: '🧩', tier: 3, sell: 900 },
-    { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 5000 },
+    { id: 'shard', name: 'Уламок пломби', emoji: '🧩', tier: 3, sell: 1600 },
+    { id: 'ticket', name: 'Білий квиток', emoji: '🎫', tier: 4, sell: 9000 },
 ];
 
 const CRATES = [
