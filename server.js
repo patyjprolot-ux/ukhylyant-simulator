@@ -6879,17 +6879,11 @@ function buildHtml(botUsername) {
 
         // ===== Кімната (велика превʼю-локація + декор) =====
         window.openRoom = () => {
-            const loc = LOCATIONS.find(l => l.level === state.level) || LOCATIONS[0];
-            const bgImg = document.getElementById('room-bg-img');
-            const emojiEl = document.getElementById('room-emoji-fallback');
-            const roomSrc = loc.roomImg || loc.img;
-            if (roomSrc) {
-                bgImg.classList.remove('hidden'); emojiEl.classList.add('hidden');
-                bgImg.src = roomSrc;
-            } else {
-                bgImg.classList.add('hidden'); emojiEl.classList.remove('hidden');
-                emojiEl.innerText = loc.emoji || '❓';
-            }
+            // Вкладка "Персонаж" — тільки він, без фону локації (той тепер належить
+            // окремій, поки заблокованій кнопці "Кімната"). Фон/emoji-заглушку
+            // просто не показуємо, персонаж лишається сам на собі.
+            document.getElementById('room-bg-img').classList.add('hidden');
+            document.getElementById('room-emoji-fallback').classList.add('hidden');
             document.getElementById('room-screen').classList.remove('hidden');
             renderCosmetics();
             renderRoomItems();
