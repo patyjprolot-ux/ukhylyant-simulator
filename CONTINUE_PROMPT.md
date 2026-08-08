@@ -356,6 +356,51 @@ pid-система. `getUser`/`syncHeatAndNotices` свідомо лишилис
 домену за раз, з `node -c` і живим smoke-тестом (curl) після КОЖНОГО файлу,
 не пачкою.
 
+**Фаза 4 — ПОЧАТО (2026-08-08), 3 з ~5+ кроків зроблено:**
+1. ✅ `lib/auth.js`: `verifyInitData`/`attachBalanceRev`/`requireTelegramAuth`
+   винесено за фабрикою `createAuth({BOT_TOKEN, DEV_MODE_INSECURE, usersDB})`
+   — майже кожен майбутній `routes/*.js` це імпортує, тому робилось першим.
+2. ✅ `lib/mechanics/storage.js`: `storageCapacity`/`storageUsed`/
+   `storageUpgradeCost`/`addResource`/`storageSnapshot`/`upgradeBatchPlan`/
+   `upgradeCost` — спільні для storage/craft/crate/upgrade/map/expedition
+   роутів, тому винесено ДО розбиття самих роутів (інакше довелось би
+   дублювати або городити циклічні require). Заразом прибрано мертвий
+   дубль `storageSnapshot` (той самий код був визначений двічі в
+   server.js, друге визначення просто тихо перекривало перше — не баг,
+   але зайвий привід для розсинхрону при майбутніх правках).
+3. ✅ `routes/map.js` — перший реальний домен-файл, підтверджує паттерн
+   `module.exports = function registerXRoutes(app, deps) {...}`. 2 роути
+   (`/api/map/build`, `/api/map/place`). Верифіковано живим smoke-тестом
+   ПОВНОГО щасливого шляху (нафармлено ресурси через `/api/crate/open`,
+   збудовано вежу, розміщено на карті), не тільки error-веток.
+
+`server.js`: 9 230 → 9 052 рядки.
+Кожен крок — окремий коміт (git log: "Modularization Phase 4: ...").
+
+**Наступні кроки Фази 4 (не зроблено):** решта ~69 роутів. Порядок за
+зростанням ризику/розміру, як і раніше:
+- `routes/economy.js` (найбільший): upgrade/buy, upgrade/breakTier, craft,
+  storage (get/upgrade/sell), market (get/trade), crate/open, expedition
+  (start/claim), prestige (get/claim), wheel/spin, minigame/* (4).
+  Перед цим — винести спільні `hasActiveShield`, `checkAchievements`,
+  `applyOfflineProgress` та подібні наскрізні helper'и, якщо вони знадобляться
+  й іншим доменам (перевір першим ділом, чи вони вже десь є в lib/, перш
+  ніж копіювати в кілька routes-файлів).
+- `routes/social.js`: clan/* (6), snitch, investigation/*, nickname/*,
+  leaderboard, profile, revenge.
+- `routes/security.js`: notices, notice/resolve, medcom/*, checkpoint/*,
+  inspector/*, deferments, deferment/buy, district/*, war/*, season,
+  reputation/*, skills/*.
+- `routes/misc.js`: daily, promo, save, restore, user, invoice,
+  admin/backup, pet/*, cosmetic/*, room/*, quests/*.
+
+Кожен наступний домен-файл — той самий процес: `node -c`, живий curl-тест
+error-веток І хоча б одного щасливого шляху, окремий коміт. Дуже великі
+допоміжні функції (напр. усе, що навколо `syncHeatAndNotices`/notices/
+season/war/district — сотні рядків взаємопов'язаної логіки) варто спершу
+винести в `lib/mechanics/*.js` ОКРЕМИМ кроком перед самими роутами
+security.js — той самий підхід, що спрацював для storage.js тут.
+
 **Фаза 5 (найризикованіша, робити останньою) — клієнтський HTML/CSS/JS.**
 `buildHtml()` — один величезний template literal, що вшиває серверні
 каталоги через `${JSON.stringify(X)}` прямо в код. Повне розділення на
