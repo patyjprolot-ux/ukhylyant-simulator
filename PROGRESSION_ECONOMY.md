@@ -318,6 +318,89 @@
 VIP: **500 ⭐**, ×3 множник до офлайн-доходу. Платна зміна ніка: **1000 ⭐**
 (перша — безкоштовно).
 
+## 29. ФОРМУЛИ (точний код, не наближення)
+
+**XP-поріг рівня ухилянта** (`lib/mechanics/levels.js`):
+```
+xpForLevel(l) = round(40 × l^1.5)
+```
+
+**Ціна рівня апгрейда** (ешелонна система, `lib/mechanics/economy.js`):
+```
+upgTier(level)   = floor(level / 10)
+upgInTier(level) = level % 10
+tierCostMultCapped(tier) =
+    якщо tier ≤ 5:  22^tier
+    якщо tier > 5:  22^5 × 1.6^(tier-5)     // пом'якшення після 5-го ешелону
+upgCost(base, level) = round(base × tierCostMultCapped(upgTier(level)) × 1.35^upgInTier(level))
+```
+
+**Ефект одного рівня апгрейда** (росте по ешелонах):
+```
+upgEffectPerLevel(baseEffect, level) = baseEffect × 2.2^upgTier(level)
+```
+
+**Ціна пробиття ешелону** (ресурси, за межею 5-го — теж пом'якшено):
+```
+tierGateCost(tier > 5) = останній заданий гейт × ceil(1.6^(tier - 5)) на кожен ресурс
+```
+
+**Кладовка:**
+```
+capacity(storageLevel) = 60 + storageLevel × 40
+storageUpgradeCost(storageLevel) = round(800 × 1.68^storageLevel)   // максимум 20 рівнів
+```
+
+**Очки престижу:**
+```
+totalAvailable = floor(sqrt(totalEarned / 500000))
+availableNow   = totalAvailable − вже_взяті_очки
+```
+(тобто перше очко — на позначці 500 000₴ сумарно зароблено, друге —
+2 000 000₴, третє — 4 500 000₴... корінь робить кожне наступне дорожчим).
+
+**Клан:**
+```
+clanLevel(treasury) = min(15, floor(sqrt(treasury / 60000)))
+nextLevelCost(lvl) = (lvl+1)² × 60000
+```
+
+**Розшук (heat):**
+```
+decayHeat: −1 heat кожні 12 хв реального часу, максимум −42 за добу
+```
+Приріст: клік/100 → дрібно, вилазка `min(8, 2×minLevel)`, переїзд +5,
+контрабандний ящик +4, великий продаж на біржі (>50 000₴) +3, стук
+сусіда +15, провал медкомісії +15.
+
+**Множник доходу — порядок застосування (НЕ переставляти):**
+```
+дохід = base × heatIncomeMult × vipMult(×3 якщо VIP) × prestigeMultiplier × clanBonus
+```
+
+**Енергія:**
+```
+клік коштує: 2 (або 1.5 з навичкою "Легка рука")
+реген: +0.1 за тік (100мс) = +1/сек = повний бак ~100-570 сек залежно від рівня схрону
+```
+
+**Пасив (перевірено 2026-08-09, математика збігається):**
+```
+за тік (100мс): passive × heatIncomeMult × vipMult × prestigeMultiplier × clanBonus / 10
+за секунду:     те саме × 10 (тобто просто passive × множники)
+```
+
+**PvP крадіжка:**
+```
+steal = min(floor(max(0, жертва.balance) × 0.30), 8000 × (жертва.рівень_схрону + 1))
+```
+
+**Офлайн-дохід:**
+```
+offlineEarnings = floor(passive × heatIncomeMult × vipMult × prestigeMultiplier × clanBonus × min(elapsedSec, 28800))
+```
+(28 800с = 8 годин кеп, нараховується тільки якщо `elapsedSec ≥ 30`).
+
 ---
 
 **Не забувай:** якщо міняєш будь-яку з цих цифр — онови й цей файл, і
