@@ -578,19 +578,7 @@ function noticesBlocked(user) {
     return !!user.permanentShield || (user.deferUntil || 0) > Date.now();
 }
 
-// Знімає повістку зі списку й веде статистику. Спільне для /api/notice/resolve і
-// для медкомісії, яка завершується вже в іншому роуті.
-function finishNotice(user, idx, method, resolved) {
-    user.notices.splice(idx, 1);
-    user.noticeStats.byMethod[method] = (user.noticeStats.byMethod[method] || 0) + 1;
-    if (resolved) {
-        user.noticeStats.resolved += 1;
-        user.dailyNotices = (user.dailyNotices || 0) + 1;
-        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.NOTICE_SEASON_POINTS;
-    } else {
-        user.noticeStats.failed += 1;
-    }
-}
+// finishNotice — тепер у routes/security.js (використовується лише там)
 
 function scheduleNextNotice(user) {
     const { NOTICE_INTERVAL_MIN_H: min, NOTICE_INTERVAL_MAX_H: max } = ECONOMY;
@@ -1673,21 +1661,9 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
     res.json({ success: false, message: 'Невірний код' });
 });
 
-app.get('/api/leaderboard', (req, res) => {
-    const top = Array.from(usersDB.values())
-        .sort((a, b) => b.balance - a.balance)
-        .slice(0, 10)
-        // pid — опаковий публічний ідентифікатор, саме він потрібен, щоб тапнути
-        // по гравцю й порівняти профілі. Telegram id тут не світимо.
-        .map((u) => ({ pid: u.pid, name: displayName(u), balance: u.balance, isVip: u.isVip, level: u.level,
-            snitch: publicSnitchStats(u), seasonTitle: u.seasonTitle || null,
-            league: LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, u.league || 0))].emoji,
-            playerLevel: u.playerLevel || 1, ukhyr: u.ukhyr || 0, ukhyrRank: ukhyrRank(u.ukhyr || 0) }));
-    res.json(top);
-});
-
 // Нік — публічне ім'я замість справжнього з Telegram. Унікальний (без урахування
 // регістру), 3-16 символів, літери (укр/англ)/цифри/підкреслення/пробіл.
+// (leaderboard, nickname/set, nickname/requestChange — тепер у routes/social.js)
 function validateNickname(raw, userId) {
     if (raw.length < 3 || raw.length > 16) return 'Нік має бути від 3 до 16 символів';
     if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ ]+$/.test(raw)) return 'Тільки літери, цифри, підкреслення й пробіл';
@@ -1695,102 +1671,7 @@ function validateNickname(raw, userId) {
     return null;
 }
 
-// Перша установка ніка — безкоштовно. Якщо вже стоїть — треба платити ⭐
-// (окремий флоу через /api/nickname/requestChange + інвойс).
-app.post('/api/nickname/set', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (user.nickname) {
-        return res.json({ success: false, paid: true, message: `Нік уже встановлено. Зміна коштує ${ECONOMY.NICKNAME_CHANGE_PRICE_STARS} ⭐` });
-    }
-    const raw = String(req.body.nickname || '').trim();
-    const err = validateNickname(raw, user.id);
-    if (err) return res.json({ success: false, message: err });
-    user.nickname = raw;
-    res.json({ success: true, nickname: user.nickname });
-});
-
-// Платна зміна: спершу валідуємо й резервуємо бажаний нік (pendingNickname),
-// оплата підтверджується окремо через /api/invoice (type: nickname_change) +
-// successful_payment. Нік застосовується тільки ПІСЛЯ оплати.
-app.post('/api/nickname/requestChange', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const raw = String(req.body.nickname || '').trim();
-    const err = validateNickname(raw, user.id);
-    if (err) return res.json({ success: false, message: err });
-    user.pendingNickname = raw;
-    res.json({ success: true, price: ECONOMY.NICKNAME_CHANGE_PRICE_STARS });
-});
-
-// ---- Компаньйони ----
-app.post('/api/pet/buy', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const pet = PETS.find((p) => p.id === req.body.petId);
-    if (!pet) return res.status(400).json({ error: 'Невідомий компаньйон' });
-    if (user.ownedPets.includes(pet.id)) return res.json({ success: false, message: 'Вже куплено' });
-    if (user.balance < pet.price) return res.json({ success: false, message: 'Недостатньо ТК' });
-    user.balance -= pet.price;
-    user.ownedPets.push(pet.id);
-    res.json({ success: true, balance: user.balance, ownedPets: user.ownedPets });
-});
-
-app.post('/api/pet/equip', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const petId = req.body.petId || null;
-    if (petId && !user.ownedPets.includes(petId)) return res.json({ success: false, message: 'Спочатку купи компаньйона' });
-    user.petId = petId;
-    res.json({ success: true, petId: user.petId });
-});
-
-// ---- Гардероб (косметика) ----
-app.post('/api/cosmetic/buy', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const item = COSMETICS.find((c) => c.id === req.body.cosmeticId);
-    if (!item) return res.status(400).json({ error: 'Невідомий предмет гардеробу' });
-    // Сезонну річ не можна купити ні за ТК, ні за ⭐ — тільки виграти в лізі.
-    if (item.seasonOnly) return res.json({ success: false, message: 'Це нагорода сезону. Її не продають.' });
-    if (user.ownedCosmetics.includes(item.id)) return res.json({ success: false, message: 'Вже куплено' });
-    if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
-    user.balance -= item.price;
-    user.ownedCosmetics.push(item.id);
-    user.equippedCosmetics[item.slot] = item.id; // купив — одразу вдягнув, без окремого кроку
-    res.json({ success: true, balance: user.balance, ownedCosmetics: user.ownedCosmetics, equippedCosmetics: user.equippedCosmetics });
-});
-
-app.post('/api/cosmetic/equip', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const { slot, cosmeticId } = req.body;
-    if (!['hat', 'face', 'neck', 'frame'].includes(slot)) return res.status(400).json({ error: 'Невідомий слот' });
-    if (cosmeticId) {
-        const item = COSMETICS.find((c) => c.id === cosmeticId && c.slot === slot);
-        if (!item) return res.status(400).json({ error: 'Невідомий предмет' });
-        if (!user.ownedCosmetics.includes(cosmeticId)) return res.json({ success: false, message: 'Спочатку купи цей предмет' });
-    }
-    user.equippedCosmetics[slot] = cosmeticId || null;
-    res.json({ success: true, equippedCosmetics: user.equippedCosmetics });
-});
-
-// ---- Декор кімнати ----
-app.post('/api/room/buy', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const item = ROOM_ITEMS.find((r) => r.id === req.body.itemId);
-    if (!item) return res.status(400).json({ error: 'Невідома річ' });
-    if (user.ownedRoomItems.includes(item.id)) return res.json({ success: false, message: 'Вже куплено' });
-    if (user.balance < item.price) return res.json({ success: false, message: 'Недостатньо ТК' });
-    user.balance -= item.price;
-    user.ownedRoomItems.push(item.id);
-    res.json({ success: true, balance: user.balance, ownedRoomItems: user.ownedRoomItems });
-});
-
-app.post('/api/room/toggle', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const { itemId } = req.body;
-    if (!ROOM_ITEMS.some((r) => r.id === itemId)) return res.status(400).json({ error: 'Невідома річ' });
-    if (!user.ownedRoomItems.includes(itemId)) return res.json({ success: false, message: 'Спочатку купи цю річ' });
-    const idx = user.equippedRoomItems.indexOf(itemId);
-    if (idx === -1) user.equippedRoomItems.push(itemId);
-    else user.equippedRoomItems.splice(idx, 1);
-    res.json({ success: true, equippedRoomItems: user.equippedRoomItems });
-});
+// pet/buy, pet/equip, cosmetic/buy, cosmetic/equip, room/buy, room/toggle — тепер у routes/misc.js
 
 // ---- Кладовка: стан складу, апгрейд місткості, продаж ресурсів ----
 // ---- Карта території: будівництво/покращення захисних споруд ----
@@ -1800,94 +1681,7 @@ require('./routes/map')(app, {
     storageSnapshot, mapBuildingLevel,
 });
 
-// ---- Розшук і повістки ----
-app.get('/api/notices', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json({
-        ...heatSnapshot(user, true), ...noticeSnapshot(user),
-        balance: user.balance, shieldUntil: user.shieldUntil,
-        investigationPending: (user.snitchedBy || []).some((e) => !e.investigated),
-    });
-});
-
-// Повістка — це не штраф, а вибір. П'ять способів відреагувати, кожен зі своєю
-// ціною: гроші, скрафтована довідка, ризикована міні-гра, вся енергія або нічого.
-app.post('/api/notice/resolve', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const { noticeId, method } = req.body;
-    const idx = (user.notices || []).findIndex((n) => n.uid === noticeId);
-    if (idx === -1) return res.json({ success: false, message: 'Цієї повістки вже немає' });
-    const notice = user.notices[idx];
-    const type = NOTICE_BY_ID[notice.typeId];
-    if (!type) {
-        user.notices.splice(idx, 1);
-        return res.json({ success: false, message: 'Невідомий тип повістки' });
-    }
-
-    if (method === 'ignore') {
-        return res.json({ success: true, ignored: true, message: 'Ну й нехай тікає таймер.', ...heatSnapshot(user), ...noticeSnapshot(user) });
-    }
-
-    let resolved = false;
-    let message = '';
-    let penalty = null;
-
-    if (method === 'cover') {
-        // «Прикриття» від дільничного Миколи: раз на добу він просто не дає ходу
-        // папірцю. Розшук при цьому не падає — питання не вирішене, а відкладене.
-        if (!repMaxed(user, 'mykola')) return res.json({ success: false, message: 'Микола тебе ще недостатньо знає' });
-        if (user.mykolaCoverUsed) return res.json({ success: false, message: 'Микола вже прикрив тебе сьогодні' });
-        user.mykolaCoverUsed = true;
-        resolved = true;
-        message = 'Микола глянув на папірець і поклав його в найнижчу шухляду.';
-    } else if (method === 'bribe') {
-        const cost = noticeBribeCost(user, type);
-        if (user.balance < cost) return res.json({ success: false, message: 'Не вистачає ТК, щоб "вирішити питання"' });
-        user.balance -= cost;
-        changeHeat(user, -ECONOMY.HEAT_BRIBE_DISCOUNT, 'Вирішив питання');
-        // Валік Настирливий якраз і ловиться на тих, хто вже сьогодні "вирішував".
-        user.lastBribeAt = Date.now();
-        user.dailyBribes = (user.dailyBribes || 0) + 1;
-        resolved = true;
-        message = `Питання вирішено за ${cost.toLocaleString('uk-UA')} ТК. Про тебе трохи забули.`;
-    } else if (method === 'spravka') {
-        // Скрафтована "Липова довідка" живе в грі як тимчасовий щит (shieldUntil) —
-        // окремого інвентаря довідок немає. Тому пред'явити довідку = витратити щит,
-        // і це справжня ціна: далі облави знову проходять.
-        if ((user.shieldUntil || 0) <= Date.now()) {
-            return res.json({ success: false, message: 'Немає активної липової довідки — скрафти її в Кладовці' });
-        }
-        user.shieldUntil = 0;
-        changeHeat(user, -ECONOMY.HEAT_SPRAVKA_DISCOUNT, 'Показав липову довідку');
-        user.deceivedCount = (user.deceivedCount || 0) + 1;
-        resolved = true;
-        message = 'Довідку прийняли, навіть не читаючи. Розшук помітно впав.';
-    } else if (method === 'medcom') {
-        // Медкомісія — не миттєвий кидок, а міні-гра: віддаємо картки, а знімається
-        // повістка вже в /api/medcom/submit.
-        return res.json({ success: true, medcom: true, ...dealMedcom(user, notice) });
-    } else if (method === 'hide') {
-        if ((user.energy || 0) <= 0) return res.json({ success: false, message: 'Немає енергії, щоб десь пересидіти' });
-        user.energy = 0;
-        resolved = Math.random() < ECONOMY.NOTICE_HIDE_SUCCESS;
-        message = resolved
-            ? 'Пересидів під ковдрою, поки не пішли. Пронесло.'
-            : 'Знайшли. Штраф півтора рази — за спробу.';
-        if (!resolved) penalty = applyNoticePenalty(user, type, ECONOMY.NOTICE_HIDE_FAIL_MULT);
-    } else {
-        return res.status(400).json({ error: 'Невідомий спосіб' });
-    }
-
-    finishNotice(user, idx, method, resolved);
-
-    const unlocked = checkAchievements(user);
-    res.json({
-        success: true, resolved, message, penalty, unlockedAchievements: unlocked,
-        balance: user.balance, energy: user.energy, shieldUntil: user.shieldUntil,
-        seasonPoints: user.seasonPoints, ...storageSnapshot(user),
-        ...heatSnapshot(user, true), ...noticeSnapshot(user),
-    });
-});
+// notices, notice/resolve — тепер у routes/security.js
 
 // ==========================================
 // СЕЗОНИ Й ЛІГИ
@@ -2070,10 +1864,7 @@ function seasonSnapshot(user) {
     };
 }
 
-app.get('/api/season', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json(seasonSnapshot(user));
-});
+// GET /api/season — тепер у routes/misc.js
 
 // ==========================================
 // ВІЙНА ОСББ (клан проти клану)
@@ -2178,21 +1969,7 @@ function warSnapshot(user) {
     };
 }
 
-app.get('/api/war', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    matchmakeWarsIfNeeded();
-    settleWarsIfNeeded();
-    res.json(warSnapshot(user));
-});
-
-app.post('/api/war/crate', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (!(user.pendingWarCrate > 0)) return res.json({ success: false, message: 'Трофейних ящиків немає' });
-    user.pendingWarCrate -= 1;
-    // Трофейний ящик — унікальний, дістається ТІЛЬКИ з війн і за ТК не купується.
-    const reward = rollCrate(user, CRATE_BY_ID['trophy']);
-    res.json({ success: true, reward, balance: user.balance, ...storageSnapshot(user), pendingWarCrate: user.pendingWarCrate });
-});
+// GET /api/war, POST /api/war/crate — тепер у routes/misc.js
 
 // ==========================================
 // ОБЛАВА НА РАЙОН (кооп-бос)
@@ -2251,74 +2028,7 @@ function districtSnapshot(clan, user) {
     };
 }
 
-app.get('/api/district', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const clan = user.clanId && clansDB.get(user.clanId);
-    if (!clan) return res.json({ districtRaid: null, noClan: true });
-    settleDistrictRaid(clan);
-    res.json({ ...districtSnapshot(clan, user), heatTrigger: ECONOMY.DISTRICT_HEAT_TRIGGER,
-        clanHeat: Math.round(clan.members.reduce((s, id) => s + (usersDB.get(id)?.heat || 0), 0)) });
-});
-
-app.post('/api/district/hit', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const clan = user.clanId && clansDB.get(user.clanId);
-    if (!clan || !clan.districtRaid) return res.json({ success: false, message: 'Автобуса немає' });
-    if (settleDistrictRaid(clan)) {
-        return res.json({ success: false, gone: true, message: 'Не встигли. Автобус поїхав, але не порожнім.' });
-    }
-    const r = clan.districtRaid;
-
-    // Той самий анти-чіт і та сама ціна енергії, що й у бою з інспектором.
-    // Вікно рахує сервер; у кооп-босі воно ще й окреме для кожного учасника,
-    // інакше швидкий гравець з'їдав би ліміт повільних.
-    r.lastHitAt = r.lastHitAt || {};
-    const holder = { startedAt: r.startedAt, lastHitAt: r.lastHitAt[user.id] };
-    const dt = serverBatchWindow(holder);
-    r.lastHitAt[user.id] = holder.lastHitAt;
-    let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS)));
-    if (!clicks) return res.json({ success: true, ...districtSnapshot(clan, user), energy: user.energy });
-
-    if (!hasSkill(user, 'marathon')) {
-        const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
-        clicks = Math.min(clicks, affordable);
-        if (!clicks) return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...districtSnapshot(clan, user) });
-        user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
-    }
-
-    const damage = clicks * Math.max(1, Number(user.clickVal) || 1);
-    r.hp -= damage;
-    r.contributions[user.id] = (r.contributions[user.id] || 0) + damage;
-
-    if (r.hp > 0) {
-        return res.json({ success: true, damage, energy: user.energy, ...districtSnapshot(clan, user) });
-    }
-
-    // Забили. Топ-1 за внеском отримує подвійну нагороду й трофей.
-    const ranked = Object.entries(r.contributions).sort((a, b) => b[1] - a[1]);
-    const topId = ranked.length ? ranked[0][0] : null;
-    clan.districtRaid = null;
-    const rewards = [];
-    for (const id of clan.members) {
-        const u = usersDB.get(id);
-        if (!u) continue;
-        const isTop = id === topId;
-        const tk = ECONOMY.DISTRICT_WIN_TK * (isTop ? 2 : 1);
-        u.balance += tk;
-        changeHeat(u, ECONOMY.DISTRICT_WIN_HEAT, 'Відбили облаву на район');
-        u.seasonPoints = (u.seasonPoints || 0) + ECONOMY.DISTRICT_WIN_SP;
-        u.pendingWarCrate = (u.pendingWarCrate || 0) + 1;
-        if (isTop && !u.trophies.includes('district_top')) u.trophies.push('district_top');
-        logOffline(u, 'good', `🚌 Автобус ТЦК відбито (+${tk.toLocaleString('uk-UA')} ТК)`);
-        if (id !== user.id) sendPush(id, '🚌 Автобус ТЦК відбито! Забери нагороду в грі.');
-        rewards.push({ name: displayName(u), tk, top: isTop });
-    }
-    res.json({
-        success: true, defeated: true, damage, rewards, topName: (() => { const t = usersDB.get(topId); return t ? displayName(t) : null; })(),
-        balance: user.balance, energy: user.energy, trophies: user.trophies,
-        seasonPoints: user.seasonPoints, pendingWarCrate: user.pendingWarCrate,
-    });
-});
+// GET /api/district, POST /api/district/hit — тепер у routes/misc.js
 
 // ---- Репутація з районом ----
 const { repOf, repMaxed } = require('./lib/mechanics/reputation');
@@ -2375,52 +2085,7 @@ function reputationSnapshot(user) {
     };
 }
 
-app.get('/api/reputation', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    resetDailyIfNeeded(user);
-    res.json(reputationSnapshot(user));
-});
-
-app.post('/api/reputation/claim', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    resetDailyIfNeeded(user);
-    const npc = NPC_BY_ID[req.body.npcId];
-    if (!npc) return res.json({ success: false, message: 'Такого в районі не знають' });
-    const quest = dailyQuestFor(npc);
-    if ((user.claimedRepQuests || []).includes(quest.id)) {
-        return res.json({ success: false, message: 'Сьогодні вже допоміг. Приходь завтра.' });
-    }
-    if (!questDone(user, quest)) return res.json({ success: false, message: 'Ще не виконано' });
-
-    // Ресурсні квести — це саме ВІДДАТИ: ресурси списуються безповоротно.
-    if (quest.type === 'donate') {
-        user.resources[quest.res] -= quest.target;
-        if (user.resources[quest.res] <= 0) delete user.resources[quest.res];
-        user.dailyDonated = (user.dailyDonated || 0) + quest.target;
-    }
-
-    const before = repOf(user, npc.id);
-    user.reputation[npc.id] = Math.min(ECONOMY.REP_MAX, before + quest.rep);
-    user.claimedRepQuests.push(quest.id);
-
-    // Перк «Бабусина заготовка» — постійний бонус до енергії, тому видаємо його
-    // рівно один раз, у момент, коли репутація вперше досягла максимуму.
-    let perkUnlocked = null;
-    if (before < ECONOMY.REP_MAX && repMaxed(user, npc.id)) {
-        perkUnlocked = npc.perk;
-        if (npc.id === 'nina') {
-            user.maxEnergy += ECONOMY.REP_NINA_MAX_ENERGY;
-            user.energy = user.maxEnergy;
-        }
-    }
-
-    const unlocked = checkAchievements(user);
-    res.json({
-        success: true, message: `${npc.emoji} ${npc.name}: дякую! +${quest.rep} репутації`,
-        perkUnlocked, maxEnergy: user.maxEnergy, energy: user.energy,
-        unlockedAchievements: unlocked, ...reputationSnapshot(user), ...storageSnapshot(user),
-    });
-});
+// GET /api/reputation, POST /api/reputation/claim — тепер у routes/misc.js
 
 // ---- Офлайн-звіт ----
 // Події, які стались, поки гра була закрита. Раніше гравець просто бачив іншу
@@ -2473,49 +2138,7 @@ function skillsSnapshot(user) {
     };
 }
 
-app.get('/api/skills', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json(skillsSnapshot(user));
-});
-
-app.post('/api/skills/buy', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const meta = SKILL_BY_ID[req.body.skillId];
-    if (!meta) return res.json({ success: false, message: 'Невідома навичка' });
-    if (user.skills[meta.id]) return res.json({ success: false, message: 'Ця навичка вже є' });
-    if (skillPointsAvailable(user) < 1) {
-        return res.json({ success: false, message: 'Немає вільних очок — потрібна ще одна довідка з легалізації' });
-    }
-    const branch = SKILL_BRANCHES.find((b) => b.id === meta.branchId);
-    if (meta.index > 0 && !user.skills[branch.skills[meta.index - 1].id]) {
-        return res.json({ success: false, message: `Спершу візьми «${branch.skills[meta.index - 1].name}»` });
-    }
-
-    user.skills[meta.id] = true;
-    // Навички, що змінюють ліміти, треба застосувати одразу, а не лише при вході.
-    applySkillLimits(user);
-    res.json({
-        success: true, message: `${meta.name}: ${meta.desc}`,
-        maxEnergy: user.maxEnergy, ...skillsSnapshot(user),
-    });
-});
-
-app.post('/api/skills/reset', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (!skillsOwnedCount(user)) return res.json({ success: false, message: 'Скидати нічого' });
-    const cost = (user.skillResetsUsed || 0) === 0 ? 0 : ECONOMY.SKILL_RESET_COST_TK;
-    if (cost && user.balance < cost) {
-        return res.json({ success: false, message: `Скидання коштує ${cost.toLocaleString('uk-UA')} ТК` });
-    }
-    if (cost) user.balance -= cost;
-    user.skills = {};
-    user.skillResetsUsed = (user.skillResetsUsed || 0) + 1;
-    applySkillLimits(user);
-    res.json({
-        success: true, message: 'Дерево скинуто. Очки повернулись — розподіляй наново.',
-        balance: user.balance, maxEnergy: user.maxEnergy, ...skillsSnapshot(user),
-    });
-});
+// GET /api/skills, POST /api/skills/buy, POST /api/skills/reset — тепер у routes/misc.js
 
 // Бонус до макс. енергії від навички накладаємо ДЕЛЬТОЮ, а не перерахунком від
 // локації: постійні бонуси з крафту («Бенкет на районі», «Розширений бак») теж
@@ -2573,113 +2196,7 @@ function grantDeferment(user, def) {
     user.defermentsTaken = (user.defermentsTaken || 0) + 1;
 }
 
-app.get('/api/deferments', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    syncHeatAndNotices(user);
-    res.json(defermentSnapshot(user));
-});
-
-app.post('/api/deferment/buy', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    // Саме defermentId, а не id: у dev-режимі полем id клієнт передає свій Telegram id.
-    const def = DEFERMENT_BY_ID[req.body.defermentId];
-    if (!def) return res.json({ success: false, message: 'Невідома відстрочка' });
-    // За Stars — окремий флоу через інвойс, сюди така покупка не приходить.
-    if (def.cost.stars) return res.json({ success: false, message: 'Ця відстрочка купується за ⭐' });
-
-    const e = defermentEligibility(user, def);
-    if (!e.ok) return res.json({ success: false, message: e.reason });
-
-    if (def.cost.tk) user.balance -= def.cost.tk;
-    for (const [resId, qty] of Object.entries(def.cost.res || {})) {
-        user.resources[resId] -= qty;
-        if (user.resources[resId] <= 0) delete user.resources[resId];
-    }
-    grantDeferment(user, def);
-
-    const unlocked = checkAchievements(user);
-    res.json({
-        success: true, message: `${def.emoji} ${def.name} оформлено. ${def.flavor}.`,
-        balance: user.balance, unlockedAchievements: unlocked,
-        ...defermentSnapshot(user), ...storageSnapshot(user), ...noticeSnapshot(user),
-    });
-});
-
-// ---- Блокпост ----
-// Спрацьовує при переїзді в новий схрон. Локація купується в будь-якому разі —
-// блокпост впливає лише на "ціну переїзду".
-function checkpointChance(user, choice) {
-    let chance = choice.chance;
-    if (choice.ninaRepRequired && (user.reputation?.nina || 0) >= choice.ninaRepRequired) {
-        chance = choice.bonusWithNinaRep;
-    }
-    if (user.petId === 'pigeon') chance += ECONOMY.CHECKPOINT_PIGEON_BONUS;
-    return Math.max(0, Math.min(1, chance));
-}
-
-function checkpointSnapshot(user) {
-    return {
-        checkpointAuto: defermentActive(user),
-        checkpointChoices: CHECKPOINT_CHOICES.map((c) => ({
-            id: c.id, emoji: c.emoji, name: c.name, failText: c.failText,
-            chance: Math.round(checkpointChance(user, c) * 100),
-        })),
-    };
-}
-
-app.get('/api/checkpoint', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json({ ...checkpointSnapshot(user), stats: user.checkpointStats });
-});
-
-app.post('/api/checkpoint/pass', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const choice = CHECKPOINT_BY_ID[req.body.choice];
-    if (!choice) return res.json({ success: false, message: 'Невідомий вибір' });
-
-    // Під відстрочкою документи в порядку — питань немає взагалі.
-    const auto = defermentActive(user);
-    const passed = auto || Math.random() < checkpointChance(user, choice);
-
-    let consequence = null;
-    if (!passed) {
-        if (choice.fail === 'heat_notice') {
-            changeHeat(user, ECONOMY.CHECKPOINT_HEAT_DOCS, 'Спалився на блокпосту');
-            // При повній скриньці повістку не видаємо — і чесно про це не звітуємо,
-            // інакше гравець шукав би в списку четверту, якої немає.
-            const issued = (user.notices || []).length < ECONOMY.NOTICE_MAX_ACTIVE;
-            if (issued) {
-                const type = NOTICE_BY_ID['blokpost'];
-                const now = Date.now();
-                user.notices.push({
-                    uid: 'n' + now.toString(36) + Math.floor(Math.random() * 1000).toString(36),
-                    typeId: type.id, issuedAt: now, expiresAt: now + type.ttlH * 3600 * 1000, pushSent: false,
-                });
-                user.noticeStats.received += 1;
-            }
-            consequence = { heat: ECONOMY.CHECKPOINT_HEAT_DOCS, notice: issued };
-        } else if (choice.fail === 'resources') {
-            // Тайник ховає частину запасів від конфіскації на блокпості.
-            const lossCount = Math.ceil(storageUsed(user) * ECONOMY.CHECKPOINT_RESOURCE_LOSS * (1 - mapProtectPct(user)));
-            const lost = loseRandomResources(user, lossCount);
-            consequence = { resourcesLost: lost };
-        } else {
-            changeHeat(user, ECONOMY.CHECKPOINT_HEAT_BABA, 'Не повірили на блокпосту');
-            consequence = { heat: ECONOMY.CHECKPOINT_HEAT_BABA };
-        }
-        user.checkpointStats.failed += 1;
-    } else {
-        user.checkpointStats.passed += 1;
-    }
-
-    res.json({
-        success: true, passed, auto, consequence,
-        message: auto ? 'Показав відстрочку — навіть виходити з машини не довелось.'
-            : passed ? 'Пропустили. Навіть у багажник не заглянули.'
-                : 'Не пройшло.',
-        balance: user.balance, ...storageSnapshot(user), ...heatSnapshot(user), ...noticeSnapshot(user),
-    });
-});
+// deferments, deferment/buy, checkpoint, checkpoint/pass — тепер у routes/security.js
 
 // ---- Інспектори ТЦК (боси) ----
 // Навички з дерева престижу — Фаза 6. Поки їх немає, функція чесно повертає false,
@@ -2693,22 +2210,7 @@ function inspectorAvailable(user, insp) {
     return true;
 }
 
-// Слабкість активна — урон подвоюється. Перевіряється на сервері в момент удару,
-// бо всі три умови можна підробити на клієнті.
-function inspectorWeaknessActive(user, insp, cps) {
-    if (!insp.weakness) return false;
-    if (insp.weakness === 'bribe') {
-        return Date.now() - (user.lastBribeAt || 0) < ECONOMY.INSPECTOR_BRIBE_WINDOW_MIN * 60000;
-    }
-    if (insp.weakness === 'speed') return cps >= ECONOMY.INSPECTOR_SPEED_CPS;
-    if (insp.weakness === 'charm') {
-        return Object.values(user.equipped || {}).some((id) => {
-            const c = COSMETICS.find((x) => x.id === id);
-            return c && (c.price || 0) >= ECONOMY.INSPECTOR_CHARM_MIN_PRICE;
-        });
-    }
-    return false;
-}
+// inspectorWeaknessActive, inspectorRoster — тепер у routes/security.js (разом з роутами, що їх використовують)
 
 function inspectorSnapshot(user) {
     const s = user.inspector;
@@ -2721,25 +2223,6 @@ function inspectorSnapshot(user) {
             weakness: insp.weakness, weaknessHint: insp.weaknessHint,
         },
     };
-}
-
-// Список "розшукуваних" для окремого екрана: видно і тих, до кого ще не доріс.
-function inspectorRoster(user) {
-    return INSPECTORS.map((insp) => {
-        const locked = insp.requiresSkill && !hasSkill(user, insp.requiresSkill);
-        const cdLeft = insp.cooldownH
-            ? Math.max(0, insp.cooldownH * 3600 * 1000 - (Date.now() - (user.inspectorLastSeen[insp.id] || 0)))
-            : 0;
-        return {
-            id: insp.id, emoji: insp.emoji, name: insp.name, taunt: insp.taunt,
-            hp: insp.hp, window: insp.window, unlockHeat: insp.unlockHeat,
-            weaknessHint: insp.weaknessHint, reward: insp.reward,
-            defeated: user.inspectorStats.defeated[insp.id] || 0,
-            locked, lockedHint: locked ? insp.lockedHint : null,
-            cooldownLeft: cdLeft,
-            heatReady: (user.heat || 0) >= insp.unlockHeat,
-        };
-    });
 }
 
 // Скільки часу реально минуло з попереднього удару по цій цілі. Верхня межа —
@@ -2762,12 +2245,7 @@ function inspectorTimeout(user) {
     return true;
 }
 
-app.get('/api/inspector', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    syncHeatAndNotices(user);
-    const gone = inspectorTimeout(user);
-    res.json({ ...inspectorSnapshot(user), roster: inspectorRoster(user), stats: user.inspectorStats, gone });
-});
+// GET /api/inspector, POST /api/inspector/hit — тепер у routes/security.js
 
 // Тестовий виклик боса. Реєструється ТІЛЬКИ в dev-режимі — у проді цього роуту
 // просто не існує, інакше будь-хто міг би фармити інспекторів на вимогу.
@@ -2808,222 +2286,8 @@ if (DEV_MODE_INSECURE) {
     });
 }
 
-// Клієнт шле кліки батчами раз на 500мс, а не по одному — інакше сервер ляже.
-app.post('/api/inspector/hit', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (!user.inspector) return res.json({ success: false, message: 'Нікого немає' });
-    if (inspectorTimeout(user)) {
-        return res.json({ success: false, gone: true, message: 'Не встиг. Інспектор пішов писати рапорт.', ...heatSnapshot(user) });
-    }
-    const insp = INSPECTOR_BY_ID[user.inspector.id];
 
-    // Анти-чіт рахує вікно за ВЛАСНИМ годинником сервера, а не за dt із тіла
-    // запиту: інакше можна слати dt=5000 кожні 500мс і бити вдесятеро частіше.
-    const dt = serverBatchWindow(user.inspector);
-    const maxClicks = Math.ceil((dt / 1000) * ECONOMY.INSPECTOR_MAX_CPS);
-    let clicks = Math.max(0, Math.min(Math.floor(Number(req.body.clicks) || 0), maxClicks));
-    if (!clicks) return res.json({ success: true, ...inspectorSnapshot(user), energy: user.energy });
-
-    // Енергія — той самий обмежувач, що й у звичайному кліку, лише дорожчий.
-    // «Марафонець» знімає його повністю — і саме тому робить Півника прохідним.
-    const freeClicks = hasSkill(user, 'marathon');
-    let outOfEnergy = false;
-    if (!freeClicks) {
-        const affordable = Math.floor((user.energy || 0) / ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
-        outOfEnergy = clicks > affordable;
-        clicks = Math.min(clicks, affordable);
-        if (!clicks) {
-            return res.json({ success: true, outOfEnergy: true, energy: user.energy, ...inspectorSnapshot(user) });
-        }
-        user.energy = Math.max(0, user.energy - clicks * ECONOMY.INSPECTOR_ENERGY_PER_CLICK);
-    }
-
-    const cps = clicks / (dt / 1000);
-    const weak = inspectorWeaknessActive(user, insp, cps);
-    const power = Math.max(1, Number(user.clickVal) || 1);
-    const damage = clicks * power * (weak ? ECONOMY.INSPECTOR_WEAKNESS_MULT : 1);
-    user.inspector.hp -= damage;
-
-    if (user.inspector.hp > 0) {
-        return res.json({ success: true, damage, weak, outOfEnergy, energy: user.energy, ...inspectorSnapshot(user) });
-    }
-
-    // Переможений: нагорода, трофей і кулдаун до наступного візиту.
-    user.inspector = null;
-    user.inspectorStats.defeated[insp.id] = (user.inspectorStats.defeated[insp.id] || 0) + 1;
-    user.dailyInspectors = (user.dailyInspectors || 0) + 1;
-    addWarPoints(user, ECONOMY.WAR_POINTS_INSPECTOR, 'спекався інспектора');
-    user.inspectorLastSeen[insp.id] = Date.now();
-    user.inspectorCooldownUntil = Date.now() + ECONOMY.INSPECTOR_COOLDOWN_H * 3600 * 1000;
-    if (!user.trophies.includes('insp_' + insp.id)) user.trophies.push('insp_' + insp.id);
-
-    const tk = Math.round(insp.reward.tk * heatIncomeMult(user));
-    user.balance += tk;
-    user.seasonPoints = (user.seasonPoints || 0) + (insp.reward.sp || 0);
-    const gotRes = [];
-    for (const [resId, qty] of Object.entries(insp.reward.res || {})) {
-        const { added, lost } = addResource(user, resId, qty);
-        gotRes.push({ id: resId, name: RESOURCE_BY_ID[resId].name, emoji: RESOURCE_BY_ID[resId].emoji, added, lost });
-    }
-    const unlocked = checkAchievements(user);
-    const levelsGained = addXP(user, 200);
-    addUkhyr(user, 15);
-    res.json({
-        success: true, defeated: true, damage, weak, energy: user.energy,
-        reward: { tk, res: gotRes, sp: insp.reward.sp || 0 },
-        balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
-        stats: user.inspectorStats, unlockedAchievements: unlocked, ...storageSnapshot(user),
-        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
-    });
-});
-
-// ---- Медкомісія ----
-// Роздача карток — на сервері, інакше гравець просто вибрав би собі "Справжню
-// медичну карту" п'ять разів поспіль.
-function drawSymptoms(count) {
-    const pool = SYMPTOMS.slice();
-    const hand = [];
-    for (let i = 0; i < count && pool.length; i++) {
-        const total = pool.reduce((s, c) => s + c.weight, 0);
-        let roll = Math.random() * total;
-        let idx = 0;
-        for (; idx < pool.length; idx++) {
-            roll -= pool[idx].weight;
-            if (roll <= 0) break;
-        }
-        hand.push(pool.splice(Math.min(idx, pool.length - 1), 1)[0].id);
-    }
-    return hand;
-}
-
-// Скільки переконливості дасть картка саме цьому гравцю: та сама скарга двічі
-// поспіль працює гірше ("ви вже приходили з цим").
-function symptomPower(user, id) {
-    const card = SYMPTOM_BY_ID[id];
-    if (!card) return 0;
-    const repeated = (user.lastMedcomCards || []).includes(id);
-    return Math.max(0, card.power - (repeated ? ECONOMY.MEDCOM_REPEAT_PENALTY : 0));
-}
-
-function medcomHand(user) {
-    const s = user.medcomSession;
-    if (!s) return null;
-    return {
-        noticeId: s.noticeId,
-        rerolls: s.rerolls,
-        rerollsLeft: Math.max(0, ECONOMY.MEDCOM_REROLL_MAX - s.rerolls),
-        rerollCost: ECONOMY.MEDCOM_REROLL_COST,
-        pick: ECONOMY.MEDCOM_PICK,
-        skepticism: Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0)),
-        cards: s.cards.map((id) => {
-            const c = SYMPTOM_BY_ID[id];
-            return {
-                id, name: c.name, emoji: c.emoji, power: symptomPower(user, id),
-                repeated: (user.lastMedcomCards || []).includes(id),
-            };
-        }),
-        bonuses: {
-            stamp: { have: (user.resources.stamp || 0) >= 1, bonus: ECONOMY.MEDCOM_STAMP_BONUS, qty: 1 },
-            meds: { have: (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY, bonus: ECONOMY.MEDCOM_MEDS_BONUS, qty: ECONOMY.MEDCOM_MEDS_QTY },
-            cat: { have: user.petId === 'cat', bonus: ECONOMY.MEDCOM_CAT_BONUS, qty: 0 },
-        },
-    };
-}
-
-function dealMedcom(user, notice) {
-    user.medcomSession = { noticeId: notice.uid, cards: drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE), rerolls: 0 };
-    return { hand: medcomHand(user) };
-}
-
-app.get('/api/medcom', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    res.json({ hand: medcomHand(user) });
-});
-
-app.post('/api/medcom/reroll', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const s = user.medcomSession;
-    if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
-    if (s.rerolls >= ECONOMY.MEDCOM_REROLL_MAX) {
-        return res.json({ success: false, message: 'Більше перекидати не можна — лікар уже щось запідозрив' });
-    }
-    if (user.balance < ECONOMY.MEDCOM_REROLL_COST) {
-        return res.json({ success: false, message: 'Не вистачає ТК на "консультацію"' });
-    }
-    user.balance -= ECONOMY.MEDCOM_REROLL_COST;
-    s.rerolls += 1;
-    s.cards = drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE);
-    res.json({ success: true, balance: user.balance, hand: medcomHand(user) });
-});
-
-app.post('/api/medcom/submit', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const s = user.medcomSession;
-    if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
-
-    const picked = Array.isArray(req.body.cardIds) ? [...new Set(req.body.cardIds)] : [];
-    if (picked.length !== ECONOMY.MEDCOM_PICK || !picked.every((id) => s.cards.includes(id))) {
-        return res.json({ success: false, message: `Треба обрати рівно ${ECONOMY.MEDCOM_PICK} картки зі своїх` });
-    }
-
-    const idx = (user.notices || []).findIndex((n) => n.uid === s.noticeId);
-    if (idx === -1) {
-        user.medcomSession = null;
-        return res.json({ success: false, message: 'Повістка вже неактуальна' });
-    }
-    const type = NOTICE_BY_ID[user.notices[idx].typeId];
-
-    let power = picked.reduce((sum, id) => sum + symptomPower(user, id), 0);
-    // Не `used`: у відповіді нижче розгортається storageSnapshot, у якого своє поле
-    // used (зайнято місць у кладовці), і воно б це затерло.
-    const usedBonuses = [];
-    // Бонуси витрачаються НЕЗАЛЕЖНО від результату — це і є ціна спроби.
-    if (req.body.useStamp && (user.resources.stamp || 0) >= 1) {
-        user.resources.stamp -= 1;
-        if (user.resources.stamp <= 0) delete user.resources.stamp;
-        power += ECONOMY.MEDCOM_STAMP_BONUS;
-        usedBonuses.push('печатка');
-    }
-    if (req.body.useMeds && (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY) {
-        user.resources.meds -= ECONOMY.MEDCOM_MEDS_QTY;
-        if (user.resources.meds <= 0) delete user.resources.meds;
-        power += ECONOMY.MEDCOM_MEDS_BONUS;
-        usedBonuses.push('ліки');
-    }
-    if (user.petId === 'cat') {
-        power += ECONOMY.MEDCOM_CAT_BONUS;
-        usedBonuses.push('кіт-антистрес');
-    }
-
-    const skepticism = Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0));
-    const resolved = power >= skepticism;
-    user.lastMedcomCards = picked;
-    user.medcomSession = null;
-
-    let penalty = null;
-    let message;
-    if (resolved) {
-        user.deferUntil = Date.now() + ECONOMY.MEDCOM_DEFER_H * 3600 * 1000;
-        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.MEDCOM_SEASON_POINTS;
-        user.medcomStats.passed += 1;
-        user.dailyMedcom = (user.dailyMedcom || 0) + 1;
-        message = `«Непридатний. Наступний!» Відстрочка на ${ECONOMY.MEDCOM_DEFER_H} годин.`;
-    } else {
-        penalty = applyNoticePenalty(user, type, 1);
-        changeHeat(user, ECONOMY.HEAT_MEDCOM_FAIL, 'Провалив медкомісію');
-        user.medcomStats.failed += 1;
-        message = '«Придатний. Наступний!» Не повірили.';
-    }
-    finishNotice(user, idx, 'medcom', resolved);
-
-    const unlocked = checkAchievements(user);
-    res.json({
-        success: true, resolved, power, skepticism, usedBonuses, message, penalty,
-        deferUntil: user.deferUntil || 0, unlockedAchievements: unlocked,
-        balance: user.balance, energy: user.energy, seasonPoints: user.seasonPoints,
-        ...storageSnapshot(user), ...heatSnapshot(user, true), ...noticeSnapshot(user),
-    });
-});
+// medcom, medcom/reroll, medcom/submit — тепер у routes/security.js
 
 // ---- PvP: "Здати сусіда" ----
 function publicSnitchStats(user) {
@@ -3048,294 +2312,46 @@ function profileCard(user) {
     };
 }
 
-// Порівняння профілів: дві колонки й чесна причина, чому здати не можна.
-app.get('/api/profile', requireTelegramAuth, (req, res) => {
-    const me = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const other = userByPid(req.query.pid);
-    if (!other) return res.status(404).json({ error: 'Такого гравця немає' });
-    migrateUser(other);
-    syncHeatAndNotices(other);
-    const elig = snitchEligibility(me, other);
-    res.json({
-        me: profileCard(me), other: profileCard(other),
-        snitch: {
-            can: elig.ok, free: !!elig.free, reason: elig.reason || null,
-            // Саме обчислена ціна: під час війни стук на ворога вдвічі дешевший,
-            // і кнопка має показувати це, а не базовий цінник.
-            costTk: typeof elig.costTk === 'number' ? elig.costTk : ECONOMY.SNITCH_COST_TK,
-            warTarget: !!elig.warTarget, costRes: ECONOMY.SNITCH_COST_RES,
-            left: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (me.snitchesToday || 0)),
-        },
-    });
+// profile, snitch, investigation, investigation/guess — тепер у routes/social.js
+
+// quests, quests/claim — тепер у routes/misc.js
+
+// routes/social.js (Фаза 4 модуляризації) — лідерборд, нікнейми, профіль/PvP
+// "Здати сусіда", розслідування, клани ("Чат ОСББ").
+require('./routes/social')(app, {
+    requireTelegramAuth, getUser, ECONOMY, usersDB, clansDB,
+    displayName, publicSnitchStats, LEAGUES, ukhyrRank, validateNickname,
+    profileCard, snitchEligibility, userByPid, migrateUser, syncHeatAndNotices,
+    heatTierOf, mapProtectPct, resetDailyIfNeeded, hasSkill, NOTICE_BY_ID,
+    addWarPoints, changeHeat, sendPush, logOffline, checkAchievements,
+    buildSuspects, storageSnapshot, clanLevel, makeClanId, getClanInfo, warSnapshot,
 });
 
-app.post('/api/snitch', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    resetDailyIfNeeded(user);
-    const target = userByPid(req.body.targetPid);
-    if (!target) return res.json({ success: false, message: 'Такого гравця немає' });
-    migrateUser(target);
-    syncHeatAndNotices(target);
-
-    const elig = snitchEligibility(user, target);
-    if (!elig.ok) return res.json({ success: false, message: elig.reason });
-
-    const now = Date.now();
-    if (elig.free) {
-        user.freeSnitchOn = user.freeSnitchOn.filter((id) => id !== target.id);
-    } else {
-        user.balance -= elig.costTk;
-        const res_ = ECONOMY.SNITCH_COST_RES;
-        user.resources[res_] -= 1;
-        if (user.resources[res_] <= 0) delete user.resources[res_];
-        user.snitchesToday = (user.snitchesToday || 0) + 1;
-        user.lastSnitchTargets[target.id] = now;
-    }
-    user.snitchStats.sent += 1;
-    if (elig.warTarget) addWarPoints(user, ECONOMY.WAR_POINTS_SNITCH, 'здав ворога');
-
-    // «Дві сімки»: у жертви свій номер, і дзвінок просто не проходить. Ресурси
-    // стукач витратив, але про провал НЕ дізнається — інакше він би просто
-    // передзвонив, і навичка нічого б не давала.
-    if (hasSkill(target, 'twosims') && Math.random() < ECONOMY.SKILL_SNITCH_FAIL_CHANCE) {
-        return res.json({
-            success: true, free: !!elig.free, message: 'Дзвінок пішов. Він навіть не знає, хто це був.',
-            snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
-            balance: user.balance, snitchStats: publicSnitchStats(user), ...storageSnapshot(user),
-        });
-    }
-
-    // Жертві — та сама повістка "вручення в руки", що й від системи: 3 години на
-    // реакцію. Різниця в тому, що за цією стоїть жива людина, яку можна вирахувати.
-    const type = NOTICE_BY_ID['ruky'];
-    target.notices.push({
-        uid: 'n' + now.toString(36) + Math.floor(Math.random() * 1000).toString(36),
-        typeId: type.id, issuedAt: now, expiresAt: now + type.ttlH * 3600 * 1000,
-        pushSent: false, fromSnitch: true,
-    });
-    target.noticeStats.received += 1;
-    changeHeat(target, ECONOMY.SNITCH_HEAT, 'Тебе здав сусід');
-    target.snitchStats.received += 1;
-
-    // Щур-розвідник іноді одразу палить стукача — тоді розслідування не потрібне.
-    const revealed = target.petId === 'rat' && Math.random() < ECONOMY.SNITCH_RAT_REVEAL_CHANCE;
-    target.snitchedBy.unshift({ byId: user.id, byName: displayName(user), at: now, investigated: false, revealed, suspects: null });
-    if (target.snitchedBy.length > ECONOMY.SNITCH_HISTORY_SIZE) target.snitchedBy.length = ECONOMY.SNITCH_HISTORY_SIZE;
-
-    logOffline(target, 'bad', revealed ? `🐍 Тебе здав ${displayName(user)}` : '🐍 Тебе хтось здав');
-    sendPush(target.id, revealed
-        ? `🐀 Щур-розвідник підслухав розмову: тебе здав ${user.name}. Ти йому цього не забудеш.`
-        : '🐍 Хтось про тебе розповів. Ти йому цього не забудеш.');
-
-    res.json({
-        success: true, free: !!elig.free,
-        message: elig.free
-            ? 'Безкоштовний дзвінок використано. Ви квити.'
-            : 'Дзвінок пішов. Він навіть не знає, хто це був.',
-        snitchesLeft: Math.max(0, ECONOMY.SNITCH_DAILY_LIMIT - (user.snitchesToday || 0)),
-        balance: user.balance, snitchStats: publicSnitchStats(user), ...storageSnapshot(user),
-    });
+// routes/security.js (Фаза 4 модуляризації) — тиск ТЦК/розшук: повістки,
+// відстрочки, блокпост, інспектори (боси), медкомісія.
+require('./routes/security')(app, {
+    requireTelegramAuth, getUser, ECONOMY,
+    NOTICE_BY_ID, DEFERMENT_BY_ID, CHECKPOINT_BY_ID, CHECKPOINT_CHOICES,
+    INSPECTOR_BY_ID, INSPECTORS, SYMPTOMS, SYMPTOM_BY_ID, COSMETICS,
+    heatSnapshot, noticeSnapshot, noticeBribeCost, applyNoticePenalty, checkAchievements,
+    storageSnapshot, storageUsed, mapProtectPct, loseRandomResources,
+    syncHeatAndNotices, defermentActive, defermentEligibility, defermentSnapshot, grantDeferment,
+    changeHeat, repMaxed, hasSkill, addWarPoints, addResource, RESOURCE_BY_ID,
+    addXP, addUkhyr, heatIncomeMult, inspectorTimeout, inspectorSnapshot, serverBatchWindow,
 });
 
-// Розслідування: жертві показують трьох, вона має один здогад.
-app.get('/api/investigation', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const entry = (user.snitchedBy || []).find((e) => !e.investigated);
-    if (!entry) return res.json({ pending: false });
-    if (entry.revealed) {
-        return res.json({ pending: true, revealed: true, at: entry.at, snitchName: entry.byName });
-    }
-    // Список фіксуємо при першому відкритті, щоб його не можна було "перекрутити",
-    // перезайшовши в гру, доки не випаде зручна трійка.
-    if (!Array.isArray(entry.suspects) || !entry.suspects.length) {
-        entry.suspects = buildSuspects(user, entry.byId);
-    }
-    const suspects = entry.suspects
-        .map((id) => usersDB.get(id))
-        .filter(Boolean)
-        .map((u) => ({ pid: u.pid, name: displayName(u), level: u.level, snitch: publicSnitchStats(u) }));
-    res.json({ pending: true, revealed: false, at: entry.at, suspects });
-});
-
-app.post('/api/investigation/guess', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    const entry = (user.snitchedBy || []).find((e) => !e.investigated);
-    if (!entry) return res.json({ success: false, message: 'Немає активного розслідування' });
-    if (entry.revealed) {
-        entry.investigated = true;
-        return res.json({ success: false, message: 'Щур і так усе розповів — розслідувати нічого' });
-    }
-    const suspect = userByPid(req.body.suspectPid);
-    if (!suspect || !Array.isArray(entry.suspects) || !entry.suspects.includes(suspect.id)) {
-        return res.json({ success: false, message: 'Цього немає у списку підозрюваних' });
-    }
-    migrateUser(suspect);
-    entry.investigated = true;
-
-    if (suspect.id === entry.byId) {
-        // Стеля за рівнем схрону: відчутно, але не катастрофа. Баланс жертви — акцесор,
-        // тож balanceRev інкрементується сам і її клієнтське автозбереження вже не
-        // "поверне" вкрадене; pendingRobbery показує їй, куди поділись гроші.
-        const cap = ECONOMY.SNITCH_STEAL_CAP_PER_LEVEL * ((suspect.level || 1) + 1);
-        // Тайник ЖЕРТВИ ховає частину грошей від крадіжки.
-        const stealPct = ECONOMY.SNITCH_STEAL_PCT * (1 - mapProtectPct(suspect));
-        const steal = Math.max(0, Math.min(Math.floor(Math.max(0, suspect.balance) * stealPct), cap));
-        if (steal > 0) {
-            suspect.balance -= steal;
-            user.balance += steal;
-        }
-        suspect.pendingRobbery = { byName: displayName(user), amount: steal, at: Date.now() };
-        logOffline(suspect, 'bad', `🕵️ ${displayName(user)} тебе вирахував (−${steal.toLocaleString('uk-UA')} ТК)`);
-        suspect.snitchStats.robbed += steal;
-        user.snitchStats.caught += 1;
-        user.snitchStats.stolen += steal;
-        user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SNITCH_CAUGHT_SEASON_POINTS;
-        if (!user.trophies.includes('detective')) user.trophies.push('detective');
-
-        sendPush(suspect.id, `🕵️ ${displayName(user)} тебе вирахував. Моральна компенсація: −${steal.toLocaleString('uk-UA')} ТК.`);
-        const unlocked = checkAchievements(user);
-        return res.json({
-            success: true, correct: true, snitchName: displayName(suspect), stolen: steal,
-            balance: user.balance, trophies: user.trophies, seasonPoints: user.seasonPoints,
-            snitchStats: publicSnitchStats(user), unlockedAchievements: unlocked,
-        });
-    }
-
-    // Хибне звинувачення навмисно НЕ безкарне: невинний отримує право на один
-    // безкоштовний дзвінок саме на тебе. Саме звідси беруться ланцюгові війни.
-    if (!suspect.freeSnitchOn.includes(user.id)) suspect.freeSnitchOn.push(user.id);
-    suspect.snitchStats.falselyAccused += 1;
-    sendPush(suspect.id, `😐 ${displayName(user)} підозрював у стукацтві саме тебе. Ти образився — тепер у тебе є один безкоштовний дзвінок на нього.`);
-    res.json({
-        success: true, correct: false, accusedName: displayName(suspect),
-        message: 'Не вгадав. Справжній стукач лишився невідомим, а невинний образився.',
-        snitchStats: publicSnitchStats(user),
-    });
-});
-
-// ---- Щоденні квести ----
-app.get('/api/quests', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    resetDailyIfNeeded(user);
-    res.json({
-        dailyClicks: user.dailyClicks, dailyTrades: user.dailyTrades,
-        dailyBoxes: user.dailyBoxes, dailyRaids: user.dailyRaids,
-        dailyCrafts: user.dailyCrafts, dailyResources: user.dailyResources,
-        dailyNotices: user.dailyNotices || 0, dailyMedcom: user.dailyMedcom || 0,
-        dailyInspectors: user.dailyInspectors || 0, dailyExpeditions: user.dailyExpeditions || 0,
-        claimedQuests: user.claimedQuests,
-    });
-});
-
-app.post('/api/quests/claim', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    resetDailyIfNeeded(user);
-    const quest = QUESTS.find((q) => q.id === req.body.questId);
-    if (!quest) return res.status(400).json({ error: 'Невідомий квест' });
-    if (user.claimedQuests.includes(quest.id)) return res.json({ success: false, message: 'Вже отримано сьогодні' });
-    if ((user[quest.metric] || 0) < quest.target) return res.json({ success: false, message: 'Квест ще не виконано' });
-    user.claimedQuests.push(quest.id);
-    user.balance += quest.reward;
-    const levelsGained = addXP(user, 40);
-    addUkhyr(user, 3);
-    res.json({
-        success: true, balance: user.balance, claimedQuests: user.claimedQuests,
-        xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
-    });
-});
-
-// ---- Тіньова біржа ----
-// ---- Клани ("Чат ОСББ") ----
-app.get('/api/clan/list', (req, res) => {
-    const list = Array.from(clansDB.values())
-        .map((c) => ({ id: c.id, name: c.name, members: c.members.length, level: clanLevel(c) }))
-        .sort((a, b) => b.level - a.level || b.members - a.members)
-        .slice(0, 20);
-    res.json(list);
-});
-
-app.get('/api/clan/leaderboard', (req, res) => {
-    const top = Array.from(clansDB.values())
-        .map((c) => ({
-            id: c.id, name: c.name, members: c.members.length,
-            level: clanLevel(c), treasury: c.treasury || 0,
-            totalBalance: Math.floor(c.members.reduce((sum, id) => sum + (usersDB.get(id)?.balance || 0), 0)),
-        }))
-        // Сортуємо за скарбницею: вона показує реальний внесок клану, а не просто
-        // хто випадково має багатих учасників.
-        .sort((a, b) => b.treasury - a.treasury || b.totalBalance - a.totalBalance)
-        .slice(0, 10);
-    res.json(top);
-});
-
-app.post('/api/clan/create', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (user.clanId && clansDB.has(user.clanId)) return res.json({ success: false, message: 'Ти вже в чаті ОСББ. Спочатку вийди.' });
-    const name = String(req.body.name || '').trim().slice(0, 30);
-    if (!name) return res.json({ success: false, message: 'Вкажи назву чату' });
-    // Назва клану рендериться клієнтом через innerHTML (renderClanMine/loadClanList/
-    // loadClanLeaderboard) — без білого списку символів це був stored XSS: будь-хто
-    // міг вставити <script>/onerror у назву й виконати код у WebView усіх, хто відкриє
-    // список кланів. Той самий патерн, що вже стоїть на нікнеймах.
-    if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9_ .,!?'-]+$/.test(name)) {
-        return res.json({ success: false, message: 'Тільки літери, цифри та звичайна пунктуація' });
-    }
-    const clan = { id: makeClanId(), name, ownerId: user.id, members: [user.id], treasury: 0, contributions: {} };
-    clansDB.set(clan.id, clan);
-    user.clanId = clan.id;
-    res.json({ success: true, clanId: clan.id, clanName: clan.name });
-});
-
-// Внесок у скарбницю клану: підвищує рівень клану, а з ним — бонус до пасиву
-// для ВСІХ учасників. Внесок незворотний, тому підтвердження робимо на клієнті.
-app.post('/api/clan/donate', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (!user.clanId || !clansDB.has(user.clanId)) {
-        return res.json({ success: false, message: 'Ти не в чаті ОСББ' });
-    }
-    const amount = Math.floor(Number(req.body.amount));
-    if (!Number.isFinite(amount) || amount <= 0) {
-        return res.json({ success: false, message: 'Вкажи суму' });
-    }
-    if (user.balance < amount) return res.json({ success: false, message: 'Недостатньо ТК' });
-
-    const clan = clansDB.get(user.clanId);
-    if (!clan.contributions) clan.contributions = {};
-    const before = clanLevel(clan);
-    user.balance -= amount;
-    clan.treasury = (clan.treasury || 0) + amount;
-    clan.contributions[user.id] = (clan.contributions[user.id] || 0) + amount;
-    // Внесок теж кує перемогу у війні, просто повільніше за стуки й босів.
-    const warPts = Math.floor(amount / ECONOMY.WAR_POINTS_PER_DONATION);
-    if (warPts > 0) addWarPoints(user, warPts, 'вніс у скарбницю');
-    const after = clanLevel(clan);
-    const unlocked = checkAchievements(user);
-
-    res.json({
-        success: true, balance: user.balance,
-        leveledUp: after > before, unlockedAchievements: unlocked, ...getClanInfo(user), ...warSnapshot(user),
-    });
-});
-
-app.post('/api/clan/join', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (user.clanId && clansDB.has(user.clanId)) return res.json({ success: false, message: 'Ти вже в чаті ОСББ.' });
-    const clan = clansDB.get(req.body.clanId);
-    if (!clan) return res.json({ success: false, message: 'Чат не знайдено' });
-    if (!clan.members.includes(user.id)) clan.members.push(user.id);
-    user.clanId = clan.id;
-    res.json({ success: true, clanId: clan.id, clanName: clan.name });
-});
-
-app.post('/api/clan/leave', requireTelegramAuth, (req, res) => {
-    const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
-    if (user.clanId && clansDB.has(user.clanId)) {
-        const clan = clansDB.get(user.clanId);
-        clan.members = clan.members.filter((id) => id !== user.id);
-        if (clan.members.length === 0) clansDB.delete(clan.id);
-    }
-    user.clanId = null;
-    res.json({ success: true });
+// routes/misc.js (Фаза 4 модуляризації) — компаньйони, гардероб, декор кімнати,
+// сезони/ліги, війна ОСББ, облава на район, репутація з районом, дерево навичок,
+// щоденні квести.
+require('./routes/misc')(app, {
+    requireTelegramAuth, getUser, ECONOMY, usersDB, clansDB, displayName,
+    PETS, COSMETICS, ROOM_ITEMS, QUESTS, SKILL_BY_ID, SKILL_BRANCHES, NPC_BY_ID,
+    storageSnapshot, checkAchievements, resetDailyIfNeeded, hasSkill, changeHeat,
+    logOffline, sendPush, addXP, addUkhyr, applySkillLimits, repOf, repMaxed,
+    seasonSnapshot, warSnapshot, matchmakeWarsIfNeeded, settleWarsIfNeeded,
+    rollCrate, CRATE_BY_ID, settleDistrictRaid, districtSnapshot, serverBatchWindow,
+    dailyQuestFor, questDone, reputationSnapshot, skillsSnapshot,
+    skillsOwnedCount, skillPointsAvailable,
 });
 
 // routes/economy.js (Фаза 4 модуляризації, 2026-08-08) — кладовка, престиж,
