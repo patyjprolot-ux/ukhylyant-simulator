@@ -12,7 +12,7 @@ const path = require('path');
 module.exports = function registerAdminRoutes(app, deps) {
     const {
         BOT_TOKEN, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-        complaints, LOCATIONS,
+        complaints, LOCATIONS, paymentLog,
         // Необовʼязкові: якщо передані — власник отримає пуш про нову скаргу.
         sendPush, OWNER_TELEGRAM_ID,
     } = deps;
@@ -86,6 +86,62 @@ module.exports = function registerAdminRoutes(app, deps) {
             complaints: { new: cs.byStatus.new, total: cs.total, last24h: cs.last24h },
             now,
         });
+    });
+
+    // ==========================================
+    // Стан сервера (моніторинг працездатності)
+    // ==========================================
+    // Той самий процес, що обслуговує гру: якщо цей ендпоінт відповідає — сервер
+    // живий. uptime/memory дають ранній сигнал про витік пам'яті чи завислий
+    // процес ще до того, як гравці почнуть скаржитись, що гра "лагає".
+    const serverStartedAt = Date.now();
+    app.get('/api/admin/health', requireAdmin, (req, res) => {
+        const mem = process.memoryUsage();
+        res.json({
+            ok: true,
+            uptimeSec: Math.round(process.uptime()),
+            startedAt: serverStartedAt,
+            nodeVersion: process.version,
+            memory: {
+                rssMb: Math.round(mem.rss / 1024 / 1024),
+                heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+                heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+            },
+            players: usersDB.size,
+            clans: clansDB.size,
+            now: Date.now(),
+        });
+    });
+
+    // ==========================================
+    // Гравці, що погодились на рекламні повідомлення в чаті
+    // ==========================================
+    // Окремий список, не лише лічильник зі /stats — щоб можна було звірити,
+    // кому конкретно можна писати рекламні розсилки (AD_CONSENT_BONUS-гілка).
+    app.get('/api/admin/ad-consent', requireAdmin, (req, res) => {
+        const list = Array.from(usersDB.values())
+            .filter((u) => u.adConsent === true)
+            .map((u) => ({
+                id: u.id,
+                name: displayName ? displayName(u) : (u.name || 'Ухилянт'),
+                lastSeenAt: Number(u.lastSeenAt) || 0,
+            }))
+            .sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+        res.json({ count: list.length, players: list });
+    });
+
+    // ==========================================
+    // Мікротранзакції й донати
+    // ==========================================
+    // paymentLog веде server.js (bot.on('successful_payment', ...)) — тут лише
+    // читаємо. Не персистентний навмисно: це огляд "що щойно купили", а не
+    // бухгалтерія — реальний облік Stars лишається на стороні Telegram.
+    app.get('/api/admin/payments', requireAdmin, (req, res) => {
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 300);
+        const log = paymentLog || [];
+        const totalStars = log.reduce((sum, p) => sum + (Number(p.stars) || 0), 0);
+        const donateStars = log.filter((p) => p.type === 'donate').reduce((sum, p) => sum + (Number(p.stars) || 0), 0);
+        res.json({ payments: log.slice(0, limit), totalStars, donateStars, count: log.length });
     });
 
     // ==========================================

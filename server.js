@@ -1180,6 +1180,16 @@ bot.on('photo', async (ctx) => {
     }
 });
 
+// Журнал мікротранзакцій для адмінки (2026-08-15) — не бухгалтерія, а швидкий
+// огляд "хто й що щойно купив". Не персистентний навмисно (як offlineLog):
+// останні N записів у пам'яті, обмежений розмір, щоб не текти.
+const PAYMENT_LOG_SIZE = 300;
+const paymentLog = [];
+function logPayment(entry) {
+    paymentLog.unshift({ ...entry, at: Date.now() });
+    if (paymentLog.length > PAYMENT_LOG_SIZE) paymentLog.length = PAYMENT_LOG_SIZE;
+}
+
 // Обробка оплат Telegram Stars
 bot.on('pre_checkout_query', (ctx) => ctx.answerPreCheckoutQuery(true));
 
@@ -1187,6 +1197,8 @@ bot.on('successful_payment', (ctx) => {
     const payload = ctx.message.successful_payment.invoice_payload;
     const [type, userId] = payload.split('_');
     const user = getUser(userId, ctx.from.first_name);
+    const starsAmount = ctx.message.successful_payment.total_amount;
+    logPayment({ userId, userName: displayName(user), type, stars: starsAmount });
 
     if (type === 'vip') {
         user.isVip = true;
@@ -2482,7 +2494,7 @@ require('./routes/sprints')(app, {
 const complaints = require('./lib/complaints');
 require('./routes/admin')(app, {
     BOT_TOKEN, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-    complaints, LOCATIONS,
+    complaints, LOCATIONS, paymentLog,
     // Необов'язкові: якщо OWNER_TELEGRAM_ID заданий — власнику падає пуш
     // про кожну нову скаргу, а не тільки запис у книзі.
     sendPush, OWNER_TELEGRAM_ID,

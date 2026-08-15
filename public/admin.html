@@ -75,6 +75,9 @@ th:hover{color:var(--accent2)}
         <button data-tab="players">👥 Гравці</button>
         <button data-tab="complaints">📝 Книга скарг</button>
         <button data-tab="broadcast">📢 Розсилка</button>
+        <button data-tab="health">🩺 Стан сервера</button>
+        <button data-tab="adconsent">🔔 Згодні на рекламу</button>
+        <button data-tab="payments">💳 Транзакції й донати</button>
         <button id="logoutBtn" style="flex:0 0 auto">Вийти</button>
     </div>
 
@@ -148,6 +151,55 @@ th:hover{color:var(--accent2)}
             <div id="bMsg" class="msg"></div>
         </div>
     </div>
+
+    <!-- Стан сервера -->
+    <div id="tab-health" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;margin-bottom:12px">
+                <strong>Моніторинг працездатності</strong><button id="healthReload">Оновити</button>
+            </div>
+            <div id="healthCards" class="cards"></div>
+            <p class="muted" style="margin-top:10px">
+                Якщо ця вкладка не оновлюється й показує помилку — сервер, найімовірніше, не відповідає.
+            </p>
+            <div id="healthMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Згода на рекламу -->
+    <div id="tab-adconsent" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;margin-bottom:12px">
+                <strong>Гравці, що погодились на рекламні повідомлення</strong>
+                <button id="adConsentReload">Оновити</button>
+            </div>
+            <div id="adConsentCount" class="muted" style="margin-bottom:10px"></div>
+            <div class="scroll"><table>
+                <thead><tr><th>Гравець</th><th>Telegram id</th><th>Останній вхід</th></tr></thead>
+                <tbody id="adConsentBody"></tbody>
+            </table></div>
+            <div id="adConsentMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Транзакції й донати -->
+    <div id="tab-payments" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;margin-bottom:12px">
+                <strong>Мікротранзакції й донати (Telegram Stars)</strong>
+                <button id="paymentsReload">Оновити</button>
+            </div>
+            <div id="paymentsCards" class="cards" style="margin-bottom:14px"></div>
+            <div class="scroll"><table>
+                <thead><tr><th>Коли</th><th>Гравець</th><th>Telegram id</th><th>Що купив</th><th>⭐ Stars</th></tr></thead>
+                <tbody id="paymentsBody"></tbody>
+            </table></div>
+            <p class="muted" style="margin-top:10px">
+                Останні 300 транзакцій із моменту запуску сервера — не бухгалтерія, реальний облік Stars лишається на боці Telegram.
+            </p>
+            <div id="paymentsMsg" class="msg"></div>
+        </div>
+    </div>
 </div>
 </div>
 
@@ -219,6 +271,9 @@ document.querySelectorAll('.tabs button[data-tab]').forEach((btn) => {
         if (btn.dataset.tab === 'stats') loadStats();
         if (btn.dataset.tab === 'players') loadPlayers();
         if (btn.dataset.tab === 'complaints') loadComplaints();
+        if (btn.dataset.tab === 'health') loadHealth();
+        if (btn.dataset.tab === 'adconsent') loadAdConsent();
+        if (btn.dataset.tab === 'payments') loadPayments();
     };
 });
 
@@ -370,6 +425,67 @@ $('bSend').onclick = async () => {
         $('bSend').disabled = false;
     }
 };
+
+// ---- Стан сервера ----
+async function loadHealth() {
+    try {
+        const d = await api('/api/admin/health');
+        const upH = Math.floor(d.uptimeSec / 3600), upM = Math.floor((d.uptimeSec % 3600) / 60);
+        const cards = [
+            ['Статус', '🟢 Онлайн'],
+            ['Аптайм', upH + ' год ' + upM + ' хв'],
+            ['Пам'+String.fromCharCode(39)+'ять (RSS)', d.memory.rssMb + ' МБ'],
+            ['Купа (used/total)', d.memory.heapUsedMb + ' / ' + d.memory.heapTotalMb + ' МБ'],
+            ['Node.js', d.nodeVersion],
+            ['Гравців у пам'+String.fromCharCode(39)+'яті', num(d.players)],
+        ];
+        $('healthCards').innerHTML = cards.map((c) =>
+            '<div class="card"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + '</div></div>').join('');
+        clearMsg($('healthMsg'));
+    } catch (e) { say($('healthMsg'), 'Сервер не відповідає або токен невірний: ' + e.message, 'err'); }
+}
+$('healthReload').onclick = loadHealth;
+
+// ---- Згода на рекламу ----
+async function loadAdConsent() {
+    try {
+        const d = await api('/api/admin/ad-consent');
+        $('adConsentCount').textContent = 'Усього погодились: ' + num(d.count);
+        $('adConsentBody').innerHTML = d.players.map((u) =>
+            '<tr><td>' + esc(u.name) + '</td><td>' + esc(u.id) + '</td>'
+            + '<td>' + (u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString('uk-UA') : '—') + '</td></tr>').join('')
+            || '<tr><td colspan="3" class="muted">Поки що ніхто не погодився</td></tr>';
+        clearMsg($('adConsentMsg'));
+    } catch (e) { say($('adConsentMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('adConsentReload').onclick = loadAdConsent;
+
+// ---- Транзакції й донати ----
+const PAYMENT_LABELS = { vip: '⭐ VIP-Схрон', donate: '❤️ Донат' };
+function paymentLabel(type) {
+    if (PAYMENT_LABELS[type]) return PAYMENT_LABELS[type];
+    if (type.startsWith('crate-')) return '📦 Ящик: ' + type.slice(6);
+    if (type.startsWith('defer-')) return '📨 Відстрочка: ' + type.slice(6);
+    if (type.startsWith('nickchange-')) return '✏️ Зміна ніка';
+    return type;
+}
+async function loadPayments() {
+    try {
+        const d = await api('/api/admin/payments');
+        $('paymentsCards').innerHTML = [
+            ['Транзакцій у журналі', num(d.count)],
+            ['Разом ⭐ Stars', num(d.totalStars)],
+            ['З них донатів ⭐', num(d.donateStars)],
+        ].map((c) => '<div class="card"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + '</div></div>').join('');
+        $('paymentsBody').innerHTML = d.payments.map((p) =>
+            '<tr><td>' + new Date(p.at).toLocaleString('uk-UA') + '</td>'
+            + '<td>' + esc(p.userName) + '</td><td>' + esc(p.userId) + '</td>'
+            + '<td>' + esc(paymentLabel(p.type)) + '</td><td>' + num(p.stars) + '</td></tr>').join('')
+            || '<tr><td colspan="5" class="muted">Транзакцій ще не було</td></tr>';
+        clearMsg($('paymentsMsg'));
+    } catch (e) { say($('paymentsMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('paymentsReload').onclick = loadPayments;
 
 // Автовхід, якщо токен уже в цій вкладці (перезавантаження сторінки).
 if (token()) {
