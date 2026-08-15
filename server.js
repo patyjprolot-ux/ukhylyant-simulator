@@ -1415,6 +1415,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         mapBuildings: user.mapBuildings,
         mapPlacements: user.mapPlacements || { tower: null, hideout: null, cache: null },
         nickname: user.nickname,
+        sprintsEnabled: !!ECONOMY.SPRINTS_V2,
         xp: user.xp || 0, playerLevel: user.playerLevel || 1, ukhyr: user.ukhyr || 0,
         memoryGame: user.memoryGame ? {
             cardsCount: user.memoryGame.deck.length, revealed: user.memoryGame.revealed,
@@ -2557,11 +2558,55 @@ function buildHtml(botUsername) {
         }
         .energy-lock { font-size: 11px; color: #ff8a8a; margin-top: 5px; text-align: center; }
 
+        /* ===== Спринти (робочі контракти, ECONOMY.SPRINTS_V2) ===== */
+        #sprint-plaque { background: rgba(12,17,23,0.6); border: 1px solid rgba(110,198,255,0.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; text-align: left; }
+        #sprint-idle { text-align: center; }
+        #sprint-pick-btn { background: linear-gradient(45deg, #1b3a52, #2d6b8f); }
+        .sprint-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+        .sprint-name { flex: 1; }
+        .sprint-timer { font-family: 'Courier Prime', monospace; color: var(--gold); font-size: 12px; white-space: nowrap; }
+        .sprint-lines-bar { width: 100%; height: 10px; background: #141b22; border-radius: 5px; overflow: hidden; border: 1px solid #1f2933; }
+        .sprint-lines-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #6ec6ff, #39ff14); transition: width 0.2s; }
+        .sprint-lines-text { font-size: 11px; color: #8fa3b8; margin: 3px 0 8px; text-align: right; }
+        .sprint-burnout-wrap { margin-bottom: 8px; }
+        .sprint-burnout-label { font-size: 10px; color: #b9c9d8; margin-bottom: 3px; }
+        .sprint-burnout-bar { width: 100%; height: 7px; background: #141b22; border-radius: 4px; overflow: hidden; border: 1px solid #1f2933; }
+        .sprint-burnout-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffb84d); transition: width 0.2s, background 0.2s; }
+        .sprint-burnout-fill.warn { background: linear-gradient(90deg, #ff9800, #ff3b3b); box-shadow: 0 0 8px rgba(255,59,59,0.6); }
+        .sprint-actions { display: flex; gap: 8px; }
+        .sprint-actions button { flex: 1; margin: 0; font-size: 12px; padding: 9px; }
+        .sprint-actions button:disabled { opacity: 0.4; }
+
+        .sprint-tier-card { background: rgba(255,255,255,0.04); border: 1px solid #26313d; border-radius: 10px; padding: 11px 12px; margin-bottom: 10px; }
+        .sprint-tier-card.locked { opacity: 0.55; }
+        .sprint-tier-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+        .sprint-tier-lock { font-size: 11px; color: #ff8a8a; font-weight: 400; }
+        .sprint-tier-desc { font-size: 11px; color: #8fa3b8; font-style: italic; margin-bottom: 6px; }
+        .sprint-tier-stats { font-size: 12px; color: #dbe6ee; margin-bottom: 4px; }
+        .sprint-tier-drop { font-size: 11px; color: var(--accent2); margin-bottom: 8px; }
+        .sprint-tier-card button { margin: 0; font-size: 13px; padding: 9px; }
+
+        #sprint-result-body { text-align: center; }
+        .sprint-result-title { font-size: 17px; font-weight: 700; color: var(--gold); margin-bottom: 10px; }
+        .sprint-result-tk { font-size: 26px; font-weight: 700; color: #39ff14; text-shadow: 0 0 12px rgba(57,255,20,0.5); margin-bottom: 8px; }
+        .sprint-result-res { font-size: 13px; line-height: 1.7; margin-bottom: 8px; }
+        .sprint-result-note { font-size: 11px; color: #ff8a8a; }
+
+        /* QTE "Баги в коді": іконка й таймер-кільце всередині зони артворку (.clickable). */
+        #sprint-qte-icon { position: absolute; z-index: 50; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transform: translate(-50%, -50%); filter: drop-shadow(0 0 8px rgba(255,59,59,0.7)); animation: sprintQtePop 0.25s ease-out; }
+        #sprint-qte-icon span { position: relative; z-index: 2; }
+        /* Таймер-кільце: зовнішня рамка рівномірно стискається до нуля за qteWindowMs —
+           простіше й надійніше за conic-gradient (той не анімується без @property). */
+        #sprint-qte-ring { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid #ff3b3b; box-sizing: border-box; transform: scale(1); }
+        @keyframes sprintQteRing { from { transform: scale(1); opacity: 1; } to { transform: scale(0.05); opacity: 0.2; } }
+        @keyframes sprintQtePop { from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
         .notices-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; line-height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff3b3b; color: #fff; font-size: 10px; font-weight: 700; text-align: center; pointer-events: none; }
         .notices-badge.urgent { animation: badgeBlink 0.9s steps(1, end) infinite; }
         @keyframes badgeBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
 
-        #heat-case-overlay, #notices-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(10,8,5,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #heat-case-overlay, #notices-screen, #sprint-tier-screen { position: fixed; inset: 0; z-index: 1700; background: rgba(10,8,5,0.94); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        #sprint-result-overlay { position: fixed; inset: 0; z-index: 1850; background: rgba(10,8,5,0.94); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
         .case-card { background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.35); border-radius: 14px; padding: 16px; max-width: 480px; margin: 0 auto; box-shadow: 0 0 30px rgba(110,198,255,0.15); }
         .case-tier { font-family: 'Courier Prime', monospace; font-size: 17px; color: var(--gold); text-align: center; margin-bottom: 3px; }
         .case-flavor { font-size: 12px; color: #8fa3b8; text-align: center; font-style: italic; margin-bottom: 12px; }
@@ -3043,7 +3088,7 @@ function buildHtml(botUsername) {
         #medcom-screen, #inspector-screen, #deferment-screen, #checkpoint-screen, #map-screen,
         #skills-screen, #offline-report, #reputation-screen, #season-screen, #war-screen,
         #season-result, #district-screen, #codex-screen, #crate-overlay, #help-overlay,
-        #room-screen, #disclaimer-overlay {
+        #room-screen, #disclaimer-overlay, #sprint-tier-screen, #sprint-result-overlay {
             padding-top: max(16px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px));
         }
         #disclaimer-overlay { position: fixed; inset: 0; z-index: 1950; background: rgba(10,8,5,0.95); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
@@ -3132,12 +3177,41 @@ function buildHtml(botUsername) {
 
     <div id="clicker-tab" class="panel active" style="text-align:center;">
         <div class="location-name" id="location-name">Бабусин Диван</div>
+        <!-- Спринти (робочі контракти, ECONOMY.SPRINTS_V2): плашка над артворком, схрони 2-8.
+             Прихована за замовчуванням — showSprintPlaque() керує видимістю за флагом і рівнем. -->
+        <div id="sprint-plaque" class="hidden">
+            <div id="sprint-idle">
+                <button id="sprint-pick-btn" onclick="openSprintTierPicker()">+ Обрати контракт</button>
+            </div>
+            <div id="sprint-active" class="hidden">
+                <div class="sprint-head">
+                    <span id="sprint-emoji">🐣</span>
+                    <span id="sprint-name" class="sprint-name">Junior</span>
+                    <span id="sprint-timer" class="sprint-timer">20:00</span>
+                </div>
+                <div class="sprint-lines-bar"><div id="sprint-lines-fill" class="sprint-lines-fill"></div></div>
+                <div class="sprint-lines-text" id="sprint-lines-text">0 / 40</div>
+                <div class="sprint-burnout-wrap">
+                    <div class="sprint-burnout-label">🔥 Вигорання <span id="sprint-burnout-text">0%</span></div>
+                    <div class="sprint-burnout-bar"><div id="sprint-burnout-fill" class="sprint-burnout-fill"></div></div>
+                </div>
+                <div class="sprint-actions">
+                    <button id="sprint-claim-btn" onclick="claimSprint()" disabled>✅ Здати</button>
+                    <button class="secondary" onclick="abandonSprint()">🚫 Відмовитись</button>
+                </div>
+            </div>
+        </div>
         <div id="clicker" class="clickable">
             <img id="clicker-img" src="/images/clicker-badge.webp" alt="Ухилянт">
             <div id="clicker-emoji" class="emoji-fallback hidden"></div>
             <div id="cosmetic-hat" class="cosmetic-hat hidden"></div>
             <div id="cosmetic-face" class="cosmetic-face hidden"></div>
             <div id="cosmetic-neck" class="cosmetic-neck hidden"></div>
+            <!-- QTE "Баги в коді": іконка з'являється в межах цієї зони, не всього екрана. -->
+            <div id="sprint-qte-icon" class="hidden" onclick="hitSprintQte(event)">
+                <div id="sprint-qte-ring"></div>
+                <span>🐛</span>
+            </div>
         </div>
         <div class="energy-wrap">
             <div class="energy-label">⚡ Енергія: <span id="energy-value">100</span>/<span id="energy-max">100</span></div>
@@ -3692,6 +3766,27 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
+    <!-- Спринти: вибір тіру контракту (Junior/Middle/Senior/Lead). -->
+    <div id="sprint-tier-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeSprintTierPicker()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">💻 Робочі контракти</h2>
+            <p style="font-size:12px; color:#8fa3b8; text-align:center; margin: 0 0 14px;">
+                Енергія платиться один раз на вході, далі темп ріже вигорання, не бак.
+            </p>
+            <div id="sprint-tiers-list"></div>
+            <button onclick="closeSprintTierPicker()" style="margin-top:6px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Спринти: результат здачі контракту. -->
+    <div id="sprint-result-overlay" class="hidden">
+        <div class="case-card">
+            <div id="sprint-result-body"></div>
+            <button onclick="closeSprintResult()">Закрити</button>
+        </div>
+    </div>
+
     <div id="raid-screen" class="hidden">
         <h1>🚨 ОБЛАВА НА РИНКУ! 🚨</h1>
         <p style="color:#fff; font-size:18px;">Тікай! Клікай швидко, щоб перелізти паркан!</p>
@@ -3841,6 +3936,10 @@ function buildHtml(botUsername) {
             adAirdropMult: 1, adConsentCount: 0,
             xp: 0, playerLevel: 1, ukhyr: 0,
             memoryGame: null,
+            // Спринти (робочі контракти, ECONOMY.SPRINTS_V2) — вимкнено за замовчуванням,
+            // прапорець приходить із /api/user. sprint === null означає IDLE (нема контракту).
+            sprintsEnabled: false, sprint: null, burnout: 0, burnoutMax: 100,
+            burnoutThreshold: 80, focusStat: 1, sprintTiers: [],
         };
 
         const ui = {
@@ -3953,6 +4052,9 @@ function buildHtml(botUsername) {
             ui.enrVal.innerText = Math.floor(state.energy);
             ui.enrMax.innerText = Math.floor(state.maxEnergy);
             applyLocation();
+            // Плашка контракту залежить від рівня схрону (2-8) — рахуємо разом з
+            // рештою гарячого циклу, а не шукаємо кожне місце, де level міняється.
+            renderSprintPlaque();
             if (state.clanName) {
                 ui.clanLine.classList.remove('hidden');
                 ui.clanLine.innerText = '🏘 ' + state.clanName + ' (+' + Math.round((state.clanBonus - 1) * 100) + '% пасиву)';
@@ -5291,6 +5393,253 @@ function buildHtml(botUsername) {
             else if (!data.inspector && inspectorState && Date.now() - inspectorOpenedAt > 2000) closeInspector();
         }
 
+        // ===== Спринти (робочі контракти, PATCH_2.0_SPRINTS_SPEC.md) =====
+        // Вимкнено за ECONOMY.SPRINTS_V2 (false за замовчуванням) — уся плашка й
+        // модалки просто лишаються hidden, старий клікер на схронах 2-8 не чіпається.
+        // Тапи батчуються тим самим підходом, що й бій з інспектором: локальний
+        // лічильник sprintClicks + інтервал ECONOMY.INSPECTOR_BATCH_MS, сервер лишається
+        // єдиним джерелом правди щодо рядків/вигорання/QTE.
+        let sprintClicks = 0;
+        let sprintBatchTimer = null;
+        let sprintQteShown = false;
+        let sprintQteTimeout = null;
+
+        // Плашка над артворком показується лише коли флаг увімкнений І гравець уже
+        // не на схроні 1 (там лишається старий клікер, як вирішено в Р0).
+        function renderSprintPlaque() {
+            const plaque = document.getElementById('sprint-plaque');
+            if (!plaque) return;
+            const show = state.sprintsEnabled && (state.level || 1) >= 2;
+            plaque.classList.toggle('hidden', !show);
+            if (!show) return;
+            const idle = document.getElementById('sprint-idle');
+            const active = document.getElementById('sprint-active');
+            if (state.sprint) {
+                idle.classList.add('hidden');
+                active.classList.remove('hidden');
+                document.getElementById('sprint-emoji').innerText = state.sprint.emoji;
+                document.getElementById('sprint-name').innerText = state.sprint.name;
+                const pct = Math.max(0, Math.min(100, 100 * state.sprint.linesDone / state.sprint.linesTotal));
+                document.getElementById('sprint-lines-fill').style.width = pct + '%';
+                document.getElementById('sprint-lines-text').innerText =
+                    Math.floor(state.sprint.linesDone) + ' / ' + state.sprint.linesTotal;
+                document.getElementById('sprint-timer').innerText = fmtCountdown(state.sprint.msLeft);
+                const burnPct = Math.max(0, Math.min(100, state.burnout || 0));
+                const bf = document.getElementById('sprint-burnout-fill');
+                bf.style.width = burnPct + '%';
+                bf.classList.toggle('warn', burnPct >= (state.burnoutThreshold || 80));
+                document.getElementById('sprint-burnout-text').innerText = Math.round(burnPct) + '%';
+                const canClaim = state.sprint.linesDone >= state.sprint.linesTotal || state.sprint.expired;
+                document.getElementById('sprint-claim-btn').disabled = !canClaim;
+            } else {
+                idle.classList.remove('hidden');
+                active.classList.add('hidden');
+            }
+        }
+
+        // Батч-таймер живе, поки є активний контракт — так само, як inspectorBatchTimer
+        // живе, поки відкритий бій. Запускаємо/гасимо тут одним місцем після КОЖНОЇ
+        // відповіді сервера, а не розкидаємо start/stop по кожному обробнику.
+        function ensureSprintBatchTimer() {
+            if (state.sprint && !sprintBatchTimer) {
+                sprintBatchTimer = setInterval(flushSprintClicks, ECONOMY.INSPECTOR_BATCH_MS);
+            } else if (!state.sprint && sprintBatchTimer) {
+                clearInterval(sprintBatchTimer);
+                sprintBatchTimer = null;
+                sprintClicks = 0;
+            }
+        }
+
+        // Спільна точка застосування sprintSnapshot() з БУДЬ-ЯКОЇ відповіді сервера
+        // (/api/sprint, /start, /tap, /qte, /claim, /abandon мають однаковий контракт).
+        function applySprintSnapshot(data) {
+            if (!data) return;
+            if ('sprint' in data) state.sprint = data.sprint;
+            if (typeof data.burnout === 'number') state.burnout = data.burnout;
+            if (typeof data.burnoutMax === 'number') state.burnoutMax = data.burnoutMax;
+            if (typeof data.burnoutThreshold === 'number') state.burnoutThreshold = data.burnoutThreshold;
+            if (typeof data.focusStat === 'number') state.focusStat = data.focusStat;
+            if (Array.isArray(data.tiers)) state.sprintTiers = data.tiers;
+            renderSprintPlaque();
+            ensureSprintBatchTimer();
+            if (state.sprint && state.sprint.qte) showSprintQte(state.sprint.qte);
+            else hideSprintQte();
+        }
+
+        async function flushSprintClicks() {
+            if (!state.sprint || !sprintClicks) return;
+            const clicks = sprintClicks;
+            sprintClicks = 0;
+            try {
+                const res = await apiFetch('/api/sprint/tap', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, clicks }),
+                });
+                const data = await res.json();
+                if (!data.success) { applySprintSnapshot(data); return; }
+                applySprintSnapshot(data);
+                if (data.qte) { tg.HapticFeedback.notificationOccurred('warning'); }
+                if (data.done) { tg.HapticFeedback.notificationOccurred('success'); }
+            } catch (e) { /* наступний батч спробує ще раз */ }
+        }
+
+        // QTE "Баги в коді" — іконка з'являється у випадковій точці в межах САМОЇ зони
+        // артворку (.clickable), не всього екрана, з таймером-кільцем на qte.ms.
+        function showSprintQte(qte) {
+            if (sprintQteShown) return;
+            sprintQteShown = true;
+            const zone = document.getElementById('clicker');
+            const icon = document.getElementById('sprint-qte-icon');
+            const rect = zone.getBoundingClientRect();
+            const pad = 32;
+            const w = Math.max(1, rect.width - pad * 2);
+            const h = Math.max(1, rect.height - pad * 2);
+            icon.style.left = (pad + Math.random() * w) + 'px';
+            icon.style.top = (pad + Math.random() * h) + 'px';
+            icon.classList.remove('hidden');
+            const remaining = Math.max(200, qte.ms - (Date.now() - qte.at));
+            const ring = document.getElementById('sprint-qte-ring');
+            ring.style.animation = 'none';
+            void ring.offsetWidth;
+            ring.style.animation = 'sprintQteRing ' + remaining + 'ms linear forwards';
+            if (sprintQteTimeout) clearTimeout(sprintQteTimeout);
+            // Не встиг — просто ховаємо іконку локально. Прострочення сам зарахує
+            // сервер при наступному дотику до спринту (tap/claim/abandon), той самий
+            // контракт, що вже описаний у routes/sprints.js — клієнт нічого не вигадує.
+            sprintQteTimeout = setTimeout(hideSprintQte, remaining);
+        }
+        function hideSprintQte() {
+            sprintQteShown = false;
+            if (sprintQteTimeout) { clearTimeout(sprintQteTimeout); sprintQteTimeout = null; }
+            const icon = document.getElementById('sprint-qte-icon');
+            if (icon) icon.classList.add('hidden');
+        }
+        window.hitSprintQte = async (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            if (!sprintQteShown) return;
+            hideSprintQte();
+            try {
+                const res = await apiFetch('/api/sprint/qte', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, hit: true }),
+                });
+                const data = await res.json();
+                applySprintSnapshot(data);
+                tg.HapticFeedback.notificationOccurred(data.hit ? 'success' : 'error');
+            } catch (e2) { /* наступний tap все одно синхронізує стан */ }
+        };
+
+        window.openSprintTierPicker = async () => {
+            try {
+                const res = await apiFetch('/api/sprint?id=' + user.id);
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Спринти поки недоступні');
+                applySprintSnapshot(data);
+                renderSprintTiers(state.sprintTiers);
+                document.getElementById('sprint-tier-screen').classList.remove('hidden');
+            } catch (e) { tg.showAlert('Не вдалося завантажити контракти'); }
+        };
+        window.closeSprintTierPicker = () => document.getElementById('sprint-tier-screen').classList.add('hidden');
+
+        function renderSprintTiers(tiers) {
+            const list = document.getElementById('sprint-tiers-list');
+            if (!list) return;
+            list.innerHTML = (tiers || []).map((t) => {
+                const drop = (t.dropTable || []).map((d) => {
+                    const meta = RESOURCE_BY_ID[d.res];
+                    if (!meta) return '';
+                    return meta.emoji + ' ' + meta.name + ' ×' + d.qty + (d.chance < 1 ? ' (' + Math.round(d.chance * 100) + '%)' : '');
+                }).join(', ');
+                return '<div class="sprint-tier-card' + (t.locked ? ' locked' : '') + '">' +
+                    '<div class="sprint-tier-head"><span>' + t.emoji + ' ' + esc(t.name) + '</span>' +
+                    (t.locked ? '<span class="sprint-tier-lock">🔒 Потрібен ' + t.minLevel + ' рівень схрону</span>' : '') +
+                    '</div>' +
+                    '<div class="sprint-tier-desc">' + esc(t.desc) + '</div>' +
+                    '<div class="sprint-tier-stats">⚡ ' + t.energyCost + ' · ⌨️ ' + t.taps + ' тапів · ⏱ ' +
+                        t.deadlineMin + ' хв · до ' + fmtNum(t.payout) + ' 🪙</div>' +
+                    '<div class="sprint-tier-drop">Дроп: ' + (drop || '—') + '</div>' +
+                    '<button' + (t.locked ? ' disabled' : '') + ' onclick="startSprint(\\'' + t.id + '\\')">Взяти контракт</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        window.startSprint = async (tierId) => {
+            try {
+                const res = await apiFetch('/api/sprint/start', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id, tier: tierId }),
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Не вдалося почати контракт');
+                if (typeof data.energy === 'number') state.energy = data.energy;
+                applySprintSnapshot(data);
+                closeSprintTierPicker();
+                tg.HapticFeedback.notificationOccurred('success');
+                updateUI();
+            } catch (e) { tg.showAlert('Не вдалося почати контракт'); }
+        };
+
+        window.claimSprint = async () => {
+            try {
+                const res = await apiFetch('/api/sprint/claim', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: user.id }),
+                });
+                const data = await res.json();
+                if (!data.success) return tg.showAlert(data.message || 'Контракт ще не закритий');
+                if (typeof data.balance === 'number') state.balance = data.balance;
+                if (data.resources) state.resources = data.resources;
+                applySprintSnapshot(data);
+                showSprintResult(data);
+                tg.HapticFeedback.notificationOccurred('success');
+                renderStorage();
+                updateUI();
+            } catch (e) { tg.showAlert('Не вдалося здати контракт'); }
+        };
+
+        window.abandonSprint = () => {
+            // Втрата прогресу й енергії входу — незворотна дія, питаємо підтвердження
+            // так само, як і перед "здати сусіда".
+            tg.showConfirm('Кинути контракт? Весь прогрес і витрачена на вхід енергія згорять.', async (ok) => {
+                if (!ok) return;
+                try {
+                    const res = await apiFetch('/api/sprint/abandon', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: user.id }),
+                    });
+                    const data = await res.json();
+                    applySprintSnapshot(data);
+                } catch (e) { /* нехай наступний GET /api/sprint підхопить реальний стан */ }
+            });
+        };
+
+        function showSprintResult(data) {
+            const title = data.done ? '✅ Контракт здано' : '⏰ Здано по дедлайну (не все дописано)';
+            const resLines = (data.reward.res || []).map((r) =>
+                r.emoji + ' ' + esc(r.name) + ' ×' + r.added +
+                (r.lost ? ' <span style="color:#ff8a8a;">(втрачено ' + r.lost + ' — кладовка повна)</span>' : '')
+            ).join('<br>');
+            document.getElementById('sprint-result-body').innerHTML =
+                '<div class="sprint-result-title">' + title + '</div>' +
+                '<div class="sprint-result-tk">+' + fmtNum(data.reward.tk) + ' 🪙</div>' +
+                (resLines ? '<div class="sprint-result-res">' + resLines + '</div>' : '') +
+                (data.missedQte ? '<div class="sprint-result-note">🐛 Пропущено багів: ' + data.missedQte + ' (штраф до нагороди вже враховано)</div>' : '');
+            document.getElementById('sprint-result-overlay').classList.remove('hidden');
+        }
+        window.closeSprintResult = () => document.getElementById('sprint-result-overlay').classList.add('hidden');
+
+        // Дедлайн-таймер: окремий секундний інтервал, а не гарячий 100мс-цикл —
+        // той самий підхід, що й таймери повісток нижче.
+        setInterval(() => {
+            if (!state.sprint) return;
+            state.sprint.msLeft = Math.max(0, state.sprint.deadline - Date.now());
+            state.sprint.expired = state.sprint.msLeft <= 0;
+            const timerEl = document.getElementById('sprint-timer');
+            if (timerEl) timerEl.innerText = fmtCountdown(state.sprint.msLeft);
+            const claimBtn = document.getElementById('sprint-claim-btn');
+            if (claimBtn) claimBtn.disabled = !(state.sprint.linesDone >= state.sprint.linesTotal || state.sprint.expired);
+        }, 1000);
+
         // ===== PvP: "Здати сусіда" =====
         // Порівняння профілів. Тап по гравцю в лідерборді — єдина точка входу
         // в стук: спершу бачиш, з ким маєш справу, і лише потім тиснеш кнопку.
@@ -5607,6 +5956,7 @@ function buildHtml(botUsername) {
                 state.playerLevel = data.playerLevel || 1;
                 state.ukhyr = data.ukhyr || 0;
                 state.memoryGame = data.memoryGame || null;
+                state.sprintsEnabled = !!data.sprintsEnabled;
                 applyLevelGates();
                 state.nickname = data.nickname || null;
                 document.getElementById('username').innerText = state.nickname || user.first_name;
@@ -5638,6 +5988,15 @@ function buildHtml(botUsername) {
                 }
             } catch (e) {
                 console.error('Не вдалося завантажити стан гравця', e);
+            }
+            // Спринти: підтягуємо активний контракт (якщо є) одразу на вході — інакше
+            // після перезаходу плашка показала б IDLE, хоча контракт усе ще йде.
+            if (state.sprintsEnabled && (state.level || 1) >= 2) {
+                try {
+                    const sres = await apiFetch('/api/sprint?id=' + user.id);
+                    const sdata = await sres.json();
+                    if (sdata.success) applySprintSnapshot(sdata);
+                } catch (e) { /* плашка просто лишиться в IDLE */ }
             }
             // Курс біржі потрібен ще й кладовці (ціна здачі ресурсів), тому тягнемо
             // його одразу на старті, а не лише при відкритті вкладки біржі.
@@ -5794,6 +6153,18 @@ function buildHtml(botUsername) {
 
         function handleMainClick(e) {
             e.preventDefault();
+            // Спринти (схрони 2-8, ECONOMY.SPRINTS_V2): артворк повністю замінює старий
+            // клік, тапи йдуть батчами на сервер (той самий підхід, що й бій з інспектором),
+            // сам сервер лишається авторитетним щодо рядків/вигорання. Без активного
+            // контракту клік по артворку тут нічого не робить — вхід лише через плашку.
+            if (state.sprintsEnabled && (state.level || 1) >= 2) {
+                if (state.sprint) {
+                    sprintClicks++;
+                    tg.HapticFeedback.impactOccurred('light');
+                    pulseFrame();
+                }
+                return;
+            }
             // "Вручення в руки" забирає пів години — весь цей час клікати нічим.
             if (energyLocked()) {
                 tg.HapticFeedback.notificationOccurred('error');
