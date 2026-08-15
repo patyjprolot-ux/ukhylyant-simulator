@@ -76,10 +76,19 @@ module.exports = function registerEconomyRoutes(app, deps) {
         if (user.resources[resId] <= 0) delete user.resources[resId];
         // Ціна — за поточним курсом біржі (meta.sell лишається базою, навколо якої він гуляє).
         // Тому вигідно поглядати на біржу перед тим, як здавати запаси.
-        const price = marketState.prices[resId] || meta.sell;
+        let price = marketState.prices[resId] || meta.sell;
+        // «Своя людина на біржі» (2026-08-16): раз на добу — гарантована преміум-
+        // ціна на весь цей один продаж (не на одиницю), незалежно від курсу.
+        const today = new Date().toDateString();
+        let marketFriendUsed = false;
+        if (hasSkill(user, 'marketfriend') && user.marketFriendUsedDate !== today) {
+            price = Math.round(price * (1 + ECONOMY.SKILL_MARKETFRIEND_BONUS));
+            user.marketFriendUsedDate = today;
+            marketFriendUsed = true;
+        }
         const earned = qty * price;
         user.balance += earned;
-        res.json({ success: true, earned, price, balance: user.balance, ...storageSnapshot(user) });
+        res.json({ success: true, earned, price, marketFriendUsed, balance: user.balance, ...storageSnapshot(user) });
     });
 
     // ---- Переїзд у новий схрон (еволюція локації) ----
@@ -247,7 +256,10 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // Щит від облав (Білий Квиток / липова довідка) прибирає ризик спалитись —
         // це робить крафт щитів осмисленим і для вилазок теж.
         const shielded = hasActiveShield(user);
-        if (!shielded && Math.random() < exp.risk * (pet.riskMult || 1)) {
+        // «Легкий крок» (2026-08-16): −10% шансу провалу вилазки — множник на
+        // сам ризик, стакається з компаньйоном-щуром (pet.riskMult) множенням.
+        const skillRiskMult = hasSkill(user, 'lightstep') ? (1 - ECONOMY.SKILL_EXPEDITION_FAIL_CUT) : 1;
+        if (!shielded && Math.random() < exp.risk * (pet.riskMult || 1) * skillRiskMult) {
             return res.json({
                 success: true, caught: true,
                 message: 'Тебе помітили — довелось тікати без здобичі.',
@@ -259,6 +271,9 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // тим більше уваги вона привертає.
         changeHeat(user, Math.min(ECONOMY.HEAT_EXPEDITION_CAP, ECONOMY.HEAT_EXPEDITION_PER_LEVEL * exp.minLevel), 'Вилазка: ' + exp.name);
 
+        // «Дрібний облік» (2026-08-16): +10% ресурсів, але ТІЛЬКИ з вилазок —
+        // вужче за стару «Свої люди» (ourpeople), яка бере всі джерела разом.
+        const skillLootMult = hasSkill(user, 'pettycash') ? (1 + ECONOMY.SKILL_EXPEDITION_RESOURCE_BONUS) : 1;
         const gained = [];
         for (const entry of exp.loot) {
             // entry.chance (необов'язкове поле) — рідкісний шанс-дроп замість
@@ -266,7 +281,7 @@ module.exports = function registerEconomyRoutes(app, deps) {
             if (entry.chance !== undefined && Math.random() >= entry.chance) continue;
             const meta = RESOURCE_BY_ID[entry.res];
             const base = entry.min + Math.random() * (entry.max - entry.min);
-            const qty = Math.max(1, Math.round(base * (pet.lootMult || 1)));
+            const qty = Math.max(1, Math.round(base * (pet.lootMult || 1) * skillLootMult));
             const { added, lost } = addResource(user, entry.res, qty);
             if (added > 0 || lost > 0) gained.push({ emoji: meta.emoji, name: meta.name, added, lost });
         }
@@ -327,8 +342,14 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // «Схема»: іноді потрібні речі знаходяться самі, і ресурси лишаються цілі.
         const freeCraft = hasSkill(user, 'scheme') && Math.random() < ECONOMY.SKILL_CRAFT_FREE_CHANCE;
         if (!freeCraft) {
+            // «Знижка гуртом» (2026-08-16): −8% вартості крафту. Кількості ресурсів
+            // цілі, тому на дешевих рецептах (<12 од.) округлення вгору (ceil)
+            // часто дає 0 різниці — це очікувано, ефект помітний саме на дорогих
+            // рецептах (Білий Квиток, склейка донат-ящиків).
+            const craftMult = hasSkill(user, 'bulkdiscount') ? (1 - ECONOMY.SKILL_CRAFT_DISCOUNT) : 1;
             for (const [resId, need] of Object.entries(recipe.cost)) {
-                user.resources[resId] -= need;
+                const actualNeed = craftMult < 1 ? Math.max(1, Math.ceil(need * craftMult)) : need;
+                user.resources[resId] -= actualNeed;
                 if (user.resources[resId] <= 0) delete user.resources[resId];
             }
         }

@@ -183,26 +183,41 @@ const ECONOMY = {
     CHECKPOINT_RESOURCE_LOSS: 0.30,
 
     // --- Дерево навичок (за довідки легалізації) ---
+    // Розширено 2026-08-16 (PATCH_2.0_SKILL_TREE_EXPANDED.md): 18 -> 27 навичок.
+    // Бафи старих навичок зрізані у 2-2.5 рази — той самий сумарний "стеля" ефект,
+    // розтягнута по більшій кількості вузлів, щоб прокачка тривала весь перший
+    // поверх, а не закінчувалась за годину.
     SKILL_RESET_COST_TK: 500000,     // перше скидання безкоштовне
-    SKILL_HEAT_GAIN_CUT: 0.15,       // Тихіше води
-    SKILL_ESCAPE_BONUS: 0.20,        // Знаю прохідні двори
-    SKILL_SNITCH_FAIL_CHANCE: 0.30,  // Дві сімки
-    SKILL_BRIBE_CUT: 0.30,           // Свій у ЖЕКу
-    SKILL_RAID_WARNING_SEC: 10,      // Чуйка
-    SKILL_DECAY_MULT: 2,             // Привид району
-    SKILL_SELL_BONUS: 0.12,          // Знайомий перекуп
-    SKILL_CRATE_DISCOUNT: 0.15,      // Оптова закупка
-    SKILL_CLAN_MULT: 1.5,            // Кум у сільраді
-    SKILL_RESOURCE_BONUS: 0.25,      // Свої люди
-    SKILL_CRAFT_FREE_CHANCE: 0.20,   // Схема
-    SKILL_MAX_ENERGY_BONUS: 25,      // Загартований
-    SKILL_REGEN_BONUS: 0.40,         // Друге дихання
-    SKILL_CLICK_BONUS: 0.30,         // Мозоль
-    SKILL_PENALTY_CUT: 0.50,         // Незламний
+    SKILL_HEAT_GAIN_CUT: 0.07,       // Тихіше води (було 0.15)
+    SKILL_ESCAPE_BONUS: 0.10,        // Знаю прохідні двори (було 0.20)
+    SKILL_SNITCH_FAIL_CHANCE: 0.18,  // Дві сімки (було 0.30)
+    SKILL_BRIBE_CUT: 0.15,           // Свій у ЖЕКу (було 0.30)
+    SKILL_RAID_WARNING_SEC: 10,      // Чуйка — механіка попередження ще НЕ реалізована (відомий пробіл, див. PATCH_2.0_SKILL_TREE_RESEARCH.md)
+    SKILL_DECAY_MULT: 1.35,          // Привид району (було 2 — вдвічі)
+    SKILL_SELL_BONUS: 0.06,          // Знайомий перекуп (було 0.12)
+    SKILL_CRATE_DISCOUNT: 0.08,      // Оптова закупка (було 0.15)
+    SKILL_CLAN_MULT: 1.2,            // Кум у сільраді (було 1.5)
+    SKILL_RESOURCE_BONUS: 0.12,      // Свої люди (було 0.25)
+    SKILL_CRAFT_FREE_CHANCE: 0.10,   // Схема (було 0.20)
+    SKILL_MAX_ENERGY_BONUS: 25,      // Загартований — прибрано з дерева (замінений Витривалою спиною), лишено для сумісності зі старими збереженнями
+    SKILL_REGEN_BONUS: 0.20,         // Друге дихання (було 0.40)
+    SKILL_CLICK_BONUS: 0.15,         // Мозоль (було 0.30)
+    SKILL_PENALTY_CUT: 0.25,         // Незламний (було 0.50)
     // Аудит балансу (2026-08-07): раніше клік коштував 1 енергії замість 2 (повне
-    // подвоєння кліків на баку) — надто сильно для 3-ї з 6 навичок гілки. 1.5
-    // лишає відчутний, але не ламаючий баланс ефект (+33% кліків замість +100%).
-    SKILL_LIGHTHAND_ENERGY_COST: 1.5, // Легка рука
+    // подвоєння кліків на баку) — надто сильно. 2026-08-16: тепер це перший,
+    // найслабший крок гілки (доступний з рівня 1) — 1.8 замість 1.5.
+    SKILL_LIGHTHAND_ENERGY_COST: 1.8, // Легка рука
+    // --- Нові навички розширеного дерева (2026-08-16) ---
+    SKILL_EXPEDITION_FAIL_CUT: 0.10,   // Легкий крок — менший шанс провалу вилазки
+    SKILL_BACKDOOR_DEFERMENT_DAYS: 7,  // Запасний вихід — 1 безкоштовна відстрочка на цей період
+    SKILL_INSPECTOR_SPAWN_CUT: 0.20,   // Довірена людина
+    SKILL_EXPEDITION_RESOURCE_BONUS: 0.10, // Дрібний облік — тільки лут з вилазок
+    SKILL_CRAFT_DISCOUNT: 0.08,        // Знижка гуртом — вартість крафту в ресурсах
+    SKILL_MARKETFRIEND_BONUS: 0.40,    // Своя людина на біржі — гарантована преміум-ціна (як REP_TOLIK_SELL_BONUS), 1 раз/добу
+    SKILL_STURDYBACK_MAX_ENERGY: 12,   // Витривала спина
+    SKILL_MORNING_COFFEE_REGEN: 0.05,  // Ранкова кава
+    SKILL_BURNOUT_TAP_CUT: 0.10,       // Стійкість до вигорання
+    SKILL_BURNOUT_DECAY_BONUS: 0.15,   // Гострий фокус
 
     // --- Міні-ігри ---
     MINIGAME_STAKE_MIN: 100,

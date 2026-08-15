@@ -830,7 +830,11 @@ function maybeSpawnInspector(user, now = Date.now()) {
     // на клієнті.
     if ((user.playerLevel || 1) < 10) return false;
     if (now < (user.inspectorCooldownUntil || 0)) return false;
-    if (Math.random() >= ECONOMY.INSPECTOR_SPAWN_CHANCE) return false;
+    // «Довірена людина» (2026-08-16): −20% шансу, що інспектор взагалі спавниться.
+    const spawnChance = hasSkill(user, 'trusted')
+        ? ECONOMY.INSPECTOR_SPAWN_CHANCE * (1 - ECONOMY.SKILL_INSPECTOR_SPAWN_CUT)
+        : ECONOMY.INSPECTOR_SPAWN_CHANCE;
+    if (Math.random() >= spawnChance) return false;
 
     const candidates = INSPECTORS.filter((i) => inspectorAvailable(user, i));
     if (!candidates.length) return false;
@@ -1609,10 +1613,11 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
             if (backup.skills[id]) user.skills[id] = true;
         }
     }
-    // maxEnergy із бекапу ВЖЕ містить бонус від «Загартованого», тому лише
-    // синхронізуємо бухгалтерію, не чіпаючи саме число: інакше applySkillLimits
-    // нарахував би ці +25 удруге.
-    user.skillEnergyBonus = hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0;
+    // maxEnergy із бекапу ВЖЕ містить бонус від навичок, тому лише синхронізуємо
+    // бухгалтерію, не чіпаючи саме число: інакше applySkillLimits нарахував би
+    // цей бонус удруге.
+    user.skillEnergyBonus = (hasSkill(user, 'hardened') ? ECONOMY.SKILL_MAX_ENERGY_BONUS : 0)
+        + (hasSkill(user, 'sturdyback') ? ECONOMY.SKILL_STURDYBACK_MAX_ENERGY : 0);
     // Перемоги над інспекторами лежать вкладеним словником, тому окремо й лише
     // за відомими id — щоб бекап не вигадав неіснуючого боса.
     if (backup.inspectorStats && typeof backup.inspectorStats === 'object') {
@@ -2242,12 +2247,20 @@ function skillsSnapshot(user) {
         skillResetCost: (user.skillResetsUsed || 0) === 0 ? 0 : ECONOMY.SKILL_RESET_COST_TK,
         branches: SKILL_BRANCHES.map((br) => ({
             id: br.id, emoji: br.emoji, name: br.name, desc: br.desc,
-            skills: br.skills.map((s, i) => ({
-                id: s.id, name: s.name, desc: s.desc,
-                owned: !!(user.skills || {})[s.id],
-                // Наступну в гілці можна брати лише після попередньої.
-                available: i === 0 || !!(user.skills || {})[br.skills[i - 1].id],
-            })),
+            skills: br.skills.map((s, i) => {
+                // Наступну в гілці можна брати лише після попередньої, І лише
+                // якщо схрон досяг minLevel (розширене дерево, 2026-08-16) —
+                // тир 3 із гейтом рівня 6 недоступний навіть за наявності
+                // попередніх навичок, поки гравець не дійшов до потрібного схрону.
+                const sequenceOk = i === 0 || !!(user.skills || {})[br.skills[i - 1].id];
+                const levelOk = (user.level || 1) >= (s.minLevel || 1);
+                return {
+                    id: s.id, name: s.name, desc: s.desc, minLevel: s.minLevel || 1,
+                    owned: !!(user.skills || {})[s.id],
+                    available: sequenceOk && levelOk,
+                    lockedByLevel: sequenceOk && !levelOk,
+                };
+            }),
         })),
     };
 }
@@ -2489,7 +2502,7 @@ require('./routes/economy')(app, {
 // false): роути зареєстровані завжди, але поки прапорець вимкнено — одразу
 // відповідають відмовою, старий клікер працює як раніше.
 require('./routes/sprints')(app, {
-    requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
+    requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID, hasSkill,
     addResource, storageSnapshot, serverBatchWindow,
     SPRINT_TIER_BY_ID, sprintSnapshot, sprintPayout,
     decayBurnout, burnoutPerTap, burnoutTapMult,
@@ -2747,6 +2760,7 @@ function buildHtml(botUsername) {
         .skill-node.owned .skill-dot { background: #39ff14; color: #08210a; }
         .skill-name { font-size: 13px; font-weight: 700; }
         .skill-desc { font-size: 11px; color: #8fa3b8; line-height: 1.4; }
+        .skill-locked-hint { font-size: 10px; color: #e0574f; font-weight: normal; }
         .skill-node button { width: auto; margin: 0 0 0 auto; padding: 6px 12px; font-size: 12px; flex-shrink: 0; align-self: center; }
 
         /* Перемикач ×1/×10/MAX для апгрейдів */
@@ -4950,7 +4964,10 @@ function buildHtml(botUsername) {
         function hasSkill(id) { return !!(state.skills || {})[id]; }
         function clickEnergyCost() { return hasSkill('lighthand') ? ECONOMY.SKILL_LIGHTHAND_ENERGY_COST : ECONOMY.ENERGY_PER_CLICK; }
         function skillClickMult() { return hasSkill('callus') ? 1 + ECONOMY.SKILL_CLICK_BONUS : 1; }
-        function skillRegenMult() { return hasSkill('secondwind') ? 1 + ECONOMY.SKILL_REGEN_BONUS : 1; }
+        function skillRegenMult() {
+            return (hasSkill('secondwind') ? 1 + ECONOMY.SKILL_REGEN_BONUS : 1)
+                * (hasSkill('morningcoffee') ? 1 + ECONOMY.SKILL_MORNING_COFFEE_REGEN : 1);
+        }
 
         window.openSkills = async () => {
             try {
@@ -4976,9 +4993,12 @@ function buildHtml(botUsername) {
                 '<div class="skill-branch-desc">' + esc(br.desc) + '</div>' +
                 br.skills.map((s, i) => {
                     const canBuy = !s.owned && s.available && data.skillPoints > 0;
+                    // lockedByLevel (2026-08-16): гейт рівня схрону, окремий від
+                    // послідовності — показуємо конкретну причину, а не просто "закрито".
+                    const hint = s.lockedByLevel ? ' <span class="skill-locked-hint">(потрібен схрон ' + s.minLevel + ')</span>' : '';
                     return '<div class="skill-node' + (s.owned ? ' owned' : (s.available ? '' : ' locked')) + '">' +
                         '<div class="skill-dot">' + (s.owned ? '✓' : (i + 1)) + '</div>' +
-                        '<div><div class="skill-name">' + esc(s.name) + '</div>' +
+                        '<div><div class="skill-name">' + esc(s.name) + hint + '</div>' +
                         '<div class="skill-desc">' + esc(s.desc) + '</div></div>' +
                         (s.owned ? '' : '<button onclick="buySkill(\\'' + s.id + '\\')"' +
                             (canBuy ? '' : ' disabled') + '>Взяти</button>') +

@@ -243,6 +243,12 @@ module.exports = function registerMiscRoutes(app, deps) {
         if (meta.index > 0 && !user.skills[branch.skills[meta.index - 1].id]) {
             return res.json({ success: false, message: `Спершу візьми «${branch.skills[meta.index - 1].name}»` });
         }
+        // Гейт за рівнем схрону (розширене дерево, 2026-08-16) — окремий від
+        // послідовності: тир 3 (рівень 6+) недоступний навіть з усіма попередніми
+        // навичками гілки, поки гравець фізично не дійшов до потрібного схрону.
+        if ((user.level || 1) < (meta.minLevel || 1)) {
+            return res.json({ success: false, message: `Потрібен схрон рівня ${meta.minLevel}` });
+        }
 
         user.skills[meta.id] = true;
         // Навички, що змінюють ліміти, треба застосувати одразу, а не лише при вході.

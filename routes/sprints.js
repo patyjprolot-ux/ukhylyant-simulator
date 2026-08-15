@@ -6,7 +6,7 @@
 module.exports = function registerSprintRoutes(app, deps) {
     const {
         requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
-        addResource, storageSnapshot, serverBatchWindow,
+        addResource, storageSnapshot, serverBatchWindow, hasSkill,
         SPRINT_TIER_BY_ID, sprintSnapshot, sprintPayout,
         decayBurnout, burnoutPerTap, burnoutTapMult,
         settleExpiredQte, sprintExpired, qteWindowMs,
@@ -19,11 +19,20 @@ module.exports = function registerSprintRoutes(app, deps) {
         return res.json({ success: false, message: 'Спринти ще не увімкнені' });
     }
 
+    // «Стійкість до вигорання» / «Гострий фокус» (2026-08-16) — множники з
+    // навичок дерева, застосовуються поверх базових формул lib/mechanics/sprints.
+    function burnoutResistMult(user) {
+        return hasSkill(user, 'burnoutresist') ? (1 - ECONOMY.SKILL_BURNOUT_TAP_CUT) : 1;
+    }
+    function burnoutDecayMult(user) {
+        return hasSkill(user, 'sharpfocus') ? (1 + ECONOMY.SKILL_BURNOUT_DECAY_BONUS) : 1;
+    }
+
     // Спільна підготовка стану перед будь-якою дією: відпочинок за минулий час і
     // зарахування простроченого бага. Обидва — серверні, бо обидва працюють проти
     // гравця, і клієнту тут довіряти не можна.
     function syncSprint(user) {
-        decayBurnout(user);
+        decayBurnout(user, burnoutDecayMult(user));
         settleExpiredQte(user);
     }
 
@@ -86,7 +95,7 @@ module.exports = function registerSprintRoutes(app, deps) {
 
         // Крутимо тапи по одному, а не множенням: вигорання росте ПІД ЧАС батча, і
         // саме через це останні тапи в довгій черзі мають давати менше за перші.
-        const perTap = burnoutPerTap(user.focusStat);
+        const perTap = burnoutPerTap(user.focusStat, burnoutResistMult(user));
         let lines = 0;
         let qte = null;
         for (let i = 0; i < clicks; i++) {
@@ -115,7 +124,7 @@ module.exports = function registerSprintRoutes(app, deps) {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const sprint = user.activeSprint;
         if (!sprint) return res.json({ success: false, message: 'Немає активного контракту' });
-        decayBurnout(user);
+        decayBurnout(user, burnoutDecayMult(user));
         const q = sprint.qte;
         // settleExpiredQte навмисно ПІСЛЯ зчитування q: прострочену подію теж треба
         // зарахувати як пропуск, а не мовчки відповісти "багів немає".
@@ -177,7 +186,7 @@ module.exports = function registerSprintRoutes(app, deps) {
         if (!ECONOMY.SPRINTS_V2) return disabled(res);
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         if (!user.activeSprint) return res.json({ success: false, message: 'Немає активного контракту' });
-        decayBurnout(user);
+        decayBurnout(user, burnoutDecayMult(user));
         user.activeSprint = null;
         res.json({ success: true, ...sprintSnapshot(user) });
     });

@@ -116,7 +116,21 @@ module.exports = function registerSecurityRoutes(app, deps) {
         let message = '';
         let penalty = null;
 
-        if (method === 'cover') {
+        if (method === 'backdoor') {
+            // «Запасний вихід» (2026-08-16): 1 безкоштовна відстрочка на тиждень.
+            // Тиждень рахуємо грубо (рік+номер ISO-тижня) — точність до дня тут
+            // не критична, важливо лише, що раз на ~7 діб лічильник скидається.
+            if (!hasSkill(user, 'backdoor')) return res.json({ success: false, message: 'Немає такої навички' });
+            const d = new Date();
+            const onejan = new Date(d.getFullYear(), 0, 1);
+            const week = `${d.getFullYear()}-W${Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7)}`;
+            if (user.backdoorUsedWeek === week) {
+                return res.json({ success: false, message: 'Запасний вихід уже використано цього тижня' });
+            }
+            user.backdoorUsedWeek = week;
+            resolved = true;
+            message = 'Тихо вислизнув через запасний вихід. Ніхто нічого не помітив.';
+        } else if (method === 'cover') {
             // «Прикриття» від дільничного Миколи: раз на добу він просто не дає ходу
             // папірцю. Розшук при цьому не падає — питання не вирішене, а відкладене.
             if (!repMaxed(user, 'mykola')) return res.json({ success: false, message: 'Микола тебе ще недостатньо знає' });
