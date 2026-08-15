@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Адмінка — Симулятор Ухилянта</title>
+<style>
+/* Палітра взята з гри (buildHtml у server.js), щоб панель не виглядала чужою. */
+:root{--bg:#0c1117;--panel:#161e28;--text:#d7e3ec;--muted:#9db0c2;--accent:#35516b;--accent2:#6ec6ff;--btn:#1b2530;--gold:#7ec8f0;--danger:#e0574f;--ok:#5fc27e;--warn:#e8b84b;--line:#26313d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Courier New',Courier,monospace;font-size:14px;line-height:1.45}
+a{color:var(--accent2)}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 4px;color:var(--gold)}
+.sub{color:var(--muted);font-size:12px;margin:0 0 16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+input,textarea,select{background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-family:inherit;font-size:14px;width:100%}
+textarea{min-height:120px;resize:vertical}
+button{background:var(--btn);color:var(--text);border:1px solid var(--accent);border-radius:6px;padding:9px 14px;font-family:inherit;font-size:14px;cursor:pointer}
+button:hover{border-color:var(--accent2)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent2)}
+button.danger{border-color:var(--danger);color:#ffd9d5}
+button.danger:hover{background:#3a1f1d}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{flex:1 1 auto;min-width:120px}
+.tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}
+.hidden{display:none!important}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.card{background:var(--btn);border:1px solid var(--line);border-radius:8px;padding:12px}
+.card .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.card .v{font-size:22px;color:var(--gold);margin-top:4px;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-size:11px;text-transform:uppercase;cursor:pointer;user-select:none}
+th:hover{color:var(--accent2)}
+.scroll{overflow-x:auto}
+.msg{margin-top:10px;padding:9px 11px;border-radius:6px;font-size:13px;display:none}
+.msg.show{display:block}
+.msg.ok{background:#16301f;border:1px solid var(--ok);color:#c8f0d6}
+.msg.err{background:#301a18;border:1px solid var(--danger);color:#ffd0cb}
+.msg.info{background:#141f2b;border:1px solid var(--accent);color:var(--text)}
+.cmp{background:var(--btn);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:11px;margin-bottom:10px}
+.cmp.new{border-left-color:var(--warn)}
+.cmp.read{border-left-color:var(--accent2)}
+.cmp.done{border-left-color:var(--ok)}
+.cmp .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+.cmp .text{white-space:pre-wrap;word-break:break-word;margin-bottom:8px}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;border:1px solid var(--line)}
+.warnbox{background:#2b2114;border:1px solid var(--warn);border-radius:8px;padding:11px;font-size:12px;color:#f2dfb4;margin-bottom:12px}
+.muted{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🛠 Адмінка «Симулятора Ухилянта»</h1>
+<p class="sub">Панель власника бота. Токен зберігається лише в цій вкладці браузера (sessionStorage) і зникає, коли ти її закриєш.</p>
+
+<!-- ===== Вхід ===== -->
+<div id="login" class="panel">
+    <div class="row">
+        <div style="flex:1 1 320px"><input id="token" type="password" placeholder="Адмін-токен (BOT_TOKEN)" autocomplete="off"></div>
+        <button class="primary" id="loginBtn">Увійти</button>
+    </div>
+    <div id="loginMsg" class="msg"></div>
+    <p class="muted" style="margin-bottom:0">Це той самий BOT_TOKEN, яким захищені /api/admin/backup і /api/admin/broadcast. Нікому його не показуй і не вставляй в адресний рядок.</p>
+</div>
+
+<!-- ===== Панель ===== -->
+<div id="app" class="hidden">
+    <div class="tabs">
+        <button data-tab="stats" class="active">📊 Статистика</button>
+        <button data-tab="players">👥 Гравці</button>
+        <button data-tab="complaints">📝 Книга скарг</button>
+        <button data-tab="broadcast">📢 Розсилка</button>
+        <button id="logoutBtn" style="flex:0 0 auto">Вийти</button>
+    </div>
+
+    <!-- Статистика -->
+    <div id="tab-stats" class="tabpage">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;margin-bottom:12px">
+                <strong>Зведення</strong><button id="statsReload">Оновити</button>
+            </div>
+            <div id="statsCards" class="cards"></div>
+            <div id="statsLevels" style="margin-top:14px"></div>
+            <div id="statsMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Гравці -->
+    <div id="tab-players" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="margin-bottom:12px">
+                <div style="flex:1 1 220px"><input id="pQuery" placeholder="Пошук: імʼя, нік або id"></div>
+                <select id="pLimit" style="width:auto"><option>25</option><option>50</option><option>100</option></select>
+                <button id="pSearch">Знайти</button>
+            </div>
+            <div class="scroll"><table>
+                <thead><tr>
+                    <th data-sort="name">Гравець</th><th>Telegram id</th>
+                    <th data-sort="level">Схрон</th><th data-sort="playerLevel">Рівень</th>
+                    <th data-sort="balance">Баланс</th><th data-sort="ukhyr">Ухирація</th>
+                    <th data-sort="lastSeenAt">Останній вхід</th><th>VIP</th>
+                </tr></thead>
+                <tbody id="pBody"></tbody>
+            </table></div>
+            <div class="row" style="margin-top:12px;justify-content:space-between">
+                <button id="pPrev">← Назад</button>
+                <span id="pInfo" class="muted"></span>
+                <button id="pNext">Далі →</button>
+            </div>
+            <div id="pMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Книга скарг -->
+    <div id="tab-complaints" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="margin-bottom:12px">
+                <select id="cStatus" style="width:auto">
+                    <option value="">Усі статуси</option><option value="new">Нові</option>
+                    <option value="read">Прочитані</option><option value="done">Оброблені</option>
+                </select>
+                <select id="cKind" style="width:auto">
+                    <option value="">Усе</option><option value="bug">🐞 Баги</option><option value="idea">💡 Пропозиції</option>
+                </select>
+                <button id="cReload">Оновити</button>
+                <span id="cStats" class="muted"></span>
+            </div>
+            <div id="cList"></div>
+            <div id="cMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Розсилка -->
+    <div id="tab-broadcast" class="tabpage hidden">
+        <div class="panel">
+            <div class="warnbox">⚠️ Розсилка йде РЕАЛЬНИМ людям у Telegram і її не можна відкликати. Спершу тисни «Попередній перегляд» і перечитай текст.</div>
+            <textarea id="bText" placeholder="Текст повідомлення від розробника…"></textarea>
+            <div class="row" style="margin-top:10px">
+                <button id="bPreview">🔍 Попередній перегляд</button>
+                <button id="bSend" class="danger" disabled>📢 Надіслати всім</button>
+                <span id="bHint" class="muted">Кнопка розсилки розблокується після перегляду.</span>
+            </div>
+            <div id="bMsg" class="msg"></div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+// Токен живе ТІЛЬКИ в sessionStorage і ТІЛЬКИ в заголовку x-admin-token.
+// Ніколи не в URL (потрапляє в історію, логи проксі й Referer), ніколи в
+// console.log, ніколи у файлі.
+const TOKEN_KEY = 'ukhylyant_admin_token';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (n) => Number(n || 0).toLocaleString('uk-UA');
+
+function token() { return sessionStorage.getItem(TOKEN_KEY) || ''; }
+
+function say(el, text, kind) {
+    el.className = 'msg show ' + (kind || 'info');
+    el.textContent = text;
+}
+function clearMsg(el) { el.className = 'msg'; el.textContent = ''; }
+
+async function api(path, options) {
+    const opts = Object.assign({ headers: {} }, options || {});
+    opts.headers = Object.assign({}, opts.headers, { 'x-admin-token': token() });
+    if (opts.body) opts.headers['Content-Type'] = 'application/json';
+    const res = await fetch(path, opts);
+    if (res.status === 403) {
+        // Токен протух/невірний — виганяємо на екран входу, а не показуємо
+        // порожні таблиці, з яких незрозуміло, що саме зламалось.
+        logout('Доступ заборонено. Перевір токен.');
+        throw new Error('forbidden');
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) throw new Error((data && (data.error || data.message)) || ('HTTP ' + res.status));
+    return data;
+}
+
+function showApp() { $('login').classList.add('hidden'); $('app').classList.remove('hidden'); loadStats(); }
+function logout(reason) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+    $('token').value = '';
+    if (reason) say($('loginMsg'), reason, 'err'); else clearMsg($('loginMsg'));
+}
+
+$('loginBtn').onclick = async () => {
+    const t = $('token').value.trim();
+    if (!t) return say($('loginMsg'), 'Введи токен.', 'err');
+    sessionStorage.setItem(TOKEN_KEY, t);
+    $('token').value = ''; // не тримаємо секрет у DOM довше, ніж треба
+    try {
+        await api('/api/admin/stats');   // перевірка токена реальним запитом
+        clearMsg($('loginMsg'));
+        showApp();
+    } catch (e) { /* api() уже показала помилку через logout() */ }
+};
+$('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+$('logoutBtn').onclick = () => logout();
+
+// ---- Вкладки ----
+document.querySelectorAll('.tabs button[data-tab]').forEach((btn) => {
+    btn.onclick = () => {
+        document.querySelectorAll('.tabs button[data-tab]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tabpage').forEach((p) => p.classList.add('hidden'));
+        $('tab-' + btn.dataset.tab).classList.remove('hidden');
+        if (btn.dataset.tab === 'stats') loadStats();
+        if (btn.dataset.tab === 'players') loadPlayers();
+        if (btn.dataset.tab === 'complaints') loadComplaints();
+    };
+});
+
+// ---- Статистика ----
+async function loadStats() {
+    try {
+        const d = await api('/api/admin/stats');
+        const cards = [
+            ['Гравців', num(d.players)], ['Кланів', num(d.clans)],
+            ['Сумарний баланс', num(d.totalBalance) + ' 🪙'],
+            ['Активні 24 год', num(d.active24h)], ['Активні 7 днів', num(d.active7d)],
+            ['VIP', num(d.vips)], ['Згода на рекламу', num(d.adConsent)],
+            ['Нових скарг', num(d.complaints.new) + ' / ' + num(d.complaints.total)],
+        ];
+        $('statsCards').innerHTML = cards.map((c) =>
+            '<div class="card"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + '</div></div>').join('');
+        $('statsLevels').innerHTML = '<div class="muted" style="margin-bottom:6px">Розподіл по рівнях схрону</div>'
+            + '<div class="scroll"><table><tbody>' + (d.levels || []).map((l) =>
+                '<tr><td>' + l.level + '</td><td>' + esc(l.name) + '</td><td>' + num(l.count) + '</td></tr>').join('')
+            + '</tbody></table></div>';
+        clearMsg($('statsMsg'));
+    } catch (e) { say($('statsMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('statsReload').onclick = loadStats;
+
+// ---- Гравці ----
+const pState = { page: 1, sort: 'balance', dir: 'desc' };
+async function loadPlayers() {
+    try {
+        const p = new URLSearchParams({
+            page: pState.page, limit: $('pLimit').value, sort: pState.sort, dir: pState.dir,
+        });
+        const q = $('pQuery').value.trim();
+        if (q) p.set('q', q);
+        const d = await api('/api/admin/players?' + p.toString());
+        $('pBody').innerHTML = d.players.map((u) =>
+            '<tr><td>' + esc(u.name) + (u.nickname ? ' <span class="muted">(' + esc(u.nickname) + ')</span>' : '') + '</td>'
+            + '<td>' + esc(u.id) + '</td><td>' + u.level + '</td><td>' + u.playerLevel + '</td>'
+            + '<td>' + num(u.balance) + '</td><td>' + num(u.ukhyr) + '</td>'
+            + '<td>' + (u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString('uk-UA') : '—') + '</td>'
+            + '<td>' + (u.isVip ? '⭐' : '') + '</td></tr>').join('')
+            || '<tr><td colspan="8" class="muted">Порожньо</td></tr>';
+        $('pInfo').textContent = 'Сторінка ' + d.page + ' з ' + d.pages + ' · усього ' + num(d.total);
+        $('pPrev').disabled = d.page <= 1;
+        $('pNext').disabled = d.page >= d.pages;
+        clearMsg($('pMsg'));
+    } catch (e) { say($('pMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('pSearch').onclick = () => { pState.page = 1; loadPlayers(); };
+$('pQuery').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('pSearch').click(); });
+$('pLimit').onchange = () => { pState.page = 1; loadPlayers(); };
+$('pPrev').onclick = () => { if (pState.page > 1) { pState.page--; loadPlayers(); } };
+$('pNext').onclick = () => { pState.page++; loadPlayers(); };
+document.querySelectorAll('th[data-sort]').forEach((th) => {
+    th.onclick = () => {
+        const key = th.dataset.sort;
+        if (pState.sort === key) pState.dir = pState.dir === 'desc' ? 'asc' : 'desc';
+        else { pState.sort = key; pState.dir = 'desc'; }
+        pState.page = 1;
+        loadPlayers();
+    };
+});
+
+// ---- Книга скарг ----
+async function loadComplaints() {
+    try {
+        const p = new URLSearchParams();
+        if ($('cStatus').value) p.set('status', $('cStatus').value);
+        if ($('cKind').value) p.set('kind', $('cKind').value);
+        const d = await api('/api/admin/complaints?' + p.toString());
+        const s = d.stats;
+        $('cStats').textContent = 'Усього ' + s.total + ' · нових ' + s.byStatus.new
+            + ' · багів ' + s.byKind.bug + ' · ідей ' + s.byKind.idea + ' · за добу ' + s.last24h;
+        $('cList').innerHTML = d.complaints.map((c) =>
+            '<div class="cmp ' + esc(c.status) + '" data-id="' + esc(c.id) + '">'
+            + '<div class="head"><span><span class="tag">' + (c.kind === 'idea' ? '💡 пропозиція' : '🐞 баг')
+            + '</span> ' + esc(c.userName) + ' <span class="muted">id ' + esc(c.userId) + '</span></span>'
+            + '<span>' + new Date(c.createdAt).toLocaleString('uk-UA') + '</span></div>'
+            + '<div class="text">' + esc(c.text) + '</div>'
+            + '<div class="row">'
+            + '<button data-act="read">Прочитано</button>'
+            + '<button data-act="done">Оброблено</button>'
+            + '<button data-act="del" class="danger">Видалити</button>'
+            + '<span class="muted">статус: ' + esc(c.status) + '</span></div></div>').join('')
+            || '<p class="muted">Поки що порожньо — ніхто не скаржився.</p>';
+        clearMsg($('cMsg'));
+    } catch (e) { say($('cMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('cReload').onclick = loadComplaints;
+$('cStatus').onchange = loadComplaints;
+$('cKind').onchange = loadComplaints;
+$('cList').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.closest('.cmp').dataset.id;
+    try {
+        if (btn.dataset.act === 'del') {
+            if (!confirm('Видалити цей запис назавжди?')) return;
+            await api('/api/admin/complaints/' + encodeURIComponent(id), { method: 'DELETE' });
+        } else {
+            await api('/api/admin/complaints/' + encodeURIComponent(id) + '/status',
+                { method: 'POST', body: JSON.stringify({ status: btn.dataset.act }) });
+        }
+        loadComplaints();
+    } catch (e) { say($('cMsg'), 'Не вдалося: ' + e.message, 'err'); }
+});
+
+// ---- Розсилка ----
+// Надіслати можна ЛИШЕ той текст, який щойно пройшов попередній перегляд:
+// будь-яка правка тексту знову блокує кнопку. Це рятує від класики
+// "подивився прев'ю, поправив одну літеру, розіслав інше".
+let previewedText = null;
+$('bText').addEventListener('input', () => {
+    if ($('bText').value !== previewedText) {
+        $('bSend').disabled = true;
+        $('bHint').textContent = 'Текст змінився — зроби попередній перегляд ще раз.';
+    }
+});
+$('bPreview').onclick = async () => {
+    const message = $('bText').value.trim();
+    if (!message) return say($('bMsg'), 'Порожній текст.', 'err');
+    try {
+        const d = await api('/api/admin/broadcast-preview', { method: 'POST', body: JSON.stringify({ message }) });
+        say($('bMsg'), 'Отримають: ' + d.recipients + ' гравців (активних за 7 днів: ' + d.active7d + ').'
+            + ' Довжина: ' + d.length + ' символів. Перші id: ' + d.sampleIds.join(', ')
+            + ' (' + d.sampleNames.join(', ') + ').', 'info');
+        previewedText = $('bText').value;
+        $('bSend').disabled = false;
+        $('bHint').textContent = 'Перевірено. Кнопка розблокована.';
+    } catch (e) { say($('bMsg'), 'Не вдалося: ' + e.message, 'err'); }
+};
+$('bSend').onclick = async () => {
+    const message = $('bText').value.trim();
+    if (!message || $('bText').value !== previewedText) return;
+    // Подвійне підтвердження: перше — усвідомлення дії, друге — ввести слово
+    // руками, щоб випадковий Enter/подвійний клік нічого не розіслав.
+    if (!confirm('Надіслати це повідомлення ВСІМ гравцям у Telegram?\n\nВідкликати буде неможливо.')) return;
+    if (prompt('Для підтвердження введи слово: РОЗІСЛАТИ') !== 'РОЗІСЛАТИ') {
+        return say($('bMsg'), 'Скасовано.', 'info');
+    }
+    $('bSend').disabled = true;
+    try {
+        const d = await api('/api/admin/broadcast', { method: 'POST', body: JSON.stringify({ message }) });
+        say($('bMsg'), '✅ Розіслано: ' + d.sent + ' гравцям.', 'ok');
+        previewedText = null;
+        $('bHint').textContent = 'Готово.';
+    } catch (e) {
+        say($('bMsg'), 'Не вдалося: ' + e.message, 'err');
+        $('bSend').disabled = false;
+    }
+};
+
+// Автовхід, якщо токен уже в цій вкладці (перезавантаження сторінки).
+if (token()) {
+    api('/api/admin/stats').then(showApp).catch(() => {});
+}
+</script>
+</body>
+</html>

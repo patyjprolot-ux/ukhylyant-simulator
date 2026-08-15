@@ -21,6 +21,12 @@ const DEV_MODE_INSECURE = process.env.ALLOW_UNVERIFIED_DEV === 'true';
 const USE_WEBHOOK = process.env.USE_WEBHOOK !== 'false';
 const WEBHOOK_PATH = '/telegram-webhook';
 
+// Telegram id власника: сюди бот пересилає фото від гравців і пінги про нові
+// скарги. Навмисно з env, а не константою в коді — id власника це персональні
+// дані, і вони не мають лежати в git-історії публічного репозиторію.
+// Не заданий — фічі просто мовчки вимикаються, бот працює як раніше.
+const OWNER_TELEGRAM_ID = process.env.OWNER_TELEGRAM_ID || '';
+
 if (!BOT_TOKEN) {
     console.error('❌ Не задано BOT_TOKEN. Створи файл .env на основі .env.example і вкажи токен від @BotFather.');
     process.exit(1);
@@ -1135,6 +1141,44 @@ async function answerAdConsent(ctx, consent) {
 }
 bot.action('ad_consent_yes', (ctx) => answerAdConsent(ctx, true));
 bot.action('ad_consent_no', (ctx) => answerAdConsent(ctx, false));
+
+// Гравець може просто кинути боту скріншот бага — це найшвидший спосіб
+// показати проблему, і від тестувальників він працює краще за будь-яку форму.
+// Фото НЕ зберігається на сервері: воно одразу пересилається власнику
+// (forwardMessage лишає оригінал і автора), а в нас лишається тільки запис
+// у книзі скарг із підписом.
+bot.on('photo', async (ctx) => {
+    const userId = String(ctx.from.id);
+    const user = getUser(userId, ctx.from.first_name || 'Ухилянт');
+    const caption = String(ctx.message.caption || '').trim();
+
+    if (!OWNER_TELEGRAM_ID) {
+        // Не мовчимо в порожнечу: гравець має розуміти, що скрін нікуди не пішов.
+        return ctx.reply('📷 Дякую, але пересилання скрінів зараз вимкнено. Напиши текстом через «📝 Книга скарг» у грі.');
+    }
+    if (userId === String(OWNER_TELEGRAM_ID)) return; // не пересилаємо власнику його ж фото
+
+    try {
+        // forwardMessage, а не copyMessage: власнику одразу видно, хто автор,
+        // і можна відповісти прямо з пересланого повідомлення.
+        await bot.telegram.forwardMessage(String(OWNER_TELEGRAM_ID), ctx.chat.id, ctx.message.message_id);
+        await bot.telegram.sendMessage(
+            String(OWNER_TELEGRAM_ID),
+            `📷 Скрін від ${displayName(user)} (id ${userId})` + (caption ? `\nПідпис: ${caption}` : ''),
+        );
+        // Підпис під фото стає текстом скарги, щоб контекст не загубився в чаті.
+        complaints.addComplaint({
+            userId, userName: displayName(user),
+            text: caption ? `[фото] ${caption}` : '[фото без підпису — дивись переслане повідомлення в Telegram]',
+            kind: 'bug',
+        });
+        await ctx.reply('📷 Скрін пішов розробнику. Дякую — з картинкою баг ловиться вдесятеро швидше.');
+    } catch (e) {
+        // Власник міг не стартувати бота / заблокувати його — не валимо апдейт.
+        console.error('Не вдалося переслати фото власнику:', e.message);
+        await ctx.reply('😕 Не вийшло переслати скрін. Спробуй ще раз пізніше або опиши текстом.');
+    }
+});
 
 // Обробка оплат Telegram Stars
 bot.on('pre_checkout_query', (ctx) => ctx.answerPreCheckoutQuery(true));
@@ -2431,6 +2475,19 @@ require('./routes/sprints')(app, {
     BURNOUT_MAX, QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_MISS_PENALTY,
 });
 
+// routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
+// Авторизація та сама, що в /api/admin/backup і /api/admin/broadcast вище:
+// заголовок x-admin-token звіряється з BOT_TOKEN. Розсилка тут НЕ дублюється —
+// у модулі лише її попередній перегляд.
+const complaints = require('./lib/complaints');
+require('./routes/admin')(app, {
+    BOT_TOKEN, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
+    complaints, LOCATIONS,
+    // Необов'язкові: якщо OWNER_TELEGRAM_ID заданий — власнику падає пуш
+    // про кожну нову скаргу, а не тільки запис у книзі.
+    sendPush, OWNER_TELEGRAM_ID,
+});
+
 // ==========================================
 // 8. ФРОНТЕНД (HTML/CSS/JS в одному файлі)
 // ==========================================
@@ -2679,6 +2736,8 @@ function buildHtml(botUsername) {
 
         /* ===== Довідка механік ===== */
         #codex-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(10,8,5,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        /* ===== Книга скарг ===== */
+        #complaint-screen { position: fixed; inset: 0; z-index: 1960; background: rgba(10,8,5,0.97); overflow-y: auto; padding: 16px; box-sizing: border-box; }
         .codex-nav { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
         .codex-nav button { width: auto; flex: none; margin: 0; padding: 5px 10px; font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid #26313d; color: #dbe6ee; }
         .codex-nav button.active { background: linear-gradient(45deg, var(--accent), var(--accent2)); border-color: var(--gold); color: #fff; font-weight: 700; }
@@ -3087,6 +3146,7 @@ function buildHtml(botUsername) {
             <button class="action-tile locked" onclick="tg.showAlert('🔒 Кастомізація кімнати ще не готова')"><span class="action-tile-icon">🛋</span>Кімната</button>
             <button class="action-tile" onclick="openMap()"><span class="action-tile-icon">🗺️</span>Карта</button>
             <button class="action-tile" onclick="openCodex()"><span class="action-tile-icon">❓</span>Довідка</button>
+            <button class="action-tile" onclick="openComplaint()"><span class="action-tile-icon">📝</span>Скарги</button>
             <button class="action-tile" onclick="openNotices()">
                 <span class="action-tile-icon">📬</span>Повістки
                 <div class="notices-badge hidden" id="notices-badge">0</div>
@@ -3365,6 +3425,25 @@ function buildHtml(botUsername) {
             <div class="codex-nav" id="codex-nav"></div>
             <div id="codex-body"></div>
             <button onclick="closeCodex()" style="margin-top:10px;">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Книга скарг і пропозицій: пряма лінія до розробника під час тестування. -->
+    <div id="complaint-screen" class="hidden">
+        <div class="case-card">
+            <button class="room-close" onclick="closeComplaint()">✕</button>
+            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">📝 Книга скарг і пропозицій</h2>
+            <p style="font-size:11px; color:#8fa3b8; text-align:center; margin: 0 0 12px;">
+                Знайшов баг або придумав механіку — пиши сюди. Це читає розробник, а не бот.
+                До 5 повідомлень на добу. Скрін можна просто кинути боту в чат.
+            </p>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <button id="complaint-kind-bug" class="secondary" onclick="setComplaintKind('bug')" style="flex:1;">🐞 Баг</button>
+                <button id="complaint-kind-idea" class="secondary" onclick="setComplaintKind('idea')" style="flex:1;">💡 Пропозиція</button>
+            </div>
+            <textarea id="complaint-text" maxlength="2000" placeholder="Опиши, що сталося або що варто додати…"
+                style="width:100%; min-height:120px; background:var(--btn); color:var(--text); border:1px solid #26313d; border-radius:8px; padding:10px; font-family:inherit; font-size:14px;"></textarea>
+            <button onclick="sendComplaint()" style="margin-top:10px;">Надіслати</button>
         </div>
     </div>
 
@@ -4411,6 +4490,38 @@ function buildHtml(botUsername) {
         };
         window.closeCodex = () => document.getElementById('codex-screen').classList.add('hidden');
         window.setCodexTab = (id) => { codexTab = id; renderCodex(); document.getElementById('codex-screen').scrollTop = 0; };
+
+        // ===== Книга скарг =====
+        let complaintKind = 'bug';
+        window.setComplaintKind = (k) => {
+            complaintKind = k;
+            document.getElementById('complaint-kind-bug').classList.toggle('secondary', k !== 'bug');
+            document.getElementById('complaint-kind-idea').classList.toggle('secondary', k !== 'idea');
+        };
+        window.openComplaint = () => {
+            setComplaintKind('bug');
+            document.getElementById('complaint-screen').classList.remove('hidden');
+        };
+        window.closeComplaint = () => document.getElementById('complaint-screen').classList.add('hidden');
+        window.sendComplaint = async () => {
+            const el = document.getElementById('complaint-text');
+            const text = el.value.trim();
+            if (!text) return tg.showAlert('Напиши хоч щось 🙂');
+            try {
+                // apiFetch сам додає підписаний initData — сервер бере id звідти,
+                // тому підробити автора скарги неможливо.
+                const res = await apiFetch('/api/complaint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, kind: complaintKind }),
+                });
+                const data = await res.json();
+                tg.showAlert(data.message || (data.success ? 'Надіслано' : 'Не вийшло'));
+                if (data.success) { el.value = ''; closeComplaint(); }
+            } catch (e) {
+                tg.showAlert('Не вдалося надіслати. Перевір інтернет.');
+            }
+        };
 
         function renderCodex() {
             document.getElementById('codex-nav').innerHTML = CODEX.map(s =>
