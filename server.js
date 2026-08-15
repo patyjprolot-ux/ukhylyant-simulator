@@ -58,6 +58,7 @@ const app = express();
 app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/video', express.static(path.join(__dirname, 'public/video')));
 // API завжди повертає живі дані (баланс/лідерборд/нік і т.д.) — без цього Telegram
 // WebView міг закешувати GET-відповідь (напр. лідерборд) і показувати застарілий
 // нік/цифри навіть після того, як гравець щось змінив.
@@ -3010,8 +3011,9 @@ function buildHtml(botUsername) {
         .locked { position: relative; opacity: 0.4; filter: grayscale(0.7); cursor: not-allowed; }
         .locked::after { content: '🔒'; position: absolute; top: -4px; right: -4px; font-size: 11px; filter: none; opacity: 1; text-shadow: 0 1px 2px #000; }
 
-        #splash-screen { position: fixed; inset: 0; background: #000 url('/images/splash-banner.webp') center/cover no-repeat; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; }
-        #splash-screen span { color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
+        #splash-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; overflow: hidden; }
+        #splash-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        #splash-screen span { position: relative; z-index: 1; color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         .asset-row { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); border: 1px solid #1f2933; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
@@ -3145,7 +3147,12 @@ function buildHtml(botUsername) {
 </head>
 <body>
     <div id="app-bg"></div>
-    <div id="splash-screen"><span>Завантаження...</span></div>
+    <div id="splash-screen">
+        <video autoplay muted playsinline preload="auto" poster="/images/splash-banner.webp">
+            <source src="/video/intro.mp4" type="video/mp4">
+        </video>
+        <span>Завантаження...</span>
+    </div>
     <header>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
@@ -6018,10 +6025,13 @@ function buildHtml(botUsername) {
             renderWheel();
             const splash = document.getElementById('splash-screen');
             if (splash) {
+                // Вступне відео ~5с — тримаємо заставку мінімум стільки, щоб воно
+                // встигло догратись, а не зникло на середині через швидке
+                // завантаження стану гравця.
                 setTimeout(() => {
                     splash.style.opacity = '0';
                     setTimeout(() => splash.remove(), 400);
-                }, 600);
+                }, 5100);
             }
             maybeShowDisclaimerOnFirstRun();
         }
