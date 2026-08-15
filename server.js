@@ -77,6 +77,10 @@ const { ROOM_ITEMS } = require('./catalog/room-items');
 const { REVENGE_LINES, PROMO_CODES, LEGACY_ASSET_PRICES } = require('./catalog/misc');
 const { WHEEL_SEGMENTS, RISK_TIERS, MEMORY_ICONS, MEMORY_REWARD_TABLE } = require('./catalog/minigames');
 const { UKHYR_RANKS } = require('./catalog/ukhyr');
+// Спринти (робочі контракти) — числа вигорання/QTE за фіче-флагом ECONOMY.SPRINTS_V2.
+// Саму таблицю контрактів server.js не читає: вона потрібна лише всередині
+// lib/mechanics/sprints.js і приїздить у роути вже готовим довідником.
+const { BURNOUT_MAX, QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_MISS_PENALTY } = require('./catalog/sprints');
 
 const ECONOMY = require('./catalog/economy');
 
@@ -493,7 +497,11 @@ function checkAchievements(user) {
 function applyOfflineProgress(user) {
     const now = Date.now();
     const lastSeen = user.lastSeenAt || now;
-    const elapsedSec = Math.min((now - lastSeen) / 1000, ECONOMY.OFFLINE_CAP_SECONDS);
+    // Рішення Р10 (2026-08-13): кап знижено з 8 до 6 годин для всіх, АЛЕ VIP
+    // тепер знімає кап повністю (замість попереднього підходу — той самий кап
+    // для всіх + просто ×3 множник доходу зверху).
+    const capSec = user.isVip ? Infinity : ECONOMY.OFFLINE_CAP_SECONDS;
+    const elapsedSec = Math.min((now - lastSeen) / 1000, capSec);
     let offlineEarnings = 0;
     if (elapsedSec >= ECONOMY.OFFLINE_MIN_SECONDS && user.passive > 0) {
         const clan = getClanInfo(user);
@@ -561,6 +569,13 @@ function hasActiveShield(user) {
 
 const { xpForLevel, playerLevelForXP, addXP, addUkhyr, ukhyrRank } = require('./lib/mechanics/levels');
 
+// ===== Спринти: вигорання, QTE, нагорода за контракт =====
+// (чиста математика, роути беруть її звідси через deps — див. routes/sprints.js)
+const {
+    SPRINT_TIER_BY_ID, burnoutPerTap, decayBurnout, burnoutTapMult,
+    sprintPayout, qteWindowMs, settleExpiredQte, sprintExpired, sprintSnapshot,
+} = require('./lib/mechanics/sprints');
+
 // ==========================================
 // РОЗШУК (HEAT) ТА ПОВІСТКИ
 // ==========================================
@@ -569,6 +584,12 @@ const { heatTierOf, heatIncomeMult, heatRaidMult, changeHeat, decayHeat } = requ
 function noticeBribeCost(user, type) {
     const tierIndex = NOTICE_TYPES.indexOf(type) + 1;
     let cost = ECONOMY.NOTICE_BRIBE_BASE * tierIndex * (1 + (user.heat || 0) / 50);
+    // Аудит балансу (2026-08-13): фіксована сума на пізній грі відчувалась як
+    // "кинути один сірник, коли в тебе їх цілий КамАЗ" (пряма скарга розробника:
+    // при 20М балансу відкуп за 1200₴ — 0.006% від нього, буквально нічого).
+    // Відкуп тепер не менше 3% поточного балансу — росте разом із гравцем,
+    // а не тільки з тіром повістки/розшуком.
+    cost = Math.max(cost, (user.balance || 0) * ECONOMY.NOTICE_BRIBE_BALANCE_PCT);
     if (hasSkill(user, 'zhek')) cost *= (1 - ECONOMY.SKILL_BRIBE_CUT);
     return Math.round(cost);
 }
@@ -922,9 +943,31 @@ function nextStep(user) {
     return { icon: '💰', text: 'Купуй рівні / клікай', tab: 'shop' };
 }
 
+// Уламки для склейки донатних ящиків (2026-08-13): кожен безкоштовний ящик має
+// шанс подарувати уламок ТІЛЬКИ свого відповідного донатного ящика — окремий
+// незалежний бонус-ролл ~0.05%, поза звичайною таблицею лута (щоб не займатись
+// перебалансуванням усіх вагів у CRATES заради однієї рідкісної події).
+const SHARD_BONUS_CHANCE = 0.0005;
+const CRATE_SHARD_BONUS = {
+    cardboard: 'shard_starter', humanitarian: 'shard_elite',
+    parcel: 'shard_wardrobe', contraband: 'shard_legendary',
+};
+
 // Розкриває один ящик: обирає дроп за вагами і одразу застосовує ефект до гравця.
 // Повертає опис результату для анімації на клієнті.
 function rollCrate(user, crate) {
+    const result = rollCrateEntry(user, crate);
+    const shardRes = CRATE_SHARD_BONUS[crate.id];
+    if (shardRes && Math.random() < SHARD_BONUS_CHANCE) {
+        const meta = RESOURCE_BY_ID[shardRes];
+        addResource(user, shardRes, 1);
+        result.bonusShard = { resId: shardRes, name: meta.name, emoji: meta.emoji };
+        result.desc = (result.desc || '') + ` + 🧩 рідкісна знахідка: ${meta.name}!`;
+    }
+    return result;
+}
+
+function rollCrateEntry(user, crate) {
     user.cratesOpened[crate.id] = (user.cratesOpened[crate.id] || 0) + 1;
     user.boxesOpened = (user.boxesOpened || 0) + 1;
     user.dailyBoxes = (user.dailyBoxes || 0) + 1;
@@ -1456,7 +1499,12 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
 // поверне гравця без нього.
 const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed',
-    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr'];
+    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr',
+    // Спринти: burnout/focusStat/routeProgress — довгограючий прогрес, його треба
+    // пережити редеплой. activeSprint тут НЕМА свідомо: це об'єкт (сюди беруться
+    // лише числа) і водночас короткоживучий стан — недописаний контракт після
+    // редеплою просто починається заново.
+    'burnout', 'focusStat', 'routeProgress'];
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
@@ -2368,6 +2416,19 @@ require('./routes/economy')(app, {
     REVENGE_LINES, MARKET_ASSETS, repMaxed, pickWeighted, WHEEL_SEGMENTS,
     shuffled, MEMORY_ICONS, MEMORY_ENTRY_COST, memoryRewardFor,
     COINFLIP_WIN_CHANCE, RISK_TIERS,
+});
+
+// routes/sprints.js (PATCH 2.0 «Спринти», 2026-08-15) — робочі контракти замість
+// прямого кліку на схронах 2-8. Усе за фіче-флагом ECONOMY.SPRINTS_V2 (default
+// false): роути зареєстровані завжди, але поки прапорець вимкнено — одразу
+// відповідають відмовою, старий клікер працює як раніше.
+require('./routes/sprints')(app, {
+    requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
+    addResource, storageSnapshot, serverBatchWindow,
+    SPRINT_TIER_BY_ID, sprintSnapshot, sprintPayout,
+    decayBurnout, burnoutPerTap, burnoutTapMult,
+    settleExpiredQte, sprintExpired, qteWindowMs,
+    BURNOUT_MAX, QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_MISS_PENALTY,
 });
 
 // ==========================================

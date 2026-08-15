@@ -61,6 +61,14 @@ module.exports = function registerEconomyRoutes(app, deps) {
         const { resId } = req.body;
         const meta = RESOURCE_BY_ID[resId];
         if (!meta) return res.status(400).json({ error: 'Невідомий ресурс' });
+        // Аудит балансу (2026-08-13): Білий Квиток (тір 4) продавався за 9000₴,
+        // що робило вилазку "Нічний візит у ТЦК" аномально вигідною (~63.5₴/хв,
+        // у 3+ рази вище за будь-яку іншу вилазку) і конкурувало з власним
+        // призначенням квитка — крафтом постійного імунітету (white_ticket).
+        // Тепер quitok виключно крафт-інгредієнт, на біржі не продається.
+        if (meta.tier >= 4) {
+            return res.json({ success: false, message: `${meta.name} не продається — тільки крафт-інгредієнт.` });
+        }
         const have = user.resources[resId] || 0;
         const qty = req.body.all ? have : Math.min(have, Math.max(1, Number(req.body.qty) || 1));
         if (qty <= 0) return res.json({ success: false, message: 'Немає що продавати' });

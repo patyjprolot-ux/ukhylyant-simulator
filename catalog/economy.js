@@ -90,7 +90,7 @@ const ECONOMY = {
     CLAN_LEVEL_COST: 60000,
     CLAN_BONUS_PER_LEVEL: 0.02,
     CLAN_MAX_LEVEL: 15,
-    OFFLINE_CAP_SECONDS: 8 * 3600,
+    OFFLINE_CAP_SECONDS: 6 * 3600, // VIP знімає кап повністю, див. applyOfflineProgress
     OFFLINE_MIN_SECONDS: 30,
     PET_GOOSE_CLICK_MULT: 1.15,
     PET_CAT_ENERGY_MULT: 1.3,
@@ -121,6 +121,9 @@ const ECONOMY = {
     NOTICE_INTERVAL_MIN_H: 4,
     NOTICE_INTERVAL_MAX_H: 8,
     NOTICE_BRIBE_BASE: 1200,
+    // Відкуп не менше цього % від поточного балансу (2026-08-13, аудит балансу) —
+    // фіксована сума нічого не важить при великому балансі.
+    NOTICE_BRIBE_BALANCE_PCT: 0.03,
     NOTICE_HIDE_SUCCESS: 0.55,
     NOTICE_HIDE_FAIL_MULT: 1.5,
     NOTICE_MEDCOM_SUCCESS: 0.55,  // заглушка до Фази 2 (там буде міні-гра зі збиранням діагнозу)
@@ -254,6 +257,15 @@ const ECONOMY = {
     // --- Автоклікер «Бабуся клікає за тебе» ---
     GRANNY_MINUTES: 30,
     GRANNY_CPS: 3,
+
+    // --- Спринти (робочі контракти, PATCH_2.0_SPRINTS_SPEC.md) ---
+    // Прапорець стоїть тут, а не в catalog/sprints.js, бо ECONOMY вже роздається
+    // в кожен routes/* через deps — так вимикач доступний усім шести роутам без
+    // окремої залежності. Числа самої системи (тіри, вигорання, QTE) живуть у
+    // catalog/sprints.js, як INSPECTORS живуть окремо від INSPECTOR_* констант.
+    // false = гравці на схронах 2-8 грають старим клікером, роути існують, але
+    // одразу відповідають відмовою. Вмикати тільки після економічного тесту Фази 2.
+    SPRINTS_V2: false,
 };
 
 module.exports = ECONOMY;
