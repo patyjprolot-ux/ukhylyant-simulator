@@ -11,7 +11,7 @@ const path = require('path');
 
 module.exports = function registerAdminRoutes(app, deps) {
     const {
-        BOT_TOKEN, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
+        ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
         complaints, LOCATIONS, paymentLog,
         // Необовʼязкові: якщо передані — власник отримає пуш про нову скаргу.
         sendPush, OWNER_TELEGRAM_ID,
@@ -20,8 +20,10 @@ module.exports = function registerAdminRoutes(app, deps) {
     // Той самий метод перевірки, що і в server.js. Виніс у мідлвар, щоб
     // випадково не забути його на новому ендпоінті — забути один if легко,
     // забути аргумент у app.get() помітно одразу.
+    // Пароль адмінки (2026-08-16) — окремий секрет від BOT_TOKEN, щоб витік
+    // одного не давав автоматично доступ до іншого.
     function requireAdmin(req, res, next) {
-        if (!BOT_TOKEN || req.get('x-admin-token') !== BOT_TOKEN) {
+        if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
             return res.status(403).json({ error: 'forbidden' });
         }
         next();

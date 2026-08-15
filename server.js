@@ -27,6 +27,14 @@ const WEBHOOK_PATH = '/telegram-webhook';
 // Не заданий — фічі просто мовчки вимикаються, бот працює як раніше.
 const OWNER_TELEGRAM_ID = process.env.OWNER_TELEGRAM_ID || '';
 
+// Пароль адмінки — окремий від BOT_TOKEN (2026-08-16). Раніше вхід в адмінку й
+// доступ до бота захищав ОДИН і той самий секрет: витік токена бота (а він
+// світиться частіше — потрапляє в логи деплою, .env, іноді в чат при відладці)
+// автоматично означав і повний доступ до адмінки. Тепер два різні секрети.
+// Якщо ADMIN_PASSWORD не заданий — падаємо назад на BOT_TOKEN (як було),
+// щоб не зламати вхід тим, хто ще не встиг додати нову змінну.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || BOT_TOKEN;
+
 if (!BOT_TOKEN) {
     console.error('❌ Не задано BOT_TOKEN. Створи файл .env на основі .env.example і вкажи токен від @BotFather.');
     process.exit(1);
@@ -409,7 +417,7 @@ function adConsentAirdropMult() {
 // і кланів собі локально. Захищено тим самим BOT_TOKEN, що й сам бот, —
 // секрету окремо заводити не треба, і тільки власник бота може його викликати.
 app.get('/api/admin/backup', (req, res) => {
-    if (!BOT_TOKEN || req.get('x-admin-token') !== BOT_TOKEN) {
+    if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
         return res.status(403).json({ error: 'forbidden' });
     }
     res.json({
@@ -422,7 +430,7 @@ app.get('/api/admin/backup', (req, res) => {
 // що й бекап. sendPush уже ковтає власні помилки (заблокував бота, невірний
 // id), тому один поганий id не зупиняє розсилку іншим.
 app.post('/api/admin/broadcast', (req, res) => {
-    if (!BOT_TOKEN || req.get('x-admin-token') !== BOT_TOKEN) {
+    if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
         return res.status(403).json({ error: 'forbidden' });
     }
     const message = String(req.body?.message || '').trim();
@@ -2494,7 +2502,7 @@ require('./routes/sprints')(app, {
 // у модулі лише її попередній перегляд.
 const complaints = require('./lib/complaints');
 require('./routes/admin')(app, {
-    BOT_TOKEN, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
+    ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
     complaints, LOCATIONS, paymentLog,
     // Необов'язкові: якщо OWNER_TELEGRAM_ID заданий — власнику падає пуш
     // про кожну нову скаргу, а не тільки запис у книзі.
