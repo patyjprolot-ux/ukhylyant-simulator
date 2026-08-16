@@ -50,6 +50,15 @@ module.exports = function registerSprintRoutes(app, deps) {
         if (!tier) return res.status(400).json({ error: 'Невідомий тір контракту' });
         syncSprint(user);
         if (user.activeSprint) return res.json({ success: false, message: 'Контракт уже в роботі' });
+        // Аудит балансу (2026-08-16): без цього гравець, що закриває контракт
+        // швидше за дедлайн (вигорання це реально дозволяє), одразу бере наступний
+        // — стійкий дохід тоді в рази обганяв ratePerHour, який рахувався саме на
+        // весь дедлайн. Кулдаун = дедлайн ЩОЙНО зданого контракту, незалежно від
+        // того, наскільки швидше він реально закрився.
+        if (user.sprintCooldownUntil && Date.now() < user.sprintCooldownUntil) {
+            const waitSec = Math.ceil((user.sprintCooldownUntil - Date.now()) / 1000);
+            return res.json({ success: false, message: `Замовник ще не готовий — почекай ${waitSec}с`, cooldownUntil: user.sprintCooldownUntil });
+        }
         if ((user.level || 1) < tier.minLevel) {
             return res.json({ success: false, message: `Потрібен ${tier.minLevel} рівень схрону` });
         }
@@ -160,6 +169,7 @@ module.exports = function registerSprintRoutes(app, deps) {
         // старання, і шанси з таблиці дропу лишаються рівно такими, як домовлено.
         const tk = sprintPayout(sprint, tier);
         const missedQte = sprint.missedQte || 0;
+        user.sprintCooldownUntil = sprint.deadline;
         user.activeSprint = null;
         if (tk > 0) user.balance += tk;
 

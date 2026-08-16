@@ -18,8 +18,14 @@ const SPRINT_TIERS = [
         dropTable: [{ res: 'script', qty: 1, chance: 1 }],
     },
     {
+        // Аудит балансу (2026-08-16): ratePerHour Middle/Senior/Lead тут раніше
+        // (10800/15700/28000) на порядок розходився з рішенням Р1
+        // (PATCH_2.0_CLAUDE_DECISIONS.md: 400/1200/4000₴/год по бакетах схрону) —
+        // тихо переписано пізнішим синтез-документом, ніхто не звірив назад.
+        // Знижено до значень, близьких до Р1-таргету (Senior трохи вище Middle —
+        // довший і важчий контракт заслуговує премії, обидва в межах бакету 4-6).
         id: 'middle', name: 'Middle: фіча під ключ', emoji: '⌨️',
-        minLevel: 4, energyCost: 25, taps: 180, deadlineMin: 50, ratePerHour: 10800,
+        minLevel: 4, energyCost: 25, taps: 180, deadlineMin: 50, ratePerHour: 1300,
         desc: 'Вимоги змінились двічі, поки ти читав тікет. Але ставка вже доросла.',
         dropTable: [
             { res: 'script', qty: 1, chance: 1 },
@@ -28,7 +34,7 @@ const SPRINT_TIERS = [
     },
     {
         id: 'senior', name: 'Senior: рефакторинг легасі', emoji: '🧠',
-        minLevel: 6, energyCost: 45, taps: 450, deadlineMin: 210, ratePerHour: 15700,
+        minLevel: 6, energyCost: 45, taps: 450, deadlineMin: 210, ratePerHour: 1900,
         desc: 'Код писали до тебе, документації нема, дедлайн уже горить. Класика.',
         dropTable: [
             { res: 'intel_data', qty: 2, chance: 1 },
@@ -37,7 +43,7 @@ const SPRINT_TIERS = [
     },
     {
         id: 'lead', name: 'Lead: архітектура з нуля', emoji: '👑',
-        minLevel: 8, energyCost: 70, taps: 1100, deadlineMin: 600, ratePerHour: 28000,
+        minLevel: 8, energyCost: 70, taps: 1100, deadlineMin: 600, ratePerHour: 4000,
         desc: 'Десять годин, тисяча рядків і жодного мітингу. Мрія, за яку платять як за мрію.',
         dropTable: [{ res: 'crypto_key', qty: 2, chance: 0.20 }],
     },
