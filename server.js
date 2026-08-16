@@ -1576,7 +1576,7 @@ const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energ
     // лише числа) і водночас короткоживучий стан — недописаний контракт після
     // редеплою просто починається заново.
     'burnout', 'focusStat', 'routeProgress'];
-const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies'];
+const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies', 'redeemedPromos'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
 const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats', 'mapBuildings', 'upgTiersUnlocked'];
@@ -5894,6 +5894,10 @@ function buildHtml(botUsername) {
                 upgTiersUnlocked: state.upgTiersUnlocked,
                 nickname: state.nickname,
                 xp: state.xp, playerLevel: state.playerLevel, ukhyr: state.ukhyr,
+                // Без цього поля гравець, чий акаунт відновили з бекапу після
+                // втрати серверного стану, міг би повторно погасити одноразовий
+                // промокод (redeemedPromos згадувалось як відомий пробіл раніше).
+                redeemedPromos: state.redeemedPromos,
             };
             try { tg.CloudStorage.setItem('save_v1', JSON.stringify(backup), () => {}); } catch (e) {}
         }
