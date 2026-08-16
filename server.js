@@ -11,6 +11,15 @@ const compression = require('compression');
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL || 'https://tvoy-domen.example.com';
+// Кеш-бастер (2026-08-16): Telegram WebView (особливо iOS) міг тримати
+// завантажену міні-аппку живою й кешованою САМЕ за цим URL між сесіями —
+// гравець тиснув "🏃 Грати" і бачив ту саму сторінку з ПОПЕРЕДНЬОГО деплою,
+// навіть коли сервер уже давно віддає нову версію. Часова мітка старту
+// процесу в URL кнопки міняється на кожному рестарті (кожен `git push vps`
+// перезапускає pm2), тому Telegram щоразу бачить "інший" URL і не може
+// підсунути стару закешовану сторінку.
+const CACHE_BUST = Date.now();
+const WEB_APP_URL_BUSTED = WEB_APP_URL + (WEB_APP_URL.includes('?') ? '&' : '?') + 'v=' + CACHE_BUST;
 const PORT = process.env.PORT || 3000;
 // Дозволяє тестувати WebApp поза Telegram (без валідного initData), довіряючи id з тіла запиту.
 // НЕБЕЗПЕЧНО для реального використання — лишай вимкненим (false) скрізь, крім локальної розробки.
@@ -817,7 +826,7 @@ function buildSuspects(victim, realId) {
 function sendPush(userId, text) {
     try {
         bot.telegram.sendMessage(String(userId), text, Markup.inlineKeyboard([
-            Markup.button.webApp('Відкрити гру', WEB_APP_URL),
+            Markup.button.webApp('Відкрити гру', WEB_APP_URL_BUSTED),
         ])).catch(() => {});
     } catch (e) { /* некоректний id (гість у dev-режимі) — ігноруємо */ }
 }
@@ -1118,7 +1127,7 @@ bot.start(async (ctx) => {
     }
 
     ctx.reply(welcomeText, Markup.inlineKeyboard([
-        Markup.button.webApp('🛋 Залягти на дно (Грати)', WEB_APP_URL)
+        Markup.button.webApp('🛋 Залягти на дно (Грати)', WEB_APP_URL_BUSTED)
     ]));
 
     // Питаємо про рекламу лише поки гравець ще не відповідав — байдуже, якою
@@ -8386,7 +8395,7 @@ async function main() {
     // ВСІХ чатів бота (без chat_id) — той самий патерн, що у великих Mini App-ботів.
     try {
         await bot.telegram.setChatMenuButton({
-            menu_button: { type: 'web_app', text: '🏃 Грати', web_app: { url: WEB_APP_URL } },
+            menu_button: { type: 'web_app', text: '🏃 Грати', web_app: { url: WEB_APP_URL_BUSTED } },
         });
         console.log('✅ Кнопка меню (▶ Грати) встановлена глобально.');
     } catch (e) {
