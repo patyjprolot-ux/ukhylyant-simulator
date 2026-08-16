@@ -1438,6 +1438,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         } : null,
         nextStep: nextStep(user),
         medcomStats: user.medcomStats,
+        medcomCard: user.medcomCard || 0,
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
         mykolaCoverUsed: !!user.mykolaCoverUsed,
@@ -1570,7 +1571,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
 // поверне гравця без нього.
 const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed',
-    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr',
+    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr', 'medcomCard',
     // Спринти: burnout/focusStat/routeProgress — довгограючий прогрес, його треба
     // пережити редеплой. activeSprint тут НЕМА свідомо: це об'єкт (сюди беруться
     // лише числа) і водночас короткоживучий стан — недописаний контракт після
@@ -2700,14 +2701,16 @@ function buildHtml(botUsername) {
         .leader-row { cursor: pointer; }
         .leader-row:active { color: var(--accent2); }
 
-        /* ===== Медкомісія ===== */
+        /* ===== Медкомісія (PATCH 2.0 Р18: QTE замість карток-порівняння) ===== */
         #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
-        .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #26313d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
-        .symptom-card.picked { border-color: var(--gold); background: rgba(255,215,0,0.10); }
-        .symptom-card.repeated { opacity: 0.75; }
+        .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #26313d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; transition: border-color .1s, background .1s, transform .1s; }
+        .symptom-card.used { opacity: 0.35; }
+        .symptom-card.lit { border-color: var(--gold); background: rgba(255,215,0,0.14); cursor: pointer; animation: symptomPulse 0.5s infinite alternate; }
+        .symptom-card.hit-flash { border-color: #39ff14; background: rgba(57,255,20,0.14); }
+        .symptom-card.miss-flash { border-color: #ff4d4d; background: rgba(255,77,77,0.14); }
+        @keyframes symptomPulse { from { transform: scale(1); } to { transform: scale(1.03); } }
         .symptom-emoji { font-size: 24px; }
         .symptom-name { font-size: 13px; font-weight: 700; line-height: 1.3; }
-        .symptom-power { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--gold); white-space: nowrap; }
         .symptom-note { font-size: 10px; color: #ff8a8a; }
         .medcom-scale { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
         .medcom-scale .val { font-size: 19px; }
@@ -2716,6 +2719,12 @@ function buildHtml(botUsername) {
         .medcom-bonus { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); border: 1px solid #1f2933; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
         .medcom-bonus.off { opacity: 0.45; }
         .medcom-bonus input { width: 16px; height: 16px; accent-color: var(--gold); }
+        .medcom-timer-bar { width: 100%; height: 8px; background: #141b22; border-radius: 4px; overflow: hidden; border: 1px solid #1f2933; margin: 8px 0 14px; }
+        .medcom-timer-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffb84d); transition: width linear; }
+        .medcom-card-progress { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9db0c2; margin-bottom: 10px; }
+        .medcom-card-dots { display: flex; gap: 3px; }
+        .medcom-card-dot { width: 9px; height: 9px; border-radius: 50%; background: #26313d; }
+        .medcom-card-dot.on { background: var(--gold); }
 
         /* ===== Інспектори ТЦК ===== */
         #inspector-screen { position: fixed; inset: 0; z-index: 1900; background: radial-gradient(circle at 50% 30%, #2a0d16 0%, #07070d 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; text-align: center; }
@@ -3774,21 +3783,29 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
-    <!-- Медкомісія: збери діагноз із трьох карток, перебий скептицизм комісії. -->
+    <!-- Медкомісія (PATCH 2.0 Р18): тапни картку, поки вона світиться. -->
     <div id="medcom-screen" class="hidden">
         <div class="case-card">
             <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🏥 Медкомісія</h2>
-            <p style="font-size:12px; color:#8fa3b8; text-align:center; margin: 0 0 12px;">
-                Обери <b>3 скарги</b> з п'яти. Сума переконливості має перебити скептицизм комісії.
-                Чим вищий твій розшук — тим менше тобі вірять.
+            <p id="medcom-intro" style="font-size:12px; color:#8fa3b8; text-align:center; margin: 0 0 8px;">
+                Лікар називає скаргу — тапни ТУ САМУ картку, поки вона світиться.
+                Влучиш у <b id="medcom-hits-needed">3</b> з 5 — комісія повірить. Чим вищий розшук, тим менше часу на реакцію.
             </p>
+            <div class="medcom-card-progress">
+                🩺 Медична картка:
+                <div class="medcom-card-dots" id="medcom-card-dots"></div>
+                <span id="medcom-card-text">0/10</span>
+            </div>
             <div id="medcom-cards"></div>
+            <div id="medcom-timer-wrap" class="hidden">
+                <div class="medcom-timer-bar"><div id="medcom-timer-fill" class="medcom-timer-fill"></div></div>
+            </div>
             <div id="medcom-bonuses"></div>
             <div class="medcom-scale">
-                <span>Переконливість <span class="val" id="medcom-power">0</span></span>
-                <span style="color:#8fa3b8;">Скептицизм <span class="val" id="medcom-skept">100</span></span>
+                <span>Влучань <span class="val" id="medcom-hits">0</span>/5</span>
+                <span style="color:#8fa3b8;">Раундів лишилось <span class="val" id="medcom-rounds-left">5</span></span>
             </div>
-            <button id="medcom-submit" onclick="submitMedcom()">Подати діагноз</button>
+            <button id="medcom-start" onclick="startMedcom()">Почати огляд</button>
             <button class="secondary" id="medcom-reroll" onclick="rerollMedcom()">Перекинути картки</button>
         </div>
     </div>
@@ -4503,21 +4520,24 @@ function buildHtml(botUsername) {
                     tip('Бот пришле повідомлення за ' + ECONOMY.NOTICE_PUSH_BEFORE_MIN + ' хвилин до протухання. Не проґав.');
             }},
 
-            { id: 'medcom', tab: '🏥 Медкомісія', title: 'Збери діагноз із трьох карток', build: () => {
-                const rows = SYMPTOMS.slice().sort((a,b)=>b.power-a.power).map(s =>
-                    row(s.emoji + ' ' + s.name, s.power)).join('');
-                return '<p class="codex-lead">Сервер роздає ' + ECONOMY.MEDCOM_HAND_SIZE + ' карток, ти обираєш ' +
-                    ECONOMY.MEDCOM_PICK + '. Сума їхньої переконливості має перебити скептицизм комісії = ' +
-                    ECONOMY.MEDCOM_BASE_SKEPTICISM + ' + твій поточний розшук. Тобто чим ти помітніший, тим менше тобі вірять.</p>' +
-                    '<div class="codex-block"><table class="codex-table">' + rows + '</table></div>' +
-                    block('Бонуси (витрачаються в будь-якому разі)',
-                        '🔏 Печатка +' + ECONOMY.MEDCOM_STAMP_BONUS + ' · 💊 Ліки ×' + ECONOMY.MEDCOM_MEDS_QTY +
-                        ' +' + ECONOMY.MEDCOM_MEDS_BONUS + ' · 🐈 Кіт-антистрес +' + ECONOMY.MEDCOM_CAT_BONUS +
-                        ' (не витрачається). Перекинути картки — ' + fmtNum(ECONOMY.MEDCOM_REROLL_COST) + ' ТК, максимум ' +
-                        ECONOMY.MEDCOM_REROLL_MAX + ' рази.') +
-                    warn('Та сама скарга двічі поспіль коштує −' + ECONOMY.MEDCOM_REPEAT_PENALTY +
-                        ' переконливості: «ви вже приходили з цим». Варіюй.') +
-                    tip('Успіх знімає повістку і дає відстрочку на ' + ECONOMY.MEDCOM_DEFER_H + ' годин.');
+            { id: 'medcom', tab: '🏥 Медкомісія', title: 'Тапни симптом, поки він світиться', build: () => {
+                const symptomList = SYMPTOMS.map(s => s.emoji + ' ' + s.name).join(' · ');
+                return '<p class="codex-lead">Сервер роздає ' + ECONOMY.MEDCOM_HAND_SIZE + ' карток симптомів і по черзі ' +
+                    'підсвічує одну — тапни САМЕ ЇЇ, поки світиться. Влучиш у ' + ECONOMY.MEDCOM_HITS_NEEDED + ' з ' +
+                    ECONOMY.MEDCOM_HAND_SIZE + ' — комісія повірить. Базове вікно реакції ' + ECONOMY.MEDCOM_QTE_BASE_MS +
+                    'мс, звужується на ' + ECONOMY.MEDCOM_QTE_HEAT_PENALTY_MS + 'мс за кожну одиницю розшуку (підлога ' +
+                    ECONOMY.MEDCOM_QTE_MIN_MS + 'мс).</p>' +
+                    block('Можливі скарги', symptomList) +
+                    block('Бонуси (витрачаються одразу на старті, незалежно від результату)',
+                        '🔏 Печатка +' + ECONOMY.MEDCOM_STAMP_BONUS_MS + 'мс · 💊 Ліки ×' + ECONOMY.MEDCOM_MEDS_QTY +
+                        ' +' + ECONOMY.MEDCOM_MEDS_BONUS_MS + 'мс · 🐈 Кіт-антистрес +' + ECONOMY.MEDCOM_CAT_BONUS_MS +
+                        'мс (не витрачається). Перекинути картки — ' + fmtNum(ECONOMY.MEDCOM_REROLL_COST) + ' ТК, максимум ' +
+                        ECONOMY.MEDCOM_REROLL_MAX + ' рази (тільки до старту).') +
+                    warn('Та сама скарга двічі поспіль дає коротше вікно (−' + ECONOMY.MEDCOM_REPEAT_PENALTY_MS +
+                        'мс): «ви вже приходили з цим». Варіюй.') +
+                    tip('Успіх знімає повістку і дає відстрочку на ' + ECONOMY.MEDCOM_DEFER_H + ' годин. Медична картка — ' +
+                        'постійний прогрес: кожен успіх +1 (максимум ' + ECONOMY.MEDCOM_CARD_MAX + '), на максимумі — ' +
+                        ECONOMY.MEDCOM_CARD_SHIELD_DAYS + ' днів імунітету від повісток, і картка знову з нуля.');
             }},
 
             { id: 'inspectors', tab: '👮 Інспектори', title: 'Боси приходять на високий розшук', build: () => {
@@ -5241,83 +5261,107 @@ function buildHtml(botUsername) {
             updateUI();
         };
 
-        // ===== Медкомісія =====
-        let medcomHand = null;
-        let medcomPicked = [];
+        // ===== Медкомісія (PATCH 2.0 Р18: QTE замість карток-порівняння) =====
+        let medcomState = null;
         let medcomBonuses = { stamp: false, meds: false };
+        let medcomTimerHandle = null;
+        let medcomFlashIdx = null, medcomFlashKind = null; // короткий hit/miss-спалах картки
 
         function openMedcom(hand) {
-            medcomHand = hand;
-            medcomPicked = [];
+            medcomState = hand;
             medcomBonuses = { stamp: false, meds: false };
             renderMedcom();
             document.getElementById('medcom-screen').classList.remove('hidden');
         }
-        window.closeMedcom = () => document.getElementById('medcom-screen').classList.add('hidden');
-
-        function renderMedcom() {
-            if (!medcomHand) return;
-            document.getElementById('medcom-cards').innerHTML = medcomHand.cards.map((c, i) =>
-                '<div class="symptom-card' + (medcomPicked.includes(c.id) ? ' picked' : '') +
-                (c.repeated ? ' repeated' : '') + '" onclick="toggleSymptom(' + i + ')">' +
-                '<span class="symptom-emoji">' + c.emoji + '</span>' +
-                '<div><div class="symptom-name">' + esc(c.name) + '</div>' +
-                (c.repeated ? '<div class="symptom-note">Ви вже приходили з цим (−' + ECONOMY.MEDCOM_REPEAT_PENALTY + ')</div>' : '') +
-                '</div><span class="symptom-power">' + c.power + '</span></div>'
-            ).join('');
-
-            const b = medcomHand.bonuses;
-            const row = (key, label, on, avail, bonus) =>
-                '<label class="medcom-bonus' + (avail ? '' : ' off') + '">' +
-                '<input type="checkbox"' + (on ? ' checked' : '') + (avail ? '' : ' disabled') +
-                ' onchange="toggleMedcomBonus(\\'' + key + '\\', this.checked)">' +
-                '<span>' + label + '</span><b style="margin-left:auto; color:var(--gold)">+' + bonus + '</b></label>';
-            document.getElementById('medcom-bonuses').innerHTML =
-                row('stamp', '🔏 Печатка (витратиться 1)', medcomBonuses.stamp, b.stamp.have, b.stamp.bonus) +
-                row('meds', '💊 Ліки ×' + b.meds.qty + ' (витратяться)', medcomBonuses.meds, b.meds.have, b.meds.bonus) +
-                (b.cat.have ? '<div class="medcom-bonus">🐈 Кіт-антистрес: маєш змучений вигляд<b style="margin-left:auto; color:var(--gold)">+' + b.cat.bonus + '</b></div>' : '');
-
-            updateMedcomScale();
-            const rr = document.getElementById('medcom-reroll');
-            rr.disabled = medcomHand.rerollsLeft <= 0 || state.balance < medcomHand.rerollCost;
-            rr.innerText = medcomHand.rerollsLeft > 0
-                ? 'Перекинути картки — ' + fmtNum(medcomHand.rerollCost) + ' ТК (лишилось ' + medcomHand.rerollsLeft + ')'
-                : 'Перекидати більше не можна';
-        }
-
-        function medcomTotalPower() {
-            if (!medcomHand) return 0;
-            let p = medcomPicked.reduce((s, id) => s + (medcomHand.cards.find(c => c.id === id) || {}).power, 0);
-            if (medcomBonuses.stamp) p += medcomHand.bonuses.stamp.bonus;
-            if (medcomBonuses.meds) p += medcomHand.bonuses.meds.bonus;
-            if (medcomHand.bonuses.cat.have) p += medcomHand.bonuses.cat.bonus;
-            return p;
-        }
-
-        function updateMedcomScale() {
-            const power = medcomTotalPower();
-            const el = document.getElementById('medcom-power');
-            el.innerText = power;
-            el.className = 'val ' + (power >= medcomHand.skepticism ? 'medcom-ok' : 'medcom-bad');
-            document.getElementById('medcom-skept').innerText = medcomHand.skepticism;
-            const submit = document.getElementById('medcom-submit');
-            submit.disabled = medcomPicked.length !== medcomHand.pick;
-            submit.innerText = medcomPicked.length === medcomHand.pick
-                ? 'Подати діагноз'
-                : 'Обери ще ' + (medcomHand.pick - medcomPicked.length);
-        }
-
-        window.toggleSymptom = (i) => {
-            const id = medcomHand.cards[i].id;
-            const at = medcomPicked.indexOf(id);
-            if (at >= 0) medcomPicked.splice(at, 1);
-            else if (medcomPicked.length < medcomHand.pick) medcomPicked.push(id);
-            else return tg.HapticFeedback.notificationOccurred('warning');
-            tg.HapticFeedback.impactOccurred('light');
-            renderMedcom();
+        window.closeMedcom = () => {
+            document.getElementById('medcom-screen').classList.add('hidden');
+            if (medcomTimerHandle) { clearInterval(medcomTimerHandle); medcomTimerHandle = null; }
         };
 
-        window.toggleMedcomBonus = (key, on) => { medcomBonuses[key] = on; updateMedcomScale(); };
+        function renderMedcomCardDots() {
+            const n = (medcomState && typeof medcomState.medcomCard === 'number') ? medcomState.medcomCard : 0;
+            const max = (medcomState && medcomState.medcomCardMax) || 10;
+            document.getElementById('medcom-card-text').innerText = n + '/' + max;
+            let dots = '';
+            for (let i = 0; i < max; i++) dots += '<div class="medcom-card-dot' + (i < n ? ' on' : '') + '"></div>';
+            document.getElementById('medcom-card-dots').innerHTML = dots;
+        }
+
+        function renderMedcom() {
+            const s = medcomState;
+            if (!s) return;
+            document.getElementById('medcom-hits-needed').innerText = s.hitsNeeded;
+            renderMedcomCardDots();
+
+            document.getElementById('medcom-cards').innerHTML = s.cards.map((c, i) => {
+                const isLit = s.started && i === s.activeIdx;
+                const isUsedUp = s.started && (s.usedIdx || []).includes(i);
+                let cls = 'symptom-card';
+                if (isLit) cls += ' lit';
+                if (isUsedUp) cls += ' used';
+                if (medcomFlashIdx === i) cls += medcomFlashKind === 'hit' ? ' hit-flash' : ' miss-flash';
+                return '<div class="' + cls + '"' + (isLit ? ' onclick="tapMedcom(\\'' + c.id + '\\')"' : '') + '>' +
+                    '<span class="symptom-emoji">' + c.emoji + '</span>' +
+                    '<div class="symptom-name">' + esc(c.name) + '</div></div>';
+            }).join('');
+
+            document.getElementById('medcom-hits').innerText = s.hits;
+            document.getElementById('medcom-rounds-left').innerText = s.roundsLeft;
+
+            const startBtn = document.getElementById('medcom-start');
+            const rr = document.getElementById('medcom-reroll');
+            const timerWrap = document.getElementById('medcom-timer-wrap');
+            const bonusesEl = document.getElementById('medcom-bonuses');
+            const introEl = document.getElementById('medcom-intro');
+
+            if (!s.started) {
+                startBtn.classList.remove('hidden');
+                rr.classList.remove('hidden');
+                bonusesEl.classList.remove('hidden');
+                timerWrap.classList.add('hidden');
+                introEl.classList.remove('hidden');
+                const b = s.bonuses;
+                const row = (key, label, on, avail, bonusMs) =>
+                    '<label class="medcom-bonus' + (avail ? '' : ' off') + '">' +
+                    '<input type="checkbox"' + (on ? ' checked' : '') + (avail ? '' : ' disabled') +
+                    ' onchange="toggleMedcomBonus(\\'' + key + '\\', this.checked)">' +
+                    '<span>' + label + '</span><b style="margin-left:auto; color:var(--gold)">+' + bonusMs + 'мс</b></label>';
+                bonusesEl.innerHTML =
+                    row('stamp', '🔏 Печатка (витратиться 1)', medcomBonuses.stamp, b.stamp.have, b.stamp.bonusMs) +
+                    row('meds', '💊 Ліки ×' + b.meds.qty + ' (витратяться)', medcomBonuses.meds, b.meds.have, b.meds.bonusMs) +
+                    (b.cat.have ? '<div class="medcom-bonus">🐈 Кіт-антистрес: маєш змучений вигляд<b style="margin-left:auto; color:var(--gold)">+' + b.cat.bonusMs + 'мс</b></div>' : '');
+                rr.disabled = s.rerollsLeft <= 0 || state.balance < s.rerollCost;
+                rr.innerText = s.rerollsLeft > 0
+                    ? 'Перекинути картки — ' + fmtNum(s.rerollCost) + ' ТК (лишилось ' + s.rerollsLeft + ')'
+                    : 'Перекидати більше не можна';
+            } else {
+                startBtn.classList.add('hidden');
+                rr.classList.add('hidden');
+                bonusesEl.classList.add('hidden');
+                introEl.classList.add('hidden');
+                timerWrap.classList.remove('hidden');
+                startMedcomTimer();
+            }
+        }
+
+        function startMedcomTimer() {
+            if (medcomTimerHandle) clearInterval(medcomTimerHandle);
+            const fill = document.getElementById('medcom-timer-fill');
+            medcomTimerHandle = setInterval(() => {
+                if (!medcomState || medcomState.activeIdx === null) { clearInterval(medcomTimerHandle); return; }
+                const left = Math.max(0, medcomState.msLeft - (Date.now() - medcomState._syncedAt));
+                fill.style.width = Math.max(0, Math.min(100, (left / medcomState.windowMs) * 100)) + '%';
+                if (left <= 0) {
+                    clearInterval(medcomTimerHandle);
+                    medcomTimerHandle = null;
+                    // Вікно вийшло на клієнті — сервер сам зарахує промах при наступному
+                    // зверненні. Тапаємо "в порожнечу", той самий шлях, що й свідомий промах.
+                    tapMedcom(null);
+                }
+            }, 50);
+        }
+
+        window.toggleMedcomBonus = (key, on) => { medcomBonuses[key] = on; renderMedcom(); };
 
         window.rerollMedcom = async () => {
             const res = await apiFetch('/api/medcom/reroll', {
@@ -5327,29 +5371,60 @@ function buildHtml(botUsername) {
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message);
             state.balance = data.balance;
-            medcomHand = data.hand;
-            medcomPicked = [];
+            medcomState = data.hand;
+            medcomState._syncedAt = Date.now();
             renderMedcom();
             updateUI();
         };
 
-        window.submitMedcom = async () => {
-            const res = await apiFetch('/api/medcom/submit', {
+        window.startMedcom = async () => {
+            const res = await apiFetch('/api/medcom/start', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id, cardIds: medcomPicked,
-                    useStamp: medcomBonuses.stamp, useMeds: medcomBonuses.meds }),
+                body: JSON.stringify({ id: user.id, useStamp: medcomBonuses.stamp, useMeds: medcomBonuses.meds }),
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message);
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (data.resources) state.resources = data.resources;
+            medcomState = data.hand;
+            medcomState._syncedAt = Date.now();
+            renderMedcom();
+            updateUI();
+        };
+
+        window.tapMedcom = async (cardId) => {
+            if (!medcomState || !medcomState.started) return;
+            if (medcomTimerHandle) { clearInterval(medcomTimerHandle); medcomTimerHandle = null; }
+            const tappedIdx = medcomState.activeIdx;
+            const res = await apiFetch('/api/medcom/tap', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, cardId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            tg.HapticFeedback.impactOccurred(data.hit ? 'medium' : 'light');
+            medcomFlashIdx = tappedIdx;
+            medcomFlashKind = data.hit ? 'hit' : 'miss';
+            setTimeout(() => { medcomFlashIdx = null; if (medcomState && !medcomState.done) renderMedcom(); }, 300);
+
+            if (!data.done) {
+                medcomState = data.hand;
+                medcomState._syncedAt = Date.now();
+                renderMedcom();
+                return;
+            }
+
+            // Останній раунд — повістка вже закрита на сервері, показуємо підсумок.
             closeMedcom();
             absorbHeat(data);
             if (typeof data.balance === 'number') state.balance = data.balance;
             if (typeof data.energy === 'number') state.energy = data.energy;
             if (data.resources) state.resources = data.resources;
             if (typeof data.deferUntil === 'number') state.deferUntil = data.deferUntil;
+            if (typeof data.shieldUntil === 'number') state.shieldUntil = data.shieldUntil;
+            if (data.expired) { tg.showAlert(data.message); return; }
             tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
-            let msg = (data.resolved ? '✅ ' : '❌ ') + data.message +
-                '\\n\\nПереконливість ' + data.power + ' проти скептицизму ' + data.skepticism;
+            let msg = (data.resolved ? '✅ ' : '❌ ') + data.message;
             if (data.penalty && data.penalty.coins) msg += '\\nШтраф: −' + fmtNum(data.penalty.coins) + ' ТК';
             tg.showAlert(msg);
             if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
@@ -5949,7 +6024,7 @@ function buildHtml(botUsername) {
                 deferUntil: state.deferUntil, defermentId: state.defermentId,
                 defermentsTaken: state.defermentsTaken, skills: state.skills,
                 reputation: state.reputation, trophies: state.trophies,
-                snitchStats: state.snitchStats, medcomStats: state.medcomStats,
+                snitchStats: state.snitchStats, medcomStats: state.medcomStats, medcomCard: state.medcomCard,
                 checkpointStats: state.checkpointStats, noticeStats: state.noticeStats,
                 inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
@@ -6067,6 +6142,7 @@ function buildHtml(botUsername) {
                 document.getElementById('username').innerText = state.nickname || user.first_name;
                 if (data.nextStep) renderNextStep(data.nextStep);
                 state.medcomStats = data.medcomStats || null;
+                state.medcomCard = data.medcomCard || 0;
                 state.inspectorStats = data.inspectorStats || null;
                 state.checkpointStats = data.checkpointStats || null;
                 state.defermentsTaken = data.defermentsTaken || 0;
@@ -7082,6 +7158,7 @@ function buildHtml(botUsername) {
                 ['🕵️ Розкрив стукачів', fmtNum((state.snitchStats || {}).caught || 0)],
                 ['🏥 Медкомісій пройдено', fmtNum((state.medcomStats || {}).passed || 0) +
                     ' (провалів: ' + fmtNum((state.medcomStats || {}).failed || 0) + ')'],
+                ['🩺 Медична картка', (state.medcomCard || 0) + '/' + ECONOMY.MEDCOM_CARD_MAX],
                 ['🎖️ Інспекторів спекався', fmtNum(Object.values((state.inspectorStats || {}).defeated || {}).reduce((a, b) => a + b, 0)) +
                     ' (втік: ' + fmtNum((state.inspectorStats || {}).lost || 0) + ')'],
                 ['🌳 Навичок вивчено', Object.values(state.skills || {}).filter(Boolean).length + ' / 18'],

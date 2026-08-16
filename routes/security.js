@@ -36,7 +36,7 @@ module.exports = function registerSecurityRoutes(app, deps) {
         }
     }
 
-    // ---- Медкомісія ----
+    // ---- Медкомісія (PATCH 2.0 Р18) ----
     // Роздача карток — на сервері, інакше гравець просто вибрав би собі "Справжню
     // медичну карту" п'ять разів поспіль.
     function drawSymptoms(count) {
@@ -55,42 +55,76 @@ module.exports = function registerSecurityRoutes(app, deps) {
         return hand;
     }
 
-    // Скільки переконливості дасть картка саме цьому гравцю: та сама скарга двічі
-    // поспіль працює гірше ("ви вже приходили з цим").
-    function symptomPower(user, id) {
-        const card = SYMPTOM_BY_ID[id];
-        if (!card) return 0;
-        const repeated = (user.lastMedcomCards || []).includes(id);
-        return Math.max(0, card.power - (repeated ? ECONOMY.MEDCOM_REPEAT_PENALTY : 0));
+    // Вікно реакції на ОДИН раунд: базове мінус штраф за heat мінус штраф за
+    // повторну (з минулого разу) картку плюс сесійний бонус від печатки/ліків/кота.
+    function roundWindowMs(user, session, cardId) {
+        const repeated = (user.lastMedcomCards || []).includes(cardId);
+        const ms = ECONOMY.MEDCOM_QTE_BASE_MS
+            - (user.heat || 0) * ECONOMY.MEDCOM_QTE_HEAT_PENALTY_MS
+            - (repeated ? ECONOMY.MEDCOM_REPEAT_PENALTY_MS : 0)
+            + (session.bonusMs || 0);
+        return Math.max(ECONOMY.MEDCOM_QTE_MIN_MS, Math.round(ms));
+    }
+
+    // Підсвічує наступну ще не пройдену картку з руки. Викликається і на старті
+    // (перший раунд), і після кожного тапу/таймауту (наступний раунд).
+    function activateRound(user, session) {
+        const left = session.cards.map((_, i) => i).filter((i) => !session.usedIdx.includes(i));
+        if (!left.length) { session.activeIdx = null; return; }
+        session.activeIdx = left[Math.floor(Math.random() * left.length)];
+        session.activeAt = Date.now();
+        session.windowMs = roundWindowMs(user, session, session.cards[session.activeIdx]);
+    }
+
+    // Якщо гравець просто не встиг тапнути (вікно вийшло, а запиту не було) —
+    // раунд рахується як промах сам по собі, той самий підхід, що й
+    // settleExpiredQte у Спринтах: гра не чекає застряглого клієнта вічно.
+    function settleExpiredRound(user, session) {
+        if (session.activeIdx === null || Date.now() - session.activeAt <= session.windowMs) return;
+        session.usedIdx.push(session.activeIdx);
+        session.misses = (session.misses || 0) + 1;
+        activateRound(user, session);
     }
 
     function medcomHand(user) {
         const s = user.medcomSession;
         if (!s) return null;
+        settleExpiredRound(user, s);
         return {
             noticeId: s.noticeId,
+            started: s.started,
             rerolls: s.rerolls,
-            rerollsLeft: Math.max(0, ECONOMY.MEDCOM_REROLL_MAX - s.rerolls),
+            rerollsLeft: s.started ? 0 : Math.max(0, ECONOMY.MEDCOM_REROLL_MAX - s.rerolls),
             rerollCost: ECONOMY.MEDCOM_REROLL_COST,
-            pick: ECONOMY.MEDCOM_PICK,
-            skepticism: Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0)),
+            hitsNeeded: ECONOMY.MEDCOM_HITS_NEEDED,
+            hits: s.hits || 0,
+            misses: s.misses || 0,
+            roundsLeft: s.cards.length - s.usedIdx.length,
+            usedIdx: s.usedIdx,
+            activeIdx: s.activeIdx,
+            msLeft: s.activeIdx === null ? 0 : Math.max(0, s.windowMs - (Date.now() - s.activeAt)),
+            windowMs: s.windowMs || null,
+            done: s.started && s.activeIdx === null,
+            medcomCard: user.medcomCard || 0,
+            medcomCardMax: ECONOMY.MEDCOM_CARD_MAX,
             cards: s.cards.map((id) => {
                 const c = SYMPTOM_BY_ID[id];
-                return {
-                    id, name: c.name, emoji: c.emoji, power: symptomPower(user, id),
-                    repeated: (user.lastMedcomCards || []).includes(id),
-                };
+                return { id, name: c.name, emoji: c.emoji };
             }),
             bonuses: {
-                stamp: { have: (user.resources.stamp || 0) >= 1, bonus: ECONOMY.MEDCOM_STAMP_BONUS, qty: 1 },
-                meds: { have: (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY, bonus: ECONOMY.MEDCOM_MEDS_BONUS, qty: ECONOMY.MEDCOM_MEDS_QTY },
-                cat: { have: user.petId === 'cat', bonus: ECONOMY.MEDCOM_CAT_BONUS, qty: 0 },
+                stamp: { have: (user.resources.stamp || 0) >= 1, bonusMs: ECONOMY.MEDCOM_STAMP_BONUS_MS, qty: 1 },
+                meds: { have: (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY, bonusMs: ECONOMY.MEDCOM_MEDS_BONUS_MS, qty: ECONOMY.MEDCOM_MEDS_QTY },
+                cat: { have: user.petId === 'cat', bonusMs: ECONOMY.MEDCOM_CAT_BONUS_MS, qty: 0 },
             },
         };
     }
 
     function dealMedcom(user, notice) {
-        user.medcomSession = { noticeId: notice.uid, cards: drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE), rerolls: 0 };
+        user.medcomSession = {
+            noticeId: notice.uid, cards: drawSymptoms(ECONOMY.MEDCOM_HAND_SIZE),
+            usedIdx: [], activeIdx: null, activeAt: 0, windowMs: 0,
+            hits: 0, misses: 0, rerolls: 0, started: false, bonusMs: 0,
+        };
         return { hand: medcomHand(user) };
     }
 
@@ -418,6 +452,7 @@ module.exports = function registerSecurityRoutes(app, deps) {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const s = user.medcomSession;
         if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
+        if (s.started) return res.json({ success: false, message: 'Комісія вже почалась — пізно міняти карти' });
         if (s.rerolls >= ECONOMY.MEDCOM_REROLL_MAX) {
             return res.json({ success: false, message: 'Більше перекидати не можна — лікар уже щось запідозрив' });
         }
@@ -430,70 +465,114 @@ module.exports = function registerSecurityRoutes(app, deps) {
         res.json({ success: true, balance: user.balance, hand: medcomHand(user) });
     });
 
-    app.post('/api/medcom/submit', requireTelegramAuth, (req, res) => {
+    // Фіксує бонуси (списує ресурси один раз на всю сесію) і підсвічує перший
+    // раунд. Окремий крок від dealMedcom — гравець спершу бачить руку й бонуси,
+    // тоді свідомо тисне "Почати", а не одразу опиняється під таймером.
+    app.post('/api/medcom/start', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const s = user.medcomSession;
         if (!s) return res.json({ success: false, message: 'Ти зараз не на комісії' });
+        if (s.started) return res.json({ success: false, message: 'Комісія вже почалась' });
 
-        const picked = Array.isArray(req.body.cardIds) ? [...new Set(req.body.cardIds)] : [];
-        if (picked.length !== ECONOMY.MEDCOM_PICK || !picked.every((id) => s.cards.includes(id))) {
-            return res.json({ success: false, message: `Треба обрати рівно ${ECONOMY.MEDCOM_PICK} картки зі своїх` });
-        }
-
-        const idx = (user.notices || []).findIndex((n) => n.uid === s.noticeId);
-        if (idx === -1) {
-            user.medcomSession = null;
-            return res.json({ success: false, message: 'Повістка вже неактуальна' });
-        }
-        const type = NOTICE_BY_ID[user.notices[idx].typeId];
-
-        let power = picked.reduce((sum, id) => sum + symptomPower(user, id), 0);
-        // Не `used`: у відповіді нижче розгортається storageSnapshot, у якого своє поле
-        // used (зайнято місць у кладовці), і воно б це затерло.
         const usedBonuses = [];
-        // Бонуси витрачаються НЕЗАЛЕЖНО від результату — це і є ціна спроби.
+        let bonusMs = 0;
+        // Бонуси витрачаються одразу при старті, незалежно від фінального
+        // результату — це і є ціна спроби, як і в старій версії механіки.
         if (req.body.useStamp && (user.resources.stamp || 0) >= 1) {
             user.resources.stamp -= 1;
             if (user.resources.stamp <= 0) delete user.resources.stamp;
-            power += ECONOMY.MEDCOM_STAMP_BONUS;
+            bonusMs += ECONOMY.MEDCOM_STAMP_BONUS_MS;
             usedBonuses.push('печатка');
         }
         if (req.body.useMeds && (user.resources.meds || 0) >= ECONOMY.MEDCOM_MEDS_QTY) {
             user.resources.meds -= ECONOMY.MEDCOM_MEDS_QTY;
             if (user.resources.meds <= 0) delete user.resources.meds;
-            power += ECONOMY.MEDCOM_MEDS_BONUS;
+            bonusMs += ECONOMY.MEDCOM_MEDS_BONUS_MS;
             usedBonuses.push('ліки');
         }
         if (user.petId === 'cat') {
-            power += ECONOMY.MEDCOM_CAT_BONUS;
+            bonusMs += ECONOMY.MEDCOM_CAT_BONUS_MS;
             usedBonuses.push('кіт-антистрес');
         }
+        s.bonusMs = bonusMs;
+        s.started = true;
+        activateRound(user, s);
+        res.json({ success: true, usedBonuses, balance: user.balance, ...storageSnapshot(user), hand: medcomHand(user) });
+    });
 
-        const skepticism = Math.round(ECONOMY.MEDCOM_BASE_SKEPTICISM + (user.heat || 0));
-        const resolved = power >= skepticism;
-        user.lastMedcomCards = picked;
+    // Один тап = один раунд. Пізній чи хибний тап так само рухає гру далі —
+    // не можна "затримати" раунд, чекаючи слушної миті нескінченно.
+    app.post('/api/medcom/tap', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const s = user.medcomSession;
+        if (!s || !s.started) return res.json({ success: false, message: 'Комісія ще не почалась' });
+        settleExpiredRound(user, s);
+
+        // Раунд ще активний — рахуємо ЦЕЙ тап. Якщо ж останній раунд уже встиг
+        // протухнути сам (наприклад через попередній GET /api/medcom, а не через
+        // цей запит) — activeIdx тут уже null, тап нема що рахувати, і ми одразу
+        // йдемо до фіналізації нижче з тим, що вже накопичено. Без цієї гілки
+        // сесія лишалась би "підвішеною" назавжди — settleExpiredRound лише
+        // рухає раунди, а не завершує повістку.
+        let hit = null;
+        if (s.activeIdx !== null) {
+            const onTime = Date.now() - s.activeAt <= s.windowMs;
+            const correct = req.body.cardId === s.cards[s.activeIdx];
+            hit = onTime && correct;
+            s.usedIdx.push(s.activeIdx);
+            if (hit) s.hits = (s.hits || 0) + 1; else s.misses = (s.misses || 0) + 1;
+            activateRound(user, s);
+        }
+
+        // Ще є нерозкриті раунди — просто повертаємо новий стан, фінал ще не настав.
+        if (s.activeIdx !== null) {
+            return res.json({ success: true, hit, done: false, hand: medcomHand(user) });
+        }
+
+        // Останній раунд пройдено (щойно або раніше) — тут-таки й фіналізуємо
+        // повістку, окремого /submit більше не треба.
+        const idx = (user.notices || []).findIndex((n) => n.uid === s.noticeId);
+        const cardsUsed = s.cards;
+        user.lastMedcomCards = cardsUsed;
         user.medcomSession = null;
+        if (idx === -1) {
+            return res.json({ success: true, hit, done: true, expired: true, message: 'Повістка вже неактуальна', hand: null });
+        }
+        const type = NOTICE_BY_ID[user.notices[idx].typeId];
+        const resolved = s.hits >= ECONOMY.MEDCOM_HITS_NEEDED;
 
         let penalty = null;
         let message;
+        let shieldGranted = false;
         if (resolved) {
             user.deferUntil = Date.now() + ECONOMY.MEDCOM_DEFER_H * 3600 * 1000;
             user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.MEDCOM_SEASON_POINTS;
             user.medcomStats.passed += 1;
             user.dailyMedcom = (user.dailyMedcom || 0) + 1;
-            message = `«Непридатний. Наступний!» Відстрочка на ${ECONOMY.MEDCOM_DEFER_H} годин.`;
+            user.medcomCard = Math.min(ECONOMY.MEDCOM_CARD_MAX, (user.medcomCard || 0) + 1);
+            message = `«Непридатний. Наступний!» Влучань: ${s.hits}/${ECONOMY.MEDCOM_HAND_SIZE}. Відстрочка на ${ECONOMY.MEDCOM_DEFER_H} годин.`;
+            if (user.medcomCard >= ECONOMY.MEDCOM_CARD_MAX) {
+                const base = Math.max(Date.now(), user.shieldUntil || 0);
+                user.shieldUntil = base + ECONOMY.MEDCOM_CARD_SHIELD_DAYS * 24 * 3600 * 1000;
+                user.medcomCard = 0; // цикл, не одноразовий бонус — знову набирати з нуля
+                shieldGranted = true;
+                message += ` Медична картка заповнена — ${ECONOMY.MEDCOM_CARD_SHIELD_DAYS} днів імунітету від повісток!`;
+            }
         } else {
             penalty = applyNoticePenalty(user, type, 1);
             changeHeat(user, ECONOMY.HEAT_MEDCOM_FAIL, 'Провалив медкомісію');
             user.medcomStats.failed += 1;
-            message = '«Придатний. Наступний!» Не повірили.';
+            message = `«Придатний. Наступний!» Влучань лише ${s.hits}/${ECONOMY.MEDCOM_HAND_SIZE} — не повірили.`;
         }
         finishNotice(user, idx, 'medcom', resolved);
 
         const unlocked = checkAchievements(user);
         res.json({
-            success: true, resolved, power, skepticism, usedBonuses, message, penalty,
-            deferUntil: user.deferUntil || 0, unlockedAchievements: unlocked,
+            success: true, hit, done: true, resolved, hits: s.hits, misses: s.misses,
+            hitsNeeded: ECONOMY.MEDCOM_HITS_NEEDED, message, penalty, shieldGranted,
+            medcomCard: user.medcomCard || 0, medcomCardMax: ECONOMY.MEDCOM_CARD_MAX,
+            deferUntil: user.deferUntil || 0, shieldUntil: user.shieldUntil || 0,
+            unlockedAchievements: unlocked,
             balance: user.balance, energy: user.energy, seasonPoints: user.seasonPoints,
             ...storageSnapshot(user), ...heatSnapshot(user, true), ...noticeSnapshot(user),
         });

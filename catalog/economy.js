@@ -150,19 +150,31 @@ const ECONOMY = {
     SNITCH_CAUGHT_SEASON_POINTS: 5,
     SNITCH_HISTORY_SIZE: 10,
 
-    // --- Медкомісія: збираємо "діагноз" із карток симптомів ---
+    // --- Медкомісія (PATCH 2.0 Р18, 2026-08-16): QTE замість карток-порівняння ---
+    // Сервер по черзі "підсвічує" одну картку симптому з руки — тапнути ТУ САМУ,
+    // поки світиться. 5 раундів (уся рука), треба MEDCOM_HITS_NEEDED влучань, щоб
+    // пройти. Вікно реакції звужується від розшуку (той самий дух, що й старий
+    // "скептицизм + heat" — чим ти помітніший, тим менше часу на переконання).
     MEDCOM_HAND_SIZE: 5,
-    MEDCOM_PICK: 3,
-    MEDCOM_BASE_SKEPTICISM: 100,   // + поточний heat: чим ти помітніший, тим менше віри
+    MEDCOM_HITS_NEEDED: 3,
+    MEDCOM_QTE_BASE_MS: 2000,
+    MEDCOM_QTE_MIN_MS: 900,           // підлога вікна навіть при максимальному heat
+    MEDCOM_QTE_HEAT_PENALTY_MS: 10,   // −мс за кожну одиницю heat
+    MEDCOM_REPEAT_PENALTY_MS: 300,    // "ви вже приходили з цим" — коротше вікно на повторну картку
     MEDCOM_REROLL_COST: 800,
     MEDCOM_REROLL_MAX: 2,
-    MEDCOM_STAMP_BONUS: 25,
-    MEDCOM_MEDS_BONUS: 15,
+    MEDCOM_STAMP_BONUS_MS: 400,
+    MEDCOM_MEDS_BONUS_MS: 250,
     MEDCOM_MEDS_QTY: 3,
-    MEDCOM_CAT_BONUS: 10,          // Кіт-антистрес: виглядаєш переконливо змученим
-    MEDCOM_REPEAT_PENALTY: 20,     // "ви вже приходили з цим" — змушує варіювати
+    MEDCOM_CAT_BONUS_MS: 150,         // Кіт-антистрес: виглядаєш переконливо змученим
     MEDCOM_DEFER_H: 12,
     MEDCOM_SEASON_POINTS: 3,
+    // Медична картка — постійний прогрес (не скидається сесією/легалізацією, як
+    // навички). 10/10 → тимчасовий щит від повісток (той самий user.shieldUntil,
+    // що й крафтові щити), потім лічильник обнуляється — стабільно повторюваний
+    // цикл, а не одноразовий бонус.
+    MEDCOM_CARD_MAX: 10,
+    MEDCOM_CARD_SHIELD_DAYS: 7,
 
     // --- Інспектори ТЦК (боси) ---
     INSPECTOR_SPAWN_CHANCE: 0.12,
