@@ -62,13 +62,14 @@ module.exports = function registerEconomyRoutes(app, deps) {
         const { resId } = req.body;
         const meta = RESOURCE_BY_ID[resId];
         if (!meta) return res.status(400).json({ error: 'Невідомий ресурс' });
-        // Аудит балансу (2026-08-13): Білий Квиток (тір 4) продавався за 9000₴,
-        // що робило вилазку "Нічний візит у ТЦК" аномально вигідною (~63.5₴/хв,
-        // у 3+ рази вище за будь-яку іншу вилазку) і конкурувало з власним
-        // призначенням квитка — крафтом постійного імунітету (white_ticket).
-        // Тепер quitok виключно крафт-інгредієнт, на біржі не продається.
-        if (meta.tier >= 4) {
-            return res.json({ success: false, message: `${meta.name} не продається — тільки крафт-інгредієнт.` });
+        // TRADE LOCK (Р17, PATCH_2.0_CLAUDE_DECISIONS.md, 2026-08-16): tradeLock:
+        // 'quest' — не купується, не продається взагалі, лише прогресивний ключ.
+        // Раніше тут була разова латка тільки для ticket (тір 4, з аудиту
+        // 2026-08-13: продаж за 9000₴ робив вилазку "Нічний візит у ТЦК" аномально
+        // вигідною) — тепер формалізовано полем на самому ресурсі, охоплює й
+        // Спринт-ресурси/Маршрут, які раніше через цю перевірку не проходили.
+        if (meta.tradeLock === 'quest') {
+            return res.json({ success: false, message: `${meta.name} не продається — тільки прогресивний ключ.` });
         }
         const have = user.resources[resId] || 0;
         const qty = req.body.all ? have : Math.min(have, Math.max(1, Number(req.body.qty) || 1));
@@ -519,6 +520,11 @@ module.exports = function registerEconomyRoutes(app, deps) {
         const quantity = Number(qty);
         if (!asset || !['buy', 'sell'].includes(action) || !(quantity > 0) || !Number.isInteger(quantity)) {
             return res.status(400).json({ error: 'Невірні дані угоди' });
+        }
+        // TRADE LOCK (Р17): лишок уламка можна продати, але купити — ні, інакше
+        // "безкоштовний шлях до донатних ящиків" перестає бути безкоштовним.
+        if (action === 'buy' && asset.tradeLock === 'limited') {
+            return res.json({ success: false, message: `${asset.name} не купується — тільки знахідка чи продаж лишку` });
         }
         const price = marketState.prices[assetId];
         // «Знайомий перекуп» піднімає лише ціну ПРОДАЖУ: якби він діяв і на купівлю,

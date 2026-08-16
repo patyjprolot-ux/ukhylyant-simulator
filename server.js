@@ -247,10 +247,15 @@ const EXPEDITION_BY_ID = byId(EXPEDITIONS);
 // Тіньова біржа торгує СПРАВЖНІМИ ресурсами з кладовки (раніше це були окремі
 // абстрактні товари, ніяк не повʼязані з рештою гри). Курс гуляє кожні 3 хв, тож
 // ресурси вигідно продавати на піку, а на дні — докуповувати під крафт замість
-// того, щоб фармити ящики. Білий Квиток (тір 4) не торгується: він має здобуватись.
+// того, щоб фармити ящики.
+// TRADE LOCK (Р17, PATCH_2.0_CLAUDE_DECISIONS.md, 2026-08-16): tradeLock:'quest'
+// (Білий Квиток, Спринт-ресурси, Маршрут) взагалі не потрапляє в список — не
+// купується, не продається, лише прогресивний ключ. tradeLock:'limited' (уламки)
+// лишається в списку (можна продати лишок), сам /api/market/trade нижче блокує
+// саме дію 'buy' для них.
 const MARKET_ASSETS = RESOURCES
-    .filter((r) => r.tier <= 3)
-    .map((r) => ({ id: r.id, name: r.name, emoji: r.emoji, img: r.img, basePrice: r.sell }));
+    .filter((r) => r.tier <= 3 && r.tradeLock !== 'quest')
+    .map((r) => ({ id: r.id, name: r.name, emoji: r.emoji, img: r.img, basePrice: r.sell, tradeLock: r.tradeLock || 'tradeable' }));
 
 // Колесо Зради та Перемоги — 1 безкоштовний прокрут/день, результат обирає сервер.
 
@@ -7691,14 +7696,18 @@ function buildHtml(botUsername) {
                 const visual = a.img
                     ? '<img class="res-img" src="' + a.img + '" alt="">'
                     : a.emoji;
+                // TRADE LOCK (Р17): уламки можна тільки продати — купівля прихована,
+                // а не просто заблокована при кліку, щоб не спокушати спробувати.
+                const limited = a.tradeLock === 'limited';
                 return '<div class="asset-row">' +
                     '<div><div class="asset-name">' + visual + ' ' + a.name + '</div>' +
-                    '<div style="font-size:11px;color:#9db0c2;">У кладовці: ' + held + ' · ' + trend + ' до бази</div></div>' +
+                    '<div style="font-size:11px;color:#9db0c2;">У кладовці: ' + held + ' · ' + trend + ' до бази' +
+                    (limited ? ' · <span style="color:#ffb84d;">лише продаж</span>' : '') + '</div></div>' +
                     '<svg class="sparkline" viewBox="0 0 70 24"><polyline points="' + pts + '" fill="none" stroke="#ffd700" stroke-width="2"/></svg>' +
                     '<div class="asset-price">' + price + ' 🪙</div>' +
                     '<div class="asset-controls">' +
                     '<input type="number" min="1" value="1" id="qty-' + a.id + '">' +
-                    '<button onclick="trade(\\'' + a.id + '\\',\\'buy\\')">Купити</button>' +
+                    (limited ? '' : '<button onclick="trade(\\'' + a.id + '\\',\\'buy\\')">Купити</button>') +
                     '<button onclick="trade(\\'' + a.id + '\\',\\'sell\\')">Продати</button>' +
                     '</div></div>';
             }).join('');
