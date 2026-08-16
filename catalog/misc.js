@@ -30,6 +30,11 @@ const PROMO_CODES = {
     SXRON6: { type: 'set_level', level: 6 },
     SXRON7: { type: 'set_level', level: 7 },
     SXRON8: { type: 'set_level', level: 8 },
+    // Розробницький код: максимальний рівень ухилянта (усі вкладки/кнопки
+    // відкриті, LEVEL_UNLOCKS), схрон 8 (усе контентно доступне), VIP,
+    // купа очок навичок. Для швидкої зміни САМЕ схрону далі — SXRON1..SXRON8
+    // (вище), можна вводити скільки завгодно разів у будь-якому порядку.
+    ROZROBNYK: { type: 'dev_unlock' },
 };
 
 const LEGACY_ASSET_PRICES = { buckwheat: 100, salt: 50, tushonka: 300 };

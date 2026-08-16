@@ -1778,6 +1778,26 @@ app.post('/api/promo', requireTelegramAuth, (req, res) => {
             level: user.level, maxEnergy: user.maxEnergy, energy: user.energy, balance: user.balance,
         });
     }
+    if (promo.type === 'dev_unlock') {
+        // Читерський код для розробника/тестів: відкриває ВСЕ контентно —
+        // максимальний схрон (усі локації/вкладки, що гейтяться user.level),
+        // максимальний рівень ухилянта (LEVEL_UNLOCKS — усі вкладки клієнта),
+        // VIP і купа очок навичок (дерево гейтиться довідками легалізації,
+        // не рівнем). Свідомо НЕ чіпає баланс/ресурси/розшук — це для огляду
+        // контенту, не для тестів економіки (для того є NEVYCHERPNO/OBNULYUVACH).
+        const topLoc = LOCATIONS[LOCATIONS.length - 1];
+        user.level = topLoc.level;
+        user.maxEnergy = topLoc.maxEnergy;
+        user.energy = user.maxEnergy;
+        user.isVip = true;
+        const maxGateLevel = 25; // з запасом понад найвищий поріг LEVEL_UNLOCKS (20) на клієнті
+        user.xp = xpForLevel(maxGateLevel);
+        user.playerLevel = maxGateLevel;
+        user.prestigePoints = Math.max(user.prestigePoints || 0, 999);
+        // fullSync — клієнт просто перезаходить (await init()), а не патчить
+        // руками десяток окремих полів, яких звичайний /api/promo не торкається.
+        return res.json({ success: true, fullSync: true, message: '🛠️ Розробницький доступ: усе відкрито (схрон 8, макс. рівень ухилянта, VIP, 999 довідок).' });
+    }
     res.json({ success: false, message: 'Невірний код' });
 });
 
@@ -8020,8 +8040,8 @@ function buildHtml(botUsername) {
                 let data = await res.json();
                 if (data.success) {
                     document.getElementById('promo').value = '';
-                    if (data.reset) {
-                        await init(); // повне обнулення — перетягуємо весь стан з сервера заново, а не патчимо шматками
+                    if (data.reset || data.fullSync) {
+                        await init(); // повне обнулення/розробницький анлок — перетягуємо весь стан з сервера заново, а не патчимо шматками
                     } else {
                         state.balance = data.balance; state.isVip = data.isVip;
                         if (data.resources) { state.resources = data.resources; state.storageUsed = data.used; }
