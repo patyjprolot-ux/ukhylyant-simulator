@@ -11,6 +11,7 @@ module.exports = function registerSprintRoutes(app, deps) {
         decayBurnout, burnoutPerTap, burnoutTapMult,
         settleExpiredQte, sprintExpired, qteWindowMs,
         BURNOUT_MAX, QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_MISS_PENALTY,
+        computeFocusStat, upgradeBurnoutDecayBonus,
     } = deps;
 
     // Єдина точка відмови під вимкненим прапорцем — щоб не було шести різних
@@ -24,14 +25,20 @@ module.exports = function registerSprintRoutes(app, deps) {
     function burnoutResistMult(user) {
         return hasSkill(user, 'burnoutresist') ? (1 - ECONOMY.SKILL_BURNOUT_TAP_CUT) : 1;
     }
+    // Ремап бустерів (Р4, 2026-08-16): jam+generator (пасив-апгрейди) множать
+    // швидкість відновлення вигорання поверх бонусу навички — той самий дух, що
+    // навичка "Гострий фокус", просто джерело інше (магазин, не дерево).
     function burnoutDecayMult(user) {
-        return hasSkill(user, 'sharpfocus') ? (1 + ECONOMY.SKILL_BURNOUT_DECAY_BONUS) : 1;
+        const skillMult = hasSkill(user, 'sharpfocus') ? (1 + ECONOMY.SKILL_BURNOUT_DECAY_BONUS) : 1;
+        return skillMult * upgradeBurnoutDecayBonus(user);
     }
 
-    // Спільна підготовка стану перед будь-якою дією: відпочинок за минулий час і
-    // зарахування простроченого бага. Обидва — серверні, бо обидва працюють проти
-    // гравця, і клієнту тут довіряти не можна.
+    // Спільна підготовка стану перед будь-якою дією: відпочинок за минулий час,
+    // зарахування простроченого бага, і синхронізація Focus із поточними рівнями
+    // hat+thermos (Р4) — чиста функція від user.upgrades, тому просто перераховуємо
+    // щоразу замість того, щоб пам'ятати оновити її в кожному місці купівлі.
     function syncSprint(user) {
+        user.focusStat = computeFocusStat(user);
         decayBurnout(user, burnoutDecayMult(user));
         settleExpiredQte(user);
     }

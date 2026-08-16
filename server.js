@@ -581,6 +581,7 @@ const {
 const {
     UPGRADE_BASE, UPGRADE_BASE_EFFECT, TIER_GATES,
     upgTier, upgInTier, tierCostMultCapped, upgCost, upgEffectPerLevel, tierGateCost, upgradeGateInfo,
+    computeFocusStat, upgradeBurnoutDecayBonus,
 } = require('./lib/mechanics/economy');
 
 function hasActiveShield(user) {
@@ -2536,6 +2537,7 @@ require('./routes/sprints')(app, {
     decayBurnout, burnoutPerTap, burnoutTapMult,
     settleExpiredQte, sprintExpired, qteWindowMs,
     BURNOUT_MAX, QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_MISS_PENALTY,
+    computeFocusStat, upgradeBurnoutDecayBonus,
 });
 
 // routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
