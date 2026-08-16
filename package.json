@@ -1,6 +1,6 @@
 {
   "name": "ukhylyant-simulator",
-  "version": "2.0.0",
+  "version": "2.0.1-beta",
   "description": "Симулятор Ухилянта — сатиричний Telegram Mini App клікер для друзів",
   "main": "server.js",
   "scripts": {
