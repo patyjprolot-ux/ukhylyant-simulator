@@ -72,9 +72,18 @@ const QTE_BASE_MS = 1600;         // базове вікно реакції
 const QTE_MAX_MS = 2000;          // стеля з бонусом від інструментів (+до 0.4с)
 const QTE_MISS_PENALTY = 0.12;    // -12% нагороди за кожен пропуск, адитивно, підлога 0
 
+// --- Крафт маршруту (Р5) ---
+// Контрольований шлях до 'route' — паралельно зі старим шансом-дропом (12% з
+// вилазки border), не замість нього. Навмисно НЕ разовий крафт (у гравця може
+// не бути всіх ресурсів одразу), а проєкт із накопиченням: несеш, що є, коли є,
+// прогрес не згорає між сесіями. Дешевше по ресурсах, ніж очікувано по годинах —
+// головне, що час контрольований, а не залежить від удачі (рішення Р5).
+const ROUTE_PROJECT_COST = { paper: 10, intel_data: 5, script: 2 };
+
 module.exports = {
     SPRINT_TIERS,
     BURNOUT_MAX, BURNOUT_PER_TAP, BURNOUT_DECAY_SEC,
     BURNOUT_PENALTY_THRESHOLD, BURNOUT_PENALTY_MULT, BURNOUT_BOOSTER_CAP,
     QTE_SPAWN_CHANCE, QTE_MIN_INTERVAL, QTE_BASE_MS, QTE_MAX_MS, QTE_MISS_PENALTY,
+    ROUTE_PROJECT_COST,
 };

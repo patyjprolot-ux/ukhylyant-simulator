@@ -14,6 +14,7 @@ module.exports = function registerEconomyRoutes(app, deps) {
         REVENGE_LINES, MARKET_ASSETS, repMaxed, pickWeighted, WHEEL_SEGMENTS,
         shuffled, MEMORY_ICONS, MEMORY_ENTRY_COST, memoryRewardFor,
         COINFLIP_WIN_CHANCE, RISK_TIERS,
+        ROUTE_PROJECT_COST, routeProgressPct, routeProjectComplete,
     } = deps;
 
     // ---- Енергетик: разова покупка повного реgenу енергії ----
@@ -396,6 +397,43 @@ module.exports = function registerEconomyRoutes(app, deps) {
             craftedCount: user.craftedCount, unlockedAchievements: unlocked,
             xp: user.xp, playerLevel: user.playerLevel, levelsGained, ukhyr: user.ukhyr,
             ...storageSnapshot(user),
+        });
+    });
+
+    // ---- Крафт маршруту (Р5): проєкт із накопиченням, паралельно зі старим
+    // 12%-шансом-дропом із вилазки "border", не замість нього ----
+    app.post('/api/route/contribute', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const resId = req.body.resId;
+        const need = ROUTE_PROJECT_COST[resId];
+        if (!need) return res.status(400).json({ error: 'Цей ресурс не входить у проєкт маршруту' });
+        if (!user.routeContributions) user.routeContributions = { paper: 0, intel_data: 0, script: 0 };
+
+        const already = user.routeContributions[resId] || 0;
+        const remaining = Math.max(0, need - already);
+        if (remaining <= 0) return res.json({ success: false, message: 'Цього ресурсу вже вистачає для проєкту' });
+
+        const have = user.resources[resId] || 0;
+        const qty = Math.min(have, remaining, Math.max(1, Number(req.body.qty) || remaining));
+        if (qty <= 0) return res.json({ success: false, message: `Немає ${RESOURCE_BY_ID[resId].name}` });
+
+        user.resources[resId] -= qty;
+        if (user.resources[resId] <= 0) delete user.resources[resId];
+        user.routeContributions[resId] = already + qty;
+
+        let routeCompleted = false;
+        if (routeProjectComplete(user)) {
+            // Готово — видаємо 'route' і скидаємо проєкт, щоб можна було зібрати
+            // ще один (наприклад про запас, чи якщо перший уже витрачено на переїзд).
+            addResource(user, 'route', 1);
+            user.routeContributions = { paper: 0, intel_data: 0, script: 0 };
+            routeCompleted = true;
+        }
+
+        res.json({
+            success: true, routeCompleted, contributed: qty,
+            routeProgress: routeProgressPct(user), routeContributions: user.routeContributions,
+            routeCost: ROUTE_PROJECT_COST, ...storageSnapshot(user),
         });
     });
 

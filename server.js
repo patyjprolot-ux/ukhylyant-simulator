@@ -589,6 +589,7 @@ const { xpForLevel, playerLevelForXP, addXP, addUkhyr, ukhyrRank } = require('./
 const {
     SPRINT_TIER_BY_ID, burnoutPerTap, decayBurnout, burnoutTapMult,
     sprintPayout, qteWindowMs, settleExpiredQte, sprintExpired, sprintSnapshot,
+    routeProgressPct, routeProjectComplete, ROUTE_PROJECT_COST,
 } = require('./lib/mechanics/sprints');
 
 // ==========================================
@@ -2495,6 +2496,7 @@ require('./routes/economy')(app, {
     REVENGE_LINES, MARKET_ASSETS, repMaxed, pickWeighted, WHEEL_SEGMENTS,
     shuffled, MEMORY_ICONS, MEMORY_ENTRY_COST, memoryRewardFor,
     COINFLIP_WIN_CHANCE, RISK_TIERS,
+    ROUTE_PROJECT_COST, routeProgressPct, routeProjectComplete,
 });
 
 // routes/sprints.js (PATCH 2.0 «Спринти», 2026-08-15) — робочі контракти замість
