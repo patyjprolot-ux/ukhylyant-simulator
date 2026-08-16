@@ -6,7 +6,7 @@ module.exports = function registerEconomyRoutes(app, deps) {
         requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID, RESOURCES,
         storageSnapshot, storageUpgradeCost, storageCapacity, storageUsed, addResource,
         marketState, checkAchievements, prestigePointsAvailable, prestigeMultiplier,
-        LOCATIONS, applySkillLimits, addXP, addUkhyr, heatSnapshot, noticeSnapshot,
+        LOCATIONS, addXP, addUkhyr, heatSnapshot, noticeSnapshot,
         changeHeat, EXPEDITION_BY_ID, PET_EXPEDITION, expeditionSlots, expeditionSnapshot,
         hasActiveShield, addWarPoints, resetDailyIfNeeded, CRATE_BY_ID, cratePriceFor,
         rollCrate, RECIPE_BY_ID, hasSkill, UPGRADE_BASE, UPGRADE_BASE_EFFECT,
@@ -168,29 +168,15 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // Легалізація — найдорожча дія в грі, тому й найбільший разовий внесок у сезон.
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_PRESTIGE_SP;
 
-        // Скидаємо саме економіку. Все колекційне лишається.
-        user.balance = 0;
-        user.clickVal = 1;
-        user.passive = 0;
-        user.level = 1;
-        user.maxEnergy = LOCATIONS[0].maxEnergy;
-        // Навички купуються за довідки і престиж їх не скидає — тому бонус до енергії
-        // треба накласти заново поверх щойно обнуленої бази.
-        user.skillEnergyBonus = 0;
-        applySkillLimits(user);
-        user.energy = user.maxEnergy;
-        user.upgrades = { hat: 0, jam: 0, thermos: 0, generator: 0 };
-        user.upgTiersUnlocked = { hat: 0, jam: 0, thermos: 0, generator: 0 };
-        user.portfolio = {};
-        user.expeditions = [];
-        // Ти тепер офіційно легальний — справу закрито, повістки анульовано.
-        // Заразом зникає і множник доходу від розшуку: починаєш з чистого аркуша.
-        user.heat = 0;
-        user.heatLog = [];
-        user.lastHeatDecay = Date.now();
-        user.notices = [];
-        user.nextNoticeAt = 0;
-        user.energyLockUntil = 0;
+        // PATCH 2.0 Фаза 3 (2026-08-16): Легалізація БІЛЬШЕ НЕ скидає економіку.
+        // Рішення Р6 (PATCH_2.0_CLAUDE_DECISIONS.md), пряма цитата розробника:
+        // "стала, яку не можна змінити і крапка" — це ворота на 2-й поверх (v3
+        // «Переправа», ще не реалізований), не циклічний реролл прогресу. Раніше
+        // тут скидались balance/clickVal/passive/level/upgrades/portfolio/
+        // expeditions/heat/notices — прибрано повністю. Гравець лишається на
+        // 8 рівні з усім нажитим, отримує довідку й постійний множник доходу;
+        // може легалізуватись повторно пізніше, коли totalEarned знову підросте
+        // (prestigePointsAvailable вже рахує це без прив'язки до reset-циклу).
 
         const unlocked = checkAchievements(user);
         // Рівень ухилянта й XP — колекційні (як навички/репутація), престиж їх НЕ скидає.
