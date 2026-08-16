@@ -85,7 +85,7 @@ const { RESOURCES, CRATES } = require('./catalog/resources');
 const { RECIPES } = require('./catalog/recipes');
 const { MAP_BUILDINGS } = require('./catalog/map');
 const { EXPEDITIONS, PET_EXPEDITION } = require('./catalog/expeditions');
-const { LOCATIONS } = require('./catalog/locations');
+const { LOCATIONS, LEGALIZATION_LORE } = require('./catalog/locations');
 const { PETS } = require('./catalog/pets');
 const { QUESTS } = require('./catalog/quests');
 const { ROOM_ITEMS } = require('./catalog/room-items');
@@ -3926,6 +3926,7 @@ function buildHtml(botUsername) {
         const BOT_USERNAME = '${botUsername}';
         const ECONOMY = ${JSON.stringify(ECONOMY)};
         const LOCATIONS = ${JSON.stringify(LOCATIONS)};
+        const LEGALIZATION_LORE = ${JSON.stringify(LEGALIZATION_LORE)};
         const PETS = ${JSON.stringify(PETS)};
         const MARKET_ASSETS = ${JSON.stringify(MARKET_ASSETS)};
         const WHEEL_SEGMENTS = ${JSON.stringify(WHEEL_SEGMENTS)};
@@ -6417,7 +6418,12 @@ function buildHtml(botUsername) {
                 renderLocationShop();
                 // Переїзд — це подія, а не транзакція: на виїзді стоїть блокпост.
                 // Локація вже куплена, блокпост впливає лише на "ціну переїзду".
-                openCheckpoint();
+                const loc = LOCATIONS.find((l) => l.level === level);
+                if (loc && loc.lore) {
+                    tg.showAlert(loc.lore, () => openCheckpoint());
+                } else {
+                    openCheckpoint();
+                }
             } catch (e) { tg.showAlert('Помилка переїзду'); }
         };
 
@@ -7127,7 +7133,12 @@ function buildHtml(botUsername) {
                 if (!data.success) return tg.showAlert(data.message || 'Помилка');
                 syncLevel(data);
                 tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert('📜 Легалізовано! +' + data.gained + ' довідок. Твій множник тепер x' + data.multiplier.toFixed(2));
+                // Повну лор-сцену показуємо тільки на ПЕРШУ легалізацію — на повторних
+                // це вже не сюжетна подія, а рутинна дія, довгий текст лише дратував би.
+                const msg = data.prestigeCount === 1
+                    ? LEGALIZATION_LORE
+                    : '📜 Легалізовано! +' + data.gained + ' довідок. Твій множник тепер x' + data.multiplier.toFixed(2);
+                tg.showAlert(msg);
                 await init();
             });
         };
