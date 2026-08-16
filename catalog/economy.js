@@ -280,7 +280,7 @@ const ECONOMY = {
     // catalog/sprints.js, як INSPECTORS живуть окремо від INSPECTOR_* констант.
     // false = гравці на схронах 2-8 грають старим клікером, роути існують, але
     // одразу відповідають відмовою. Вмикати тільки після економічного тесту Фази 2.
-    SPRINTS_V2: false,
+    SPRINTS_V2: true,
 };
 
 module.exports = ECONOMY;
