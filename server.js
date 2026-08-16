@@ -8289,6 +8289,18 @@ async function main() {
     BOT_USERNAME = me.username;
     HTML_CONTENT = buildHtml(BOT_USERNAME);
 
+    // Постійна кнопка меню (зліва від поля вводу) — відкриває міні-апп одним тапом,
+    // без потреби писати /start чи шукати inline-кнопку в переписці. Глобально для
+    // ВСІХ чатів бота (без chat_id) — той самий патерн, що у великих Mini App-ботів.
+    try {
+        await bot.telegram.setChatMenuButton({
+            menu_button: { type: 'web_app', text: '🏃 Грати', web_app: { url: WEB_APP_URL } },
+        });
+        console.log('✅ Кнопка меню (▶ Грати) встановлена глобально.');
+    } catch (e) {
+        console.error('⚠️  Не вдалося встановити кнопку меню:', e.message);
+    }
+
     if (USE_WEBHOOK) {
         app.use(bot.webhookCallback(WEBHOOK_PATH));
     }
