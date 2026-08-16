@@ -1423,7 +1423,9 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         prestigePoints: user.prestigePoints,
         prestigeCount: user.prestigeCount,
         prestigeMultiplier: prestigeMultiplier(user),
-        prestigeAvailable: prestigePointsAvailable(user),
+        // Рівно одна легалізація за проходження (2-й поверх ще не реалізований) —
+        // available завжди 0, щойно вона вже відбулась, незалежно від totalEarned.
+        prestigeAvailable: (user.prestigeCount || 0) >= 1 ? 0 : prestigePointsAvailable(user),
         seasonPoints: user.seasonPoints || 0,
         deceivedCount: user.deceivedCount || 0,
         pid: user.pid,
@@ -4655,14 +4657,14 @@ function buildHtml(botUsername) {
                     block(b.emoji + ' ' + b.name, b.skills.map((s, i) => (i+1) + '. <b>' + s.name + '</b> — ' + s.desc).join('<br>'))
                 ).join('');
                 return '<p class="codex-lead">З ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівня схрону можна легалізуватись: ' +
-                    'НІЧОГО не скидається — це разова віха, не перезапуск, — і ти отримуєш довідки — ' +
-                    '+' + Math.round(ECONOMY.PRESTIGE_BONUS_PER_POINT * 100) + '% до доходу назавжди за кожну.</p>' +
-                    block('Легалізуватись можна повторно',
-                        'Щойно сумарний заробіток знову підростає — зʼявляється наступна довідка. Прогрес, гардероб, ' +
-                        'кімната, компаньйони, кладовка, досягнення, навички — усе лишається як є завжди.') +
-                    block('Скільки довідок',
-                        'floor(√(сумарно зароблено / ' + fmtNum(ECONOMY.PRESTIGE_EARN_PER_POINT) + ')) мінус уже отримані. ' +
-                        'Кожна наступна дається відчутно важче.') +
+                    'НІЧОГО не скидається — і ти отримуєш довідку — ' +
+                    '+' + Math.round(ECONOMY.PRESTIGE_BONUS_PER_POINT * 100) + '% до доходу назавжди.</p>' +
+                    block('Разова подія, не повторюваний фарм',
+                        'Легалізуватись можна рівно ОДИН раз за проходження — це ворота на 2-й поверх гри ' +
+                        '(маршрути через кордон, кланові війни за точки перетину), ще в розробці. Прогрес, ' +
+                        'гардероб, кімната, компаньйони, кладовка, досягнення, навички — усе лишається як є завжди.') +
+                    block('Скільки треба заробити',
+                        'floor(√(сумарно зароблено / ' + fmtNum(ECONOMY.PRESTIGE_EARN_PER_POINT) + ')) — поріг для першої (і єдиної) довідки.') +
                     '<p class="codex-lead" style="margin-top:12px;">Кожна довідка = 1 очко навички. Довідки при цьому ' +
                     'продовжують давати свій дохід — навички це бонус зверху. У гілці навички беруться послідовно.</p>' +
                     branches;
@@ -7218,27 +7220,29 @@ function buildHtml(botUsername) {
             const unlocked = state.level >= ECONOMY.PRESTIGE_UNLOCK_LEVEL;
             const bonusPct = Math.round(ECONOMY.PRESTIGE_BONUS_PER_POINT * 100);
 
+            const done = (state.prestigeCount || 0) >= 1;
             let action;
             if (!unlocked) {
                 action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону (маєток)</button>';
+            } else if (done) {
+                action = '<button disabled>✅ Легалізовано — 2-й поверх у розробці</button>';
             } else if (avail < 1) {
                 const need = Math.pow((pts + 1), 2) * ECONOMY.PRESTIGE_EARN_PER_POINT;
                 const left = Math.max(0, need - (state.totalEarned || 0));
-                action = '<button disabled>Ще ' + Math.round(left).toLocaleString('uk-UA') + ' ТК заробити до наступної довідки</button>';
+                action = '<button disabled>Ще ' + Math.round(left).toLocaleString('uk-UA') + ' ТК заробити до легалізації</button>';
             } else {
                 action = '<button onclick="doPrestige()">📜 Легалізуватись (+' + avail + ' довідк' + (avail === 1 ? 'а' : 'и') + ')</button>';
             }
 
             box.innerHTML =
-                '<div class="recipe-card' + (avail >= 1 && unlocked ? ' ready' : '') + '">' +
-                    '<div class="recipe-desc" style="margin-top:0">Оформляєш документи "офіційно" — нічого не скидається, кожна довідка назавжди дає ' +
+                '<div class="recipe-card' + (avail >= 1 && unlocked && !done ? ' ready' : '') + '">' +
+                    '<div class="recipe-desc" style="margin-top:0">Оформляєш документи "офіційно" — нічого не скидається, довідка назавжди дає ' +
                     '<b style="color:var(--gold)">+' + bonusPct + '% до всього доходу</b>.<br>' +
-                    'Це разова віха, не перезапуск: баланс, схрон, апгрейди, гардероб — усе лишається як є.</div>' +
+                    'Разова подія: рівно одна легалізація за проходження — ворота на 2-й поверх гри (маршрути через кордон, кланові війни за точки), ще в розробці.</div>' +
                     '<div class="recipe-cost">' +
                         '<span class="recipe-ing ok">📜 Довідок: ' + pts + '</span>' +
                         '<span class="recipe-ing ok">📈 Множник: x' + mult.toFixed(2) + '</span>' +
-                        '<span class="recipe-ing ' + (avail >= 1 ? 'ok' : 'missing') + '">Доступно: ' + avail + '</span>' +
-                        '<span class="recipe-ing">Легалізацій: ' + (state.prestigeCount || 0) + '</span>' +
+                        '<span class="recipe-ing ' + (done ? 'ok' : (avail >= 1 ? 'ok' : 'missing')) + '">' + (done ? 'Легалізовано' : 'Доступно: ' + avail) + '</span>' +
                     '</div>' + action +
                 '</div>';
         }

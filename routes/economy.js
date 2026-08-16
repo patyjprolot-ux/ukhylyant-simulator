@@ -141,10 +141,14 @@ module.exports = function registerEconomyRoutes(app, deps) {
     // кладовка й компаньйони НЕ скидаються — інакше легалізуватись було б надто боляче.
     app.get('/api/prestige', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const alreadyDone = (user.prestigeCount || 0) >= 1;
         res.json({
             success: true,
             points: user.prestigePoints || 0,
-            available: prestigePointsAvailable(user),
+            // Рівно одна легалізація за проходження (2-й поверх ще не реалізований) —
+            // available завжди 0, щойно вона вже відбулась, незалежно від totalEarned.
+            available: alreadyDone ? 0 : prestigePointsAvailable(user),
+            alreadyDone,
             multiplier: prestigeMultiplier(user),
             totalEarned: user.totalEarned || 0,
             prestigeCount: user.prestigeCount || 0,
@@ -159,6 +163,14 @@ module.exports = function registerEconomyRoutes(app, deps) {
         if (user.level < ECONOMY.PRESTIGE_UNLOCK_LEVEL) {
             return res.json({ success: false, message: `Легалізація доступна з ${ECONOMY.PRESTIGE_UNLOCK_LEVEL} рівня схрону` });
         }
+        // ПОПРАВКА (2026-08-16, той самий день): легалізація — це не циклічна
+        // накопичувальна дія за totalEarned, а РІВНО ОДНА подія за все проходження —
+        // ворота на 2-й поверх гри (v3 "Переправа": маршрути через кордон, кланові
+        // війни за точки перетину). "Другий поверх" ще не реалізований, тому поки що
+        // легалізація = разова фінальна віха, не повторюваний фарм довідок.
+        if ((user.prestigeCount || 0) >= 1) {
+            return res.json({ success: false, message: 'Ти вже легалізований — це разова подія. 2-й поверх (маршрути через кордон, кланові війни) ще в розробці.' });
+        }
         const gain = prestigePointsAvailable(user);
         if (gain < 1) {
             return res.json({ success: false, message: 'Ще замало зароблено для легалізації' });
@@ -169,15 +181,12 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // Легалізація — найдорожча дія в грі, тому й найбільший разовий внесок у сезон.
         user.seasonPoints = (user.seasonPoints || 0) + ECONOMY.SEASON_PRESTIGE_SP;
 
-        // PATCH 2.0 Фаза 3 (2026-08-16): Легалізація БІЛЬШЕ НЕ скидає економіку.
-        // Рішення Р6 (PATCH_2.0_CLAUDE_DECISIONS.md), пряма цитата розробника:
-        // "стала, яку не можна змінити і крапка" — це ворота на 2-й поверх (v3
-        // «Переправа», ще не реалізований), не циклічний реролл прогресу. Раніше
-        // тут скидались balance/clickVal/passive/level/upgrades/portfolio/
-        // expeditions/heat/notices — прибрано повністю. Гравець лишається на
-        // 8 рівні з усім нажитим, отримує довідку й постійний множник доходу;
-        // може легалізуватись повторно пізніше, коли totalEarned знову підросте
-        // (prestigePointsAvailable вже рахує це без прив'язки до reset-циклу).
+        // PATCH 2.0 Фаза 3 (2026-08-16): Легалізація НЕ скидає економіку. Рішення
+        // Р6 (PATCH_2.0_CLAUDE_DECISIONS.md), пряма цитата розробника: "стала, яку
+        // не можна змінити і крапка" — ворота на 2-й поверх, не циклічний реролл
+        // прогресу. Раніше тут скидались balance/clickVal/passive/level/upgrades/
+        // portfolio/expeditions/heat/notices — прибрано повністю. Гравець лишається
+        // на 8 рівні з усім нажитим, отримує довідку й постійний множник доходу.
 
         const unlocked = checkAchievements(user);
         // Рівень ухилянта й XP — колекційні (як навички/репутація), престиж їх НЕ скидає.
