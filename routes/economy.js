@@ -107,6 +107,12 @@ module.exports = function registerEconomyRoutes(app, deps) {
         }
         const loc = LOCATIONS.find((l) => l.level === nextLevel);
         if (!loc) return res.json({ success: false, message: 'Ти вже на максимальному рівні' });
+        // Р18 v3 (2026-08-16): схрон 8 — не звичайна покупка, а нагорода за
+        // легалізацію. Гроші й ресурси нижче не мають значення, поки немає
+        // довідки — інакше можна купити те, що мало бути воротами, а не товаром.
+        if (loc.level === 8 && (user.prestigeCount || 0) < 1) {
+            return res.json({ success: false, message: 'Схрон 8 відкривається тільки після легалізації — спершу довідка (вкладка 🌳 Ендгейм).' });
+        }
         if (user.balance < (loc.price || 0)) return res.json({ success: false, message: 'Недостатньо ТК' });
         for (const [resId, need] of Object.entries(loc.resCost || {})) {
             if ((user.resources[resId] || 0) < need) {
@@ -170,6 +176,12 @@ module.exports = function registerEconomyRoutes(app, deps) {
         // легалізація = разова фінальна віха, не повторюваний фарм довідок.
         if ((user.prestigeCount || 0) >= 1) {
             return res.json({ success: false, message: 'Ти вже легалізований — це разова подія. 2-й поверх (маршрути через кордон, кланові війни) ще в розробці.' });
+        }
+        // Р18 v3: довідка легалізації крафтиться з кількох "ключів" — поки
+        // формально перевіряється лише фінальна хвороба (розробник ще визначить
+        // решту інгредієнтів, PATCH_2.0_MEDICAL_QUESTLINE.md розділ 8).
+        if (!user.diseases || !user.diseases.chronic_power) {
+            return res.json({ success: false, message: 'Для довідки легалізації потрібен діагноз «Синдром хронічної потужності» — вкладка 🏥 Медкомісія.' });
         }
         const gain = prestigePointsAvailable(user);
         if (gain < 1) {

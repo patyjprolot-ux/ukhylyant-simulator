@@ -86,6 +86,7 @@ const { byId } = require('./lib/utils');
 // Дані/каталоги, винесені в data/*.js (Фаза 1 модуляризації, 2026-08-08)
 // ==========================================
 const { SYMPTOMS, INSPECTORS, TROPHIES } = require('./catalog/inspectors');
+const { DISEASES, DISEASE_BY_ID, TIER_CONFIG: DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR } = require('./catalog/diseases');
 const { DEFERMENTS, CHECKPOINT_CHOICES, REPUTATION_NPCS, LEAGUES } = require('./catalog/social');
 const { SKILL_BRANCHES } = require('./catalog/skills');
 const { SEASON_COSMETICS, COSMETICS } = require('./catalog/cosmetics');
@@ -1456,6 +1457,11 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
         nextStep: nextStep(user),
         medcomStats: user.medcomStats,
         medcomCard: user.medcomCard || 0,
+        // Медична гілка (Р18 v3) — легкий підсумок для стартового рендеру
+        // (повний список хвороб/сесія — окремий GET /api/disease, важкувато
+        // тягнути це на кожен /api/user).
+        activeDisease: user.activeDisease || null,
+        diseasesOwnedCount: Object.keys(user.diseases || {}).length,
         inspectorStats: user.inspectorStats,
         checkpointStats: user.checkpointStats,
         mykolaCoverUsed: !!user.mykolaCoverUsed,
@@ -1630,6 +1636,27 @@ app.post('/api/restore', requireTelegramAuth, (req, res) => {
     if (backup.skills && typeof backup.skills === 'object') {
         for (const id of Object.keys(SKILL_BY_ID)) {
             if (backup.skills[id]) user.skills[id] = true;
+        }
+    }
+    // Медична гілка (Р18 v3) — той самий "звіряємось із каталогом" підхід, бо
+    // diseases/diseasesDiagnosed/diseaseAnalysisProgress теж словники з
+    // порожніми ключами у свіжого гравця.
+    if (typeof backup.activeDisease === 'string' && DISEASE_BY_ID[backup.activeDisease]) {
+        user.activeDisease = backup.activeDisease;
+    } else if (backup.activeDisease === null) {
+        user.activeDisease = null;
+    }
+    for (const d of DISEASES) {
+        if (backup.diseases && backup.diseases[d.id]) user.diseases[d.id] = true;
+        if (backup.diseasesDiagnosed && backup.diseasesDiagnosed[d.id]) user.diseasesDiagnosed[d.id] = true;
+        const prog = backup.diseaseAnalysisProgress && backup.diseaseAnalysisProgress[d.id];
+        if (typeof prog === 'number' && isFinite(prog)) user.diseaseAnalysisProgress[d.id] = prog;
+        // Документи — масив id, звіряємо КОЖЕН елемент проти реального пакету
+        // цієї хвороби, щоб бекап не міг підсунути документ іншої хвороби.
+        const docs = backup.diseaseDocuments && backup.diseaseDocuments[d.id];
+        if (Array.isArray(docs)) {
+            const validIds = new Set(d.documents.map((doc) => doc.id));
+            user.diseaseDocuments[d.id] = docs.filter((id) => validIds.has(id));
         }
     }
     // maxEnergy із бекапу ВЖЕ містить бонус від навичок, тому лише синхронізуємо
@@ -2551,6 +2578,15 @@ require('./routes/sprints')(app, {
     computeFocusStat, upgradeBurnoutDecayBonus,
 });
 
+// routes/hospital.js (2026-08-16) — медична гілка Р18 v3: окрема сюжетна
+// вкладка, вилазка "Лікарня", здача аналізів, крафт хвороб. НЕ пов'язана
+// з повістками (медком-QTE на повістці — відкочено, PATCH_2.0_MEDICAL_QUESTLINE.md).
+require('./routes/hospital')(app, {
+    requireTelegramAuth, getUser, ECONOMY,
+    DISEASES, DISEASE_BY_ID, DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR,
+    addResource, storageSnapshot, shuffled,
+});
+
 // routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
 // Авторизація та сама, що в /api/admin/backup і /api/admin/broadcast вище:
 // заголовок x-admin-token звіряється з BOT_TOKEN. Розсилка тут НЕ дублюється —
@@ -3279,6 +3315,7 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="switchTab(event, 'gacha')">📦 Ящики</div>
         <div class="tab" onclick="switchTab(event, 'storage')">🗄 Кладовка</div>
         <div class="tab" onclick="switchTab(event, 'storage-exp')">🌙 Вилазки</div>
+        <div class="tab" onclick="switchTab(event, 'medical')">🏥 Медкомісія</div>
         <div class="tab" onclick="openSkills()">🌳 Навички</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
         <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
@@ -3451,6 +3488,19 @@ function buildHtml(botUsername) {
         <div id="revenge-locked-note" class="hidden" style="font-size:12px; color:#9db0c2; text-align:center; padding:15px;"></div>
         <button id="revenge-btn" onclick="takeRevenge()">😈 Помститись</button>
         <div id="revenge-result" class="hidden" style="background:rgba(255,255,255,0.05); border:1px solid rgba(110,198,255,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:13px;"></div>
+    </div>
+
+    <!-- Медична гілка (Р18 v3): окрема сюжетна вкладка, НЕ повістка. -->
+    <div id="medical" class="panel">
+        <p style="margin-top:0; color:#9db0c2; font-size:12px;">
+            Вилазка в лікарню незалежна від решти локацій — грошей і енергії з'їдає,
+            прокачки не дає. Зате приносить направлення й документи для хвороб. Одна
+            хвороба за раз: збери документи → здай аналізи → постав діагноз →
+            підтверди ще одним візитом.
+        </p>
+        <div id="medical-hospital-box"></div>
+        <div id="medical-disease-list"></div>
+        <div id="medical-analysis-box" class="hidden"></div>
     </div>
 
     <div id="minigames" class="panel">
@@ -5454,6 +5504,185 @@ function buildHtml(botUsername) {
             updateUI();
         };
 
+        // ===== Медична гілка (Р18 v3) — окрема сюжетна вкладка, НЕ повістка =====
+        let medicalState = null;
+        let medicalAnalysisTimer = null;
+        let medicalFlashIdx = null, medicalFlashKind = null;
+
+        async function renderMedical() {
+            const res = await apiFetch('/api/disease?id=' + user.id);
+            medicalState = await res.json();
+            if (!medicalState.success) return;
+            renderMedicalHospitalBox();
+            renderMedicalDiseaseList();
+            renderMedicalAnalysisBox();
+        }
+
+        function renderMedicalHospitalBox() {
+            const m = medicalState;
+            const active = m.activeDisease ? m.diseases.find(d => d.id === m.activeDisease) : null;
+            let hint;
+            if (active && active.diagnosed) hint = 'Діагноз готовий — їдь у лікарню, щоб внести «' + active.name + '» у медичну картку.';
+            else if (active) hint = 'Активна хвороба: ' + active.emoji + ' ' + active.name + ' (' + active.documents.filter(d => d.have).length + '/' + active.documents.length + ' документів). Кожен візит привозить один документ.';
+            else if (m.referral > 0) hint = 'Маєш направлення — обери хворобу нижче.';
+            else hint = 'Немає направлення — їдь у лікарню, щоб його отримати.';
+            document.getElementById('medical-hospital-box').innerHTML =
+                '<div class="recipe-card">' +
+                    '<div class="recipe-desc" style="margin-top:0">' + esc(hint) + '</div>' +
+                    '<div class="recipe-cost"><span class="recipe-ing">' + fmtNum(m.hospitalCostTk) + ' ТК · ' + m.hospitalEnergy + ' енергії</span></div>' +
+                    '<button onclick="hospitalVisit()">🏥 Поїхати в лікарню</button>' +
+                '</div>';
+        }
+
+        function renderMedicalDiseaseList() {
+            const m = medicalState;
+            document.getElementById('medical-disease-list').innerHTML = m.diseases.map(d => {
+                let status, action = '';
+                if (d.locked) { status = '🔒 Потрібен ' + d.minLevel + ' рівень схрону'; }
+                else if (d.owned) { status = '✅ У медичній картці'; }
+                else if (d.isActive && d.diagnosed) { status = '💉 Діагноз готовий — підтверди в лікарні'; }
+                else if (d.isActive) {
+                    const docsLeft = d.documents.filter(doc => !doc.have).length;
+                    if (docsLeft > 0) {
+                        status = 'Документів зібрано: ' + (d.documents.length - docsLeft) + '/' + d.documents.length;
+                    } else if (d.analysisProgress < d.analysisNeeded) {
+                        status = 'Аналізів здано: ' + d.analysisProgress + '/' + d.analysisNeeded;
+                        action = '<button onclick="startAnalysis()">🧪 Здати аналізи (' + fmtNum(d.analysisCostTk) + ' ТК · ' + d.analysisEnergy + ' ен.)</button>';
+                    } else {
+                        status = 'Усе готово';
+                        action = '<button onclick="craftDisease()">💉 Поставити діагноз</button>';
+                    }
+                } else if (m.activeDisease) {
+                    status = 'Спершу заверши активну хворобу';
+                } else if (m.referral < 1) {
+                    status = 'Потрібне направлення з лікарні';
+                } else {
+                    status = 'Готова почати';
+                    action = '<button onclick="startDisease(\\'' + d.id + '\\')">Почати</button>';
+                }
+                return '<div class="recipe-card' + (d.isActive ? ' ready' : '') + '">' +
+                    '<div class="recipe-desc" style="margin-top:0"><b>' + d.emoji + ' ' + esc(d.name) + '</b> · тір ' + d.tier + '<br>' +
+                    '<span style="font-size:11px; color:#9db0c2;">' + esc(d.desc) + '</span></div>' +
+                    '<div class="recipe-cost"><span class="recipe-ing ' + (d.owned ? 'ok' : '') + '">' + status + '</span></div>' +
+                    action +
+                '</div>';
+            }).join('');
+        }
+
+        window.hospitalVisit = async () => {
+            const res = await apiFetch('/api/hospital/visit', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            if (data.resources) state.resources = data.resources;
+            let msg = data.flavor ? data.flavor + '\\n\\n' : '';
+            if (data.outcome === 'referral') msg += '📝 Отримав направлення до лікаря.';
+            else if (data.outcome === 'document') msg += '📄 Отримав документ: ' + data.docName + ' (' + data.docsHave + '/' + data.docsNeeded + ').';
+            else if (data.outcome === 'confirmed') msg += '✅ «' + data.diseaseName + '» тепер у медичній картці!';
+            tg.showAlert(msg);
+            updateUI();
+            renderMedical();
+        };
+
+        window.startDisease = async (diseaseId) => {
+            const res = await apiFetch('/api/disease/start', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, diseaseId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            renderMedical();
+        };
+
+        window.craftDisease = async () => {
+            const res = await apiFetch('/api/disease/craft', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            tg.showAlert('💉 Діагноз «' + data.diseaseName + '» поставлено. Тепер їдь у лікарню, щоб внести його в картку.');
+            renderMedical();
+        };
+
+        window.startAnalysis = async () => {
+            const res = await apiFetch('/api/disease/analysis/start', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            medicalState.session = data.session;
+            medicalState.session._syncedAt = Date.now();
+            updateUI();
+            renderMedicalAnalysisBox();
+        };
+
+        function renderMedicalAnalysisBox() {
+            const box = document.getElementById('medical-analysis-box');
+            const s = medicalState && medicalState.session;
+            if (!s) { box.classList.add('hidden'); box.innerHTML = ''; if (medicalAnalysisTimer) { clearInterval(medicalAnalysisTimer); medicalAnalysisTimer = null; } return; }
+            box.classList.remove('hidden');
+            const cardsHtml = s.cards.map((c, i) => {
+                const isLit = i === s.activeIdx;
+                const isUsed = (s.usedIdx || []).includes(i);
+                let cls = 'symptom-card';
+                if (isLit) cls += ' lit';
+                if (isUsed) cls += ' used';
+                if (medicalFlashIdx === i) cls += medicalFlashKind === 'hit' ? ' hit-flash' : ' miss-flash';
+                return '<div class="' + cls + '"' + (isLit ? ' onclick="tapAnalysis(\\'' + c.id + '\\')"' : '') + '>' +
+                    '<span class="symptom-emoji">' + c.emoji + '</span>' +
+                    '<div class="symptom-name">' + esc(c.name) + '</div></div>';
+            }).join('');
+            box.innerHTML = '<div class="case-card"><h3 style="margin-top:0;">🧪 Здача аналізів</h3>' +
+                '<div class="medcom-scale"><span>Влучань <span class="val">' + s.hits + '</span>/' + s.hitsNeeded + '</span>' +
+                '<span style="color:#8fa3b8;">Раундів лишилось <span class="val">' + s.roundsLeft + '</span></span></div>' +
+                '<div>' + cardsHtml + '</div>' +
+                '<div class="medcom-timer-bar"><div id="medical-timer-fill" class="medcom-timer-fill"></div></div>' +
+            '</div>';
+            if (medicalAnalysisTimer) clearInterval(medicalAnalysisTimer);
+            medicalAnalysisTimer = setInterval(() => {
+                const cur = medicalState && medicalState.session;
+                if (!cur || cur.activeIdx === null) { clearInterval(medicalAnalysisTimer); return; }
+                const left = Math.max(0, cur.msLeft - (Date.now() - cur._syncedAt));
+                const fill = document.getElementById('medical-timer-fill');
+                if (fill) fill.style.width = Math.max(0, Math.min(100, (left / cur.windowMs) * 100)) + '%';
+                if (left <= 0) { clearInterval(medicalAnalysisTimer); medicalAnalysisTimer = null; tapAnalysis(null); }
+            }, 50);
+        }
+
+        window.tapAnalysis = async (cardId) => {
+            const s = medicalState && medicalState.session;
+            if (!s) return;
+            if (medicalAnalysisTimer) { clearInterval(medicalAnalysisTimer); medicalAnalysisTimer = null; }
+            const tappedIdx = s.activeIdx;
+            const res = await apiFetch('/api/disease/analysis/tap', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, cardId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message || 'Помилка');
+            tg.HapticFeedback.impactOccurred(data.hit ? 'medium' : 'light');
+            medicalFlashIdx = tappedIdx;
+            medicalFlashKind = data.hit ? 'hit' : 'miss';
+            setTimeout(() => { medicalFlashIdx = null; }, 300);
+
+            if (!data.done) {
+                medicalState.session = data.session;
+                medicalState.session._syncedAt = Date.now();
+                renderMedicalAnalysisBox();
+                return;
+            }
+            medicalState.session = null;
+            if (typeof data.balance === 'number') state.balance = data.balance;
+            if (typeof data.energy === 'number') state.energy = data.energy;
+            tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
+            tg.showAlert(data.resolved ? '✅ Аналізи прийнято.' : '❌ Аналізи не прийняли — спробуй ще раз.');
+            updateUI();
+            renderMedical();
+        };
+
         // ===== Інспектори ТЦК (боси) =====
         let inspectorState = null;
         let inspectorClicks = 0;      // накопичені кліки, летять батчем раз на 500мс
@@ -6046,6 +6275,9 @@ function buildHtml(botUsername) {
                 defermentsTaken: state.defermentsTaken, skills: state.skills,
                 reputation: state.reputation, trophies: state.trophies,
                 snitchStats: state.snitchStats, medcomStats: state.medcomStats, medcomCard: state.medcomCard,
+                activeDisease: state.activeDisease, diseases: state.diseases,
+                diseasesDiagnosed: state.diseasesDiagnosed, diseaseAnalysisProgress: state.diseaseAnalysisProgress,
+                diseaseDocuments: state.diseaseDocuments,
                 checkpointStats: state.checkpointStats, noticeStats: state.noticeStats,
                 inspectorStats: state.inspectorStats, pendingWarCrate: state.pendingWarCrate,
                 league: state.league ? state.league.id : 0, seasonTitle: state.seasonTitle,
@@ -6164,6 +6396,8 @@ function buildHtml(botUsername) {
                 if (data.nextStep) renderNextStep(data.nextStep);
                 state.medcomStats = data.medcomStats || null;
                 state.medcomCard = data.medcomCard || 0;
+                state.activeDisease = data.activeDisease || null;
+                state.diseasesOwnedCount = data.diseasesOwnedCount || 0;
                 state.inspectorStats = data.inspectorStats || null;
                 state.checkpointStats = data.checkpointStats || null;
                 state.defermentsTaken = data.defermentsTaken || 0;
@@ -6509,6 +6743,7 @@ function buildHtml(botUsername) {
             if (tabId === 'storage') { renderStorage(); renderRecipes(); }
             if (tabId === 'storage-exp') renderExpeditions();
             if (tabId === 'minigames') renderMinigames();
+            if (tabId === 'medical') renderMedical();
         };
 
         // ===== Магазин =====
@@ -7235,7 +7470,7 @@ function buildHtml(botUsername) {
             const done = (state.prestigeCount || 0) >= 1;
             let action;
             if (!unlocked) {
-                action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону (маєток)</button>';
+                action = '<button disabled>🔒 Потрібен ' + ECONOMY.PRESTIGE_UNLOCK_LEVEL + ' рівень схрону</button>';
             } else if (done) {
                 action = '<button disabled>✅ Легалізовано — 2-й поверх у розробці</button>';
             } else if (avail < 1) {
