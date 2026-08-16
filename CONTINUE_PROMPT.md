@@ -65,21 +65,37 @@
 
 - Проєкт: `C:\Users\User\Desktop\Архів скриптів\Клод-код\ukhylyant_simulator`
 - GitHub: https://github.com/patyjprolot-ux/ukhylyant-simulator (гілка `master`)
-- Деплой: Render.com, https://ukhylyant-simulator.onrender.com (Blueprint, автодеплой на push)
-- Бот: @yhuliannt_bot (реальний BOT_TOKEN в `.env`, той самий що й на Render)
+- Деплой: **VPS (з 2026-08-15/16), НЕ Render** — `git push vps master` (remote
+  `ssh://ukhylyant-vps/opt/ukhylyant-simulator.git`, bare-репо з post-receive
+  хуком: checkout → npm install → `pm2 restart ukhylyant`). Публічна адреса:
+  `https://185-163-204-33.sslip.io`. `render.yaml` і сам Render-сервіс лишились
+  у репо як історичний артефакт — **не використовуються**, `onrender.com`
+  віддає 503 (сервіс не піднятий). `git push origin master` — тільки GitHub,
+  саме по собі НЕ деплоїть нічого.
+- Бот: @yhuliannt_bot (реальний BOT_TOKEN в `.env`, той самий що й на VPS)
 
 ## ⚠️ КРИТИЧНО перед будь-яким локальним запуском
 
-`server.js` в режимі `USE_WEBHOOK=false` викликає `bot.telegram.deleteWebhook()` —
-а це ТОЙ САМИЙ токен, що працює в проді на Render. Якщо запустиш локально без
-обережності — знімеш вебхук з живого бота і він перестане відповідати друзям.
+`server.js` завжди викликає реальний Telegram Bot API тим самим `BOT_TOKEN`,
+що й прод (localhost — це лише HTTP-сервер, бот-токен не "локальний"). У
+режимі `USE_WEBHOOK=false` виклик `bot.telegram.deleteWebhook()` знімає
+вебхук із живого бота. А в режимі `USE_WEBHOOK=true` (дефолт) —
+`bot.telegram.setWebhook(WEB_APP_URL + ...)` ПЕРЕСТАВЛЯЄ вебхук на те, що
+вказано в `WEB_APP_URL` — у будь-якому разі, якщо туди підставити НЕ
+поточну прод-адресу (наприклад застарілий Render-URL), реальний бот
+одразу перестає отримувати оновлення (сталось 2026-08-16 — застаріла
+інструкція нижче в старій версії цього файлу вказувала на Render).
 
 Правильний спосіб локального тесту (безпечний, не чіпає прод):
 ```bash
-ALLOW_UNVERIFIED_DEV=true WEB_APP_URL=https://ukhylyant-simulator.onrender.com node server.js
+ALLOW_UNVERIFIED_DEV=true WEB_APP_URL=https://185-163-204-33.sslip.io node server.js
 ```
-Це лишає `USE_WEBHOOK=true` (дефолт) і реєструє webhook на ту саму продакшн-адресу
-(нешкідливо, бо публічно доступний тільки Render). Відкривати гру локально —
+Це лишає `USE_WEBHOOK=true` і реєструє webhook на ту САМУ, актуальну
+прод-адресу (VPS) — нешкідливо, бо це просто повторна реєстрація на те, що
+й так уже стоїть. **Ключове: перед локальним запуском завжди перевір, яка
+адреса зараз реально в проді** (`curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo`),
+якщо інфраструктура колись переїде ще раз — цей рядок треба буде оновити
+знову, інакше повториться інцидент. Відкривати гру локально —
 `http://localhost:3000`, `ALLOW_UNVERIFIED_DEV=true` дозволяє тестувати без
 реального Telegram initData.
 
