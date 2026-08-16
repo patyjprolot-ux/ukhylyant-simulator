@@ -194,10 +194,6 @@ module.exports = function registerSecurityRoutes(app, deps) {
             user.deceivedCount = (user.deceivedCount || 0) + 1;
             resolved = true;
             message = 'Довідку прийняли, навіть не читаючи. Розшук помітно впав.';
-        } else if (method === 'medcom') {
-            // Медкомісія — не миттєвий кидок, а міні-гра: віддаємо картки, а знімається
-            // повістка вже в /api/medcom/submit.
-            return res.json({ success: true, medcom: true, ...dealMedcom(user, notice) });
         } else if (method === 'hide') {
             if ((user.energy || 0) <= 0) return res.json({ success: false, message: 'Немає енергії, щоб десь пересидіти' });
             user.energy = 0;
