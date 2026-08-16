@@ -3028,7 +3028,10 @@ function buildHtml(botUsername) {
         .locked::after { content: '🔒'; position: absolute; top: -4px; right: -4px; font-size: 11px; filter: none; opacity: 1; text-shadow: 0 1px 2px #000; }
 
         #splash-screen { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px; box-sizing: border-box; transition: opacity 0.4s ease; overflow: hidden; }
-        #splash-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* object-fit:cover обрізав відео під весь екран — тепер contain: усе відео
+           видно цілком (з чорними полями зверху/знизу чи з боків, якщо пропорції не
+           збігаються), нічого не обрізається. */
+        #splash-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         #splash-screen span { position: relative; z-index: 1; color: #fff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px #000; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -3100,8 +3103,13 @@ function buildHtml(botUsername) {
         .action-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: auto; margin: 0; padding: 14px 4px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.04); border: 1px solid rgba(110,198,255,0.2); border-radius: 12px; }
         .action-tile-icon { font-size: 24px; }
 
-        #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(10,8,5,0.92); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; overflow-y: auto; }
-        #help-card { background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(110,198,255,0.2); }
+        /* iOS Safari (напр. iPhone 11 Pro Max): flex + align-items:center + overflow-y:auto
+           на fixed-оверлеї з контентом ВИЩИМ за екран клеїть верх контенту й не дає
+           доскролити до кнопок знизу — гравець не міг закрити довідку. Центрування
+           через margin:auto на картці замість flex-центрування батька — той самий
+           візуальний результат, але скролиться коректно на всіх версіях WebKit. */
+        #help-overlay { position: fixed; inset: 0; z-index: 1900; background: rgba(10,8,5,0.92); padding: 16px; box-sizing: border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        #help-card { background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(110,198,255,0.2); margin: 30px auto; box-sizing: border-box; }
         .help-step { font-size: 13px; line-height: 1.55; color: #dbe6ee; background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent2); border-radius: 6px; padding: 9px 11px; margin-bottom: 9px; }
         .help-step b { color: var(--text); }
 
@@ -3119,6 +3127,7 @@ function buildHtml(botUsername) {
         }
         #disclaimer-overlay { position: fixed; inset: 0; z-index: 1950; background: rgba(10,8,5,0.95); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
         #disclaimer-overlay.hidden { display: none; }
+        #disclaimer-card { background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.35); border-radius: 14px; padding: 18px; max-width: 460px; width: 100%; box-shadow: 0 0 30px rgba(110,198,255,0.2); box-sizing: border-box; }
         .room-close { position: absolute; top: max(10px, env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)); right: 15px; width: auto; padding: 6px 14px; margin: 0; z-index: 10; }
         /* Нова картинка кімнати (roomImg) — широка, персонаж стоїть у правій третині кадру
            анфас, зростом на всю висоту. Поки для локації немає roomImg, підставляється стара
@@ -3164,11 +3173,27 @@ function buildHtml(botUsername) {
 <body>
     <div id="app-bg"></div>
     <div id="splash-screen">
-        <video autoplay muted playsinline preload="auto" poster="/images/splash-banner.webp">
+        <video id="intro-video" autoplay playsinline preload="auto" poster="/images/splash-banner.webp">
             <source src="/video/intro.mp4" type="video/mp4">
         </video>
         <span>Завантаження...</span>
     </div>
+    <script>
+        // Звук у вступному відео: пробуємо зі звуком одразу (відкриття міні-аппи з
+        // кнопки бота вже є "user gesture" на більшості платформ). Якщо конкретний
+        // WebView все одно блокує unmuted autoplay — тихо падаємо назад на без звуку,
+        // аби відео хоча б програлось, а не зависло на постері.
+        (function () {
+            var v = document.getElementById('intro-video');
+            if (!v) return;
+            function tryPlay(muted) {
+                v.muted = muted;
+                var p = v.play();
+                if (p && p.catch) p.catch(function () { if (!muted) tryPlay(true); });
+            }
+            tryPlay(false);
+        })();
+    </script>
     <header>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
         <div class="streak-note" id="streak-note"></div>
@@ -3449,7 +3474,7 @@ function buildHtml(botUsername) {
 
     <!-- Дисклеймер: гра — сатира, не заклик. Показується один раз, до довідки. -->
     <div id="disclaimer-overlay" class="hidden">
-        <div id="help-card" style="text-align:center;">
+        <div id="disclaimer-card" style="text-align:center;">
             <div style="font-size:40px; margin-bottom:8px;">🎭</div>
             <h2 style="margin-top:0; color:var(--gold); font-size:19px;">Це все вигадано</h2>
             <p style="font-size:13px; line-height:1.6; color:var(--text); margin:0 0 16px;">
