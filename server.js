@@ -3193,6 +3193,15 @@ function buildHtml(botUsername) {
             }
             tryPlay(false);
         })();
+        // Аварійний запобіжник (2026-08-16): init() прибирає сплеш лише ПІСЛЯ
+        // успішного завантаження стану гравця — якщо мережа зависла й жоден
+        // try/catch це не спіймав (неочікувана помилка десь ще в init()), гравець
+        // лишався б на заставці назавжди. Це незалежний від init() таймер: що б
+        // не сталось у мережі, за 15с сплеш зникає в будь-якому разі.
+        setTimeout(function () {
+            var s = document.getElementById('splash-screen');
+            if (s) { s.style.opacity = '0'; setTimeout(function () { s.remove(); }, 400); }
+        }, 15000);
     </script>
     <header>
         <button class="daily-btn" onclick="claimDaily()"><img src="/images/daily-ration.webp" alt="" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;border-radius:2px;">Пайок</button>
@@ -3908,11 +3917,20 @@ function buildHtml(botUsername) {
 
         // Автоматично додає підписані дані Telegram (initData) до кожного захищеного запиту,
         // щоб сервер міг довіряти, що запит справді від цього користувача.
+        // Таймаут на fetch (2026-08-16): без нього один завислий запит на старті
+        // (mobile-мережа затупила) блокував init() назавжди — сплеш-екран висів
+        // нескінченно, бо його прибирання чекає завершення ВСЬОГО init(), а жоден
+        // await тут не мав межі часу. AbortController гарантує, що запит рано чи
+        // пізно впаде в catch, а не зависне.
         function apiFetch(url, options = {}) {
             options.headers = Object.assign({}, options.headers, { 'X-Telegram-Init-Data': tg.initData || '' });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            options.signal = controller.signal;
             // Кожна відповідь із balanceRev одразу оновлює локальну ревізію — так автозбереження
             // завжди шле актуальну, і сервер не відхиляє наш баланс без потреби.
             return fetch(url, options).then(res => {
+                clearTimeout(timeoutId);
                 const origJson = res.json.bind(res);
                 res.json = async () => {
                     const data = await origJson();
@@ -3920,7 +3938,7 @@ function buildHtml(botUsername) {
                     return data;
                 };
                 return res;
-            });
+            }).catch(err => { clearTimeout(timeoutId); throw err; });
         }
 
         const BOT_USERNAME = '${botUsername}';
@@ -6068,7 +6086,7 @@ function buildHtml(botUsername) {
             // Курс біржі потрібен ще й кладовці (ціна здачі ресурсів), тому тягнемо
             // його одразу на старті, а не лише при відкритті вкладки біржі.
             try {
-                const mres = await fetch('/api/market');
+                const mres = await apiFetch('/api/market');
                 state.marketPrices = (await mres.json()).prices;
             } catch (e) { /* не критично — покажемо базові ціни */ }
             updateUI();
