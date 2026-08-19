@@ -125,7 +125,9 @@ const ECONOMY = {
     HEAT_MARKET_SALE: 3,
     HEAT_CONTRABAND_CRATE: 4,
     HEAT_NEW_LOCATION: 5,
-    HEAT_MEDCOM_FAIL: 15,
+    // HEAT_MEDCOM_FAIL прибрано 2026-08-19: медком більше не реакція на
+    // повістку (Р18 v3) — heat-штраф за "спалився" в лікарні тепер
+    // TIER_CONFIG.riskHeat (4→14, catalog/diseases.js), не тут.
     HEAT_NEIGHBOR_MULT: 0.85,     // компаньйон "Сусідка-пліткарка" гасить приріст
     HEAT_DECAY_MINUTES: 12,       // -1 heat за кожні 12 хв реального часу
     HEAT_DECAY_DAILY_CAP: 42,     // але не більше -42 за добу, щоб "просто не грати" не було стратегією
