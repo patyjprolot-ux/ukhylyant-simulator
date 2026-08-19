@@ -5458,10 +5458,16 @@ function buildHtml(botUsername) {
             renderMedicalAnalysisBox();
         };
 
+        // Таймер-смужка через CSS-transition (2026-08-16, оптимізація) —
+        // раніше 20 разів/сек JS setInterval оновлював style.width вручну,
+        // той самий ефект той самий Спринт-QTE вже давно робить чистою CSS-
+        // анімацією (sprintQteRing) без жодного JS на кадр. Тут копіюємо той
+        // самий підхід: один reflow-трюк запускає плавний перехід width, а
+        // таймаут ловиться ОДНИМ setTimeout, не циклом опитування.
         function renderMedicalAnalysisBox() {
             const box = document.getElementById('medical-analysis-box');
             const s = medicalState && medicalState.session;
-            if (!s) { box.classList.add('hidden'); box.innerHTML = ''; if (medicalAnalysisTimer) { clearInterval(medicalAnalysisTimer); medicalAnalysisTimer = null; } return; }
+            if (!s) { box.classList.add('hidden'); box.innerHTML = ''; if (medicalAnalysisTimer) { clearTimeout(medicalAnalysisTimer); medicalAnalysisTimer = null; } return; }
             box.classList.remove('hidden');
             const cardsHtml = s.cards.map((c, i) => {
                 const isLit = i === s.activeIdx;
@@ -5480,15 +5486,19 @@ function buildHtml(botUsername) {
                 '<div>' + cardsHtml + '</div>' +
                 '<div class="medcom-timer-bar"><div id="medical-timer-fill" class="medcom-timer-fill"></div></div>' +
             '</div>';
-            if (medicalAnalysisTimer) clearInterval(medicalAnalysisTimer);
-            medicalAnalysisTimer = setInterval(() => {
-                const cur = medicalState && medicalState.session;
-                if (!cur || cur.activeIdx === null) { clearInterval(medicalAnalysisTimer); return; }
-                const left = Math.max(0, cur.msLeft - (Date.now() - cur._syncedAt));
+            if (medicalAnalysisTimer) clearTimeout(medicalAnalysisTimer);
+            const left = Math.max(0, s.msLeft);
+            if (s.activeIdx !== null && left > 0) {
                 const fill = document.getElementById('medical-timer-fill');
-                if (fill) fill.style.width = Math.max(0, Math.min(100, (left / cur.windowMs) * 100)) + '%';
-                if (left <= 0) { clearInterval(medicalAnalysisTimer); medicalAnalysisTimer = null; tapAnalysis(null); }
-            }, 50);
+                if (fill) {
+                    fill.style.transition = 'none';
+                    fill.style.width = Math.min(100, (left / s.windowMs) * 100) + '%';
+                    void fill.offsetWidth; // форсуємо reflow, щоб наступний рядок реально анімувався, а не стрибнув
+                    fill.style.transition = 'width ' + left + 'ms linear';
+                    fill.style.width = '0%';
+                }
+                medicalAnalysisTimer = setTimeout(() => { medicalAnalysisTimer = null; tapAnalysis(null); }, left);
+            }
         }
 
         window.tapAnalysis = async (cardId) => {
