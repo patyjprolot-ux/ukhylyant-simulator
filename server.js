@@ -85,7 +85,7 @@ const { byId } = require('./lib/utils');
 // ==========================================
 // Дані/каталоги, винесені в data/*.js (Фаза 1 модуляризації, 2026-08-08)
 // ==========================================
-const { SYMPTOMS, INSPECTORS, TROPHIES } = require('./catalog/inspectors');
+const { INSPECTORS, TROPHIES } = require('./catalog/inspectors');
 const { DISEASES, DISEASE_BY_ID, TIER_CONFIG: DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR } = require('./catalog/diseases');
 const { DEFERMENTS, CHECKPOINT_CHOICES, REPUTATION_NPCS, LEAGUES } = require('./catalog/social');
 const { SKILL_BRANCHES } = require('./catalog/skills');
@@ -113,7 +113,6 @@ const ECONOMY = require('./catalog/economy');
 // карток брала базовий скептицизм 100, але на високому heat уже не вистачало —
 // саме тоді й потрібні бонуси з кладовки.
 
-const SYMPTOM_BY_ID = byId(SYMPTOMS);
 
 // Інспектори ТЦК — іменовані боси, що приходять на високому розшуку. Кожен смішний
 // характером, а не тим, що він "ворог": об'єкт жарту — абсурд бюрократії.
@@ -365,8 +364,11 @@ const ACHIEVEMENTS = [
     { id: 'notice_25', name: 'Досвідчений отримувач', desc: 'Зніми 25 повісток', reward: 12000, check: (u) => (u.noticeStats?.resolved || 0) >= 25 },
     { id: 'notice_clean', name: 'Жодного папірця не проґавив', desc: 'Зніми 10 повісток, не давши протухнути жодній', reward: 15000,
       check: (u) => (u.noticeStats?.resolved || 0) >= 10 && (u.noticeStats?.expired || 0) === 0 },
-    { id: 'medcom_1', name: 'Непридатний', desc: 'Пройди медкомісію', reward: 1500, check: (u) => (u.medcomStats?.passed || 0) >= 1 },
-    { id: 'medcom_10', name: 'Хронічно хворий', desc: 'Пройди медкомісію 10 разів', reward: 15000, check: (u) => (u.medcomStats?.passed || 0) >= 10 },
+    // Перепризначено 2026-08-16: раніше рахувало старий медком-на-повістці
+    // (u.medcomStats.passed), той рушій прибрано — тепер рахує вилазки в
+    // лікарню медичної гілки (routes/hospital.js).
+    { id: 'medcom_1', name: 'Перший огляд', desc: 'Поїдь у лікарню', reward: 1500, check: (u) => (u.hospitalVisits || 0) >= 1 },
+    { id: 'medcom_10', name: 'Хронічно хворий', desc: 'Поїдь у лікарню 10 разів', reward: 15000, check: (u) => (u.hospitalVisits || 0) >= 10 },
     { id: 'deceived_10', name: 'Майстер папірця', desc: 'Обмани систему липовою довідкою 10 разів', reward: 12000, check: (u) => (u.deceivedCount || 0) >= 10 },
     // --- Інспектори ---
     { id: 'insp_first', name: 'Спекався', desc: 'Здихайся першого інспектора', reward: 3000,
@@ -1462,8 +1464,7 @@ app.get('/api/user', requireTelegramAuth, (req, res) => {
             firstPick: user.memoryGame.firstPick,
         } : null,
         nextStep: nextStep(user),
-        medcomStats: user.medcomStats,
-        medcomCard: user.medcomCard || 0,
+        hospitalVisits: user.hospitalVisits || 0,
         // Медична гілка (Р18 v3) — легкий підсумок для стартового рендеру
         // (повний список хвороб/сесія — окремий GET /api/disease, важкувато
         // тягнути це на кожен /api/user).
@@ -1601,7 +1602,7 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
 // поле прогресу — додай його і сюди, інакше відновлення з CloudStorage мовчки
 // поверне гравця без нього.
 const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energy', 'maxEnergy', 'totalClicks', 'boxesOpened', 'raidsSurvived', 'refCount', 'dailyStreak', 'tradesCount', 'wheelSpinsCount', 'storageLevel', 'craftedCount', 'shieldUntil', 'resourcesCollected', 'expeditionsDone', 'totalEarned', 'prestigePoints', 'prestigeCount', 'heat', 'seasonPoints', 'deceivedCount', 'deferUntil', 'skillResetsUsed',
-    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr', 'medcomCard',
+    'defermentsTaken', 'league', 'pendingWarCrate', 'xp', 'playerLevel', 'ukhyr', 'hospitalVisits',
     // Спринти: burnout/focusStat/routeProgress — довгограючий прогрес, його треба
     // пережити редеплой. activeSprint тут НЕМА свідомо: це об'єкт (сюди беруться
     // лише числа) і водночас короткоживучий стан — недописаний контракт після
@@ -1610,7 +1611,7 @@ const RESTORE_NUMBER_FIELDS = ['balance', 'clickVal', 'passive', 'level', 'energ
 const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ownedRoomItems', 'equippedRoomItems', 'trophies', 'redeemedPromos'];
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
-const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'medcomStats', 'checkpointStats', 'noticeStats', 'mapBuildings', 'upgTiersUnlocked'];
+const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'checkpointStats', 'noticeStats', 'mapBuildings', 'upgTiersUnlocked'];
 app.post('/api/restore', requireTelegramAuth, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
@@ -2532,7 +2533,7 @@ require('./routes/social')(app, {
 require('./routes/security')(app, {
     requireTelegramAuth, getUser, ECONOMY,
     NOTICE_BY_ID, DEFERMENT_BY_ID, CHECKPOINT_BY_ID, CHECKPOINT_CHOICES,
-    INSPECTOR_BY_ID, INSPECTORS, SYMPTOMS, SYMPTOM_BY_ID, COSMETICS,
+    INSPECTOR_BY_ID, INSPECTORS, COSMETICS,
     heatSnapshot, noticeSnapshot, noticeBribeCost, applyNoticePenalty, checkAchievements,
     storageSnapshot, storageUsed, mapProtectPct, loseRandomResources,
     syncHeatAndNotices, defermentActive, defermentEligibility, defermentSnapshot, grantDeferment,
@@ -2591,7 +2592,7 @@ require('./routes/sprints')(app, {
 require('./routes/hospital')(app, {
     requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
     DISEASES, DISEASE_BY_ID, DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR,
-    addResource, storageSnapshot, shuffled, changeHeat,
+    addResource, storageSnapshot, shuffled, changeHeat, checkAchievements,
 });
 
 // routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
@@ -2762,8 +2763,7 @@ function buildHtml(botUsername) {
         .leader-row { cursor: pointer; }
         .leader-row:active { color: var(--accent2); }
 
-        /* ===== Медкомісія (PATCH 2.0 Р18: QTE замість карток-порівняння) ===== */
-        #medcom-screen { position: fixed; inset: 0; z-index: 1800; background: rgba(10,8,5,0.96); overflow-y: auto; padding: 16px; box-sizing: border-box; }
+        /* ===== QTE-картки (Спринти "Баги в коді" + медична гілка "здача аналізів") ===== */
         .symptom-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 2px solid #26313d; border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; transition: border-color .1s, background .1s, transform .1s; }
         .symptom-card.used { opacity: 0.35; }
         .symptom-card.lit { border-color: var(--gold); background: rgba(255,215,0,0.14); cursor: pointer; animation: symptomPulse 0.5s infinite alternate; }
@@ -2772,20 +2772,10 @@ function buildHtml(botUsername) {
         @keyframes symptomPulse { from { transform: scale(1); } to { transform: scale(1.03); } }
         .symptom-emoji { font-size: 24px; }
         .symptom-name { font-size: 13px; font-weight: 700; line-height: 1.3; }
-        .symptom-note { font-size: 10px; color: #ff8a8a; }
         .medcom-scale { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
         .medcom-scale .val { font-size: 19px; }
-        .medcom-ok { color: #39ff14; }
-        .medcom-bad { color: #ff4d4d; }
-        .medcom-bonus { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); border: 1px solid #1f2933; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
-        .medcom-bonus.off { opacity: 0.45; }
-        .medcom-bonus input { width: 16px; height: 16px; accent-color: var(--gold); }
         .medcom-timer-bar { width: 100%; height: 8px; background: #141b22; border-radius: 4px; overflow: hidden; border: 1px solid #1f2933; margin: 8px 0 14px; }
         .medcom-timer-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #39ff14, #ffb84d); transition: width linear; }
-        .medcom-card-progress { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9db0c2; margin-bottom: 10px; }
-        .medcom-card-dots { display: flex; gap: 3px; }
-        .medcom-card-dot { width: 9px; height: 9px; border-radius: 50%; background: #26313d; }
-        .medcom-card-dot.on { background: var(--gold); }
 
         /* ===== Інспектори ТЦК ===== */
         #inspector-screen { position: fixed; inset: 0; z-index: 1900; background: radial-gradient(circle at 50% 30%, #2a0d16 0%, #07070d 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; text-align: center; }
@@ -3209,7 +3199,7 @@ function buildHtml(botUsername) {
            кнопка ✕, прибита до top:10px САМОГО оверлею, ховалась під вирізом/статус-баром
            телефону і оверлей ставав неможливо закрити. Піднімаємо top-padding для ВСІХ. */
         #heat-case-overlay, #notices-screen, #profile-overlay, #investigation-screen,
-        #medcom-screen, #inspector-screen, #deferment-screen, #checkpoint-screen, #map-screen,
+        #inspector-screen, #deferment-screen, #checkpoint-screen, #map-screen,
         #skills-screen, #offline-report, #reputation-screen, #season-screen, #war-screen,
         #season-result, #district-screen, #codex-screen, #crate-overlay, #help-overlay,
         #room-screen, #disclaimer-overlay, #sprint-tier-screen, #sprint-result-overlay {
@@ -3858,32 +3848,6 @@ function buildHtml(botUsername) {
         </div>
     </div>
 
-    <!-- Медкомісія (PATCH 2.0 Р18): тапни картку, поки вона світиться. -->
-    <div id="medcom-screen" class="hidden">
-        <div class="case-card">
-            <h2 style="margin: 0 0 4px; font-size: 19px; color: var(--gold); text-align: center;">🏥 Медкомісія</h2>
-            <p id="medcom-intro" style="font-size:12px; color:#8fa3b8; text-align:center; margin: 0 0 8px;">
-                Лікар називає скаргу — тапни ТУ САМУ картку, поки вона світиться.
-                Влучиш у <b id="medcom-hits-needed">3</b> з 5 — комісія повірить. Чим вищий розшук, тим менше часу на реакцію.
-            </p>
-            <div class="medcom-card-progress">
-                🩺 Медична картка:
-                <div class="medcom-card-dots" id="medcom-card-dots"></div>
-                <span id="medcom-card-text">0/10</span>
-            </div>
-            <div id="medcom-cards"></div>
-            <div id="medcom-timer-wrap" class="hidden">
-                <div class="medcom-timer-bar"><div id="medcom-timer-fill" class="medcom-timer-fill"></div></div>
-            </div>
-            <div id="medcom-bonuses"></div>
-            <div class="medcom-scale">
-                <span>Влучань <span class="val" id="medcom-hits">0</span>/5</span>
-                <span style="color:#8fa3b8;">Раундів лишилось <span class="val" id="medcom-rounds-left">5</span></span>
-            </div>
-            <button id="medcom-start" onclick="startMedcom()">Почати огляд</button>
-            <button class="secondary" id="medcom-reroll" onclick="rerollMedcom()">Перекинути картки</button>
-        </div>
-    </div>
 
     <!-- Інспектор ТЦК: таймований клік-енкаунтер зі шкалою терпіння. -->
     <div id="inspector-screen" class="hidden">
@@ -4027,6 +3991,46 @@ function buildHtml(botUsername) {
         // тільки tg.expand().
         tg.disableVerticalSwipes();
 
+        // Звукові ефекти (2026-08-16, місця-заглушки — файлів ще нема, розробник
+        // сам згенерує й покладе в /public/sounds/, список і промпти —
+        // SOUND_DESIGN.md). Тихо ігнорує відсутній файл (play() кине проміс-
+        // помилку — .catch(()=>{}) ковтає її), тому нічого не ламається, поки
+        // звуків фізично нема. Один <audio> на ефект, currentTime=0 перед кожним
+        // .play() — щоб швидкі повторні тапи (клікер, QTE) не чекали, поки
+        // попередній програш дограє, а перезапускали ефект одразу.
+        const SOUND_FILES = {
+            click: '/sounds/click.mp3',
+            coin: '/sounds/coin.mp3',
+            upgrade: '/sounds/upgrade.mp3',
+            craft: '/sounds/craft.mp3',
+            crate_open: '/sounds/crate-open.mp3',
+            crate_rare: '/sounds/crate-rare.mp3',
+            achievement: '/sounds/achievement.mp3',
+            level_up: '/sounds/level-up.mp3',
+            qte_hit: '/sounds/qte-hit.mp3',
+            qte_miss: '/sounds/qte-miss.mp3',
+            notice_resolved: '/sounds/notice-resolved.mp3',
+            notice_failed: '/sounds/notice-failed.mp3',
+            hospital_success: '/sounds/hospital-success.mp3',
+            hospital_caught: '/sounds/hospital-caught.mp3',
+            disease_confirmed: '/sounds/disease-confirmed.mp3',
+            legalization: '/sounds/legalization.mp3',
+            error: '/sounds/error.mp3',
+        };
+        const soundCache = {};
+        let soundsMuted = false; // майбутній перемикач у налаштуваннях, поки завжди false
+        function playSound(name) {
+            if (soundsMuted) return;
+            const src = SOUND_FILES[name];
+            if (!src) return;
+            try {
+                let a = soundCache[name];
+                if (!a) { a = new Audio(src); a.volume = 0.5; soundCache[name] = a; }
+                a.currentTime = 0;
+                a.play().catch(() => {}); // файла ще нема або браузер заблокував автоплей — тихо ігноруємо
+            } catch (e) { /* Audio API недоступне — не критично */ }
+        }
+
         // Автоматично додає підписані дані Telegram (initData) до кожного захищеного запиту,
         // щоб сервер міг довіряти, що запит справді від цього користувача.
         // Таймаут на fetch (2026-08-16): без нього один завислий запит на старті
@@ -4080,7 +4084,6 @@ function buildHtml(botUsername) {
         const NOTICE_TYPES = ${JSON.stringify(NOTICE_TYPES)};
         // Каталоги для довідки механік — щоб її цифри читались із реальних даних
         // гри, а не дублювались текстом і не розходились із балансом.
-        const SYMPTOMS = ${JSON.stringify(SYMPTOMS)};
         const INSPECTORS = ${JSON.stringify(INSPECTORS.map(({ id, emoji, name, hp, unlockHeat, window: w, weaknessHint, taunt }) => ({ id, emoji, name, hp, unlockHeat, window: w, weaknessHint, taunt })))};
         const DEFERMENTS = ${JSON.stringify(DEFERMENTS)};
         const CHECKPOINT_CHOICES = ${JSON.stringify(CHECKPOINT_CHOICES)};
@@ -4447,12 +4450,6 @@ function buildHtml(botUsername) {
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
-            // Медкомісія не вирішується одним запитом — сервер роздав картки, далі міні-гра.
-            if (data.medcom) {
-                closeNotices();
-                openMedcom(data.hand);
-                return;
-            }
             absorbHeat(data);
             if (typeof data.balance === 'number') state.balance = data.balance;
             if (typeof data.energy === 'number') state.energy = data.energy;
@@ -4465,6 +4462,7 @@ function buildHtml(botUsername) {
                 if (data.penalty && data.penalty.resources > 0) text += '\\nЗабрали ресурсів: ' + data.penalty.resources;
                 if (data.penalty && data.penalty.energyLocked) text += '\\nПівгодини тобі не до кліків';
                 tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
+                playSound(data.resolved ? 'notice_resolved' : 'notice_failed');
                 tg.showAlert(text);
             }
             renderNotices();
@@ -4477,6 +4475,7 @@ function buildHtml(botUsername) {
         function showAchievements(list) {
             if (!list || !list.length) return;
             list.forEach(a => { if (!state.achievements.includes(a.id)) state.achievements.push(a.id); });
+            playSound('achievement');
             tg.showAlert('🏅 Досягнення: ' + list.map(a => a.name + ' (+' + a.reward + ' ТК)').join(', '));
             renderAchievements();
         }
@@ -4598,24 +4597,20 @@ function buildHtml(botUsername) {
                     tip('Бот пришле повідомлення за ' + ECONOMY.NOTICE_PUSH_BEFORE_MIN + ' хвилин до протухання. Не проґав.');
             }},
 
-            { id: 'medcom', tab: '🏥 Медкомісія', title: 'Тапни симптом, поки він світиться', build: () => {
-                const symptomList = SYMPTOMS.map(s => s.emoji + ' ' + s.name).join(' · ');
-                return '<p class="codex-lead">Сервер роздає ' + ECONOMY.MEDCOM_HAND_SIZE + ' карток симптомів і по черзі ' +
-                    'підсвічує одну — тапни САМЕ ЇЇ, поки світиться. Влучиш у ' + ECONOMY.MEDCOM_HITS_NEEDED + ' з ' +
-                    ECONOMY.MEDCOM_HAND_SIZE + ' — комісія повірить. Базове вікно реакції ' + ECONOMY.MEDCOM_QTE_BASE_MS +
-                    'мс, звужується на ' + ECONOMY.MEDCOM_QTE_HEAT_PENALTY_MS + 'мс за кожну одиницю розшуку (підлога ' +
-                    ECONOMY.MEDCOM_QTE_MIN_MS + 'мс).</p>' +
-                    block('Можливі скарги', symptomList) +
-                    block('Бонуси (витрачаються одразу на старті, незалежно від результату)',
-                        '🔏 Печатка +' + ECONOMY.MEDCOM_STAMP_BONUS_MS + 'мс · 💊 Ліки ×' + ECONOMY.MEDCOM_MEDS_QTY +
-                        ' +' + ECONOMY.MEDCOM_MEDS_BONUS_MS + 'мс · 🐈 Кіт-антистрес +' + ECONOMY.MEDCOM_CAT_BONUS_MS +
-                        'мс (не витрачається). Перекинути картки — ' + fmtNum(ECONOMY.MEDCOM_REROLL_COST) + ' ТК, максимум ' +
-                        ECONOMY.MEDCOM_REROLL_MAX + ' рази (тільки до старту).') +
-                    warn('Та сама скарга двічі поспіль дає коротше вікно (−' + ECONOMY.MEDCOM_REPEAT_PENALTY_MS +
-                        'мс): «ви вже приходили з цим». Варіюй.') +
-                    tip('Успіх знімає повістку і дає відстрочку на ' + ECONOMY.MEDCOM_DEFER_H + ' годин. Медична картка — ' +
-                        'постійний прогрес: кожен успіх +1 (максимум ' + ECONOMY.MEDCOM_CARD_MAX + '), на максимумі — ' +
-                        ECONOMY.MEDCOM_CARD_SHIELD_DAYS + ' днів імунітету від повісток, і картка знову з нуля.');
+            { id: 'medical', tab: '🏥 Медкомісія', title: 'Окрема сюжетна гілка, не реакція на повістку', build: () => {
+                return '<p class="codex-lead">Незалежна вилазка "Лікарня" (не дає прокачувальних ресурсів, лише ' +
+                    'коштує гроші/енергію/ресурси) → направлення на хворобу → документи (по одному за візит) → ' +
+                    'платна здача аналізів (QTE: тапни картку, поки світиться) → крафт діагнозу → ще один візит ' +
+                    'підтверджує хворобу в медичній картці й звільняє слот (одна активна хвороба за раз). ' +
+                    '10 хвороб, 5 тірів — складність і ціна ростуть із тіром.</p>' +
+                    block('Ризик вилазки',
+                        'Кожен візит платиться в будь-якому разі (ціна спроби), і ЗАВЖДИ є шанс "спалитись" — ' +
+                        'нічого не отримаєш, зате +heat. Ризик росте з тіром хвороби, над якою працюєш.') +
+                    block('Здача аналізів',
+                        ECONOMY.DISEASE_ANALYSIS_ROUNDS + ' раунди, влучити треба в ' + ECONOMY.DISEASE_ANALYSIS_HITS_NEEDED +
+                        ' — вікно реакції фіксоване (' + ECONOMY.DISEASE_QTE_WINDOW_MS + 'мс), не залежить від розшуку.') +
+                    tip('Фінальна хвороба тіру 5 — "Синдром хронічної потужності" — потрібна для довідки легалізації ' +
+                        '(разом з іншими вимогами). Схрон 8 відкривається лише ПІСЛЯ легалізації.');
             }},
 
             { id: 'inspectors', tab: '👮 Інспектори', title: 'Боси приходять на високий розшук', build: () => {
@@ -5339,178 +5334,6 @@ function buildHtml(botUsername) {
             updateUI();
         };
 
-        // ===== Медкомісія (PATCH 2.0 Р18: QTE замість карток-порівняння) =====
-        let medcomState = null;
-        let medcomBonuses = { stamp: false, meds: false };
-        let medcomTimerHandle = null;
-        let medcomFlashIdx = null, medcomFlashKind = null; // короткий hit/miss-спалах картки
-
-        function openMedcom(hand) {
-            medcomState = hand;
-            medcomBonuses = { stamp: false, meds: false };
-            renderMedcom();
-            document.getElementById('medcom-screen').classList.remove('hidden');
-        }
-        window.closeMedcom = () => {
-            document.getElementById('medcom-screen').classList.add('hidden');
-            if (medcomTimerHandle) { clearInterval(medcomTimerHandle); medcomTimerHandle = null; }
-        };
-
-        function renderMedcomCardDots() {
-            const n = (medcomState && typeof medcomState.medcomCard === 'number') ? medcomState.medcomCard : 0;
-            const max = (medcomState && medcomState.medcomCardMax) || 10;
-            document.getElementById('medcom-card-text').innerText = n + '/' + max;
-            let dots = '';
-            for (let i = 0; i < max; i++) dots += '<div class="medcom-card-dot' + (i < n ? ' on' : '') + '"></div>';
-            document.getElementById('medcom-card-dots').innerHTML = dots;
-        }
-
-        function renderMedcom() {
-            const s = medcomState;
-            if (!s) return;
-            document.getElementById('medcom-hits-needed').innerText = s.hitsNeeded;
-            renderMedcomCardDots();
-
-            document.getElementById('medcom-cards').innerHTML = s.cards.map((c, i) => {
-                const isLit = s.started && i === s.activeIdx;
-                const isUsedUp = s.started && (s.usedIdx || []).includes(i);
-                let cls = 'symptom-card';
-                if (isLit) cls += ' lit';
-                if (isUsedUp) cls += ' used';
-                if (medcomFlashIdx === i) cls += medcomFlashKind === 'hit' ? ' hit-flash' : ' miss-flash';
-                return '<div class="' + cls + '"' + (isLit ? ' onclick="tapMedcom(\\'' + c.id + '\\')"' : '') + '>' +
-                    '<span class="symptom-emoji">' + c.emoji + '</span>' +
-                    '<div class="symptom-name">' + esc(c.name) + '</div></div>';
-            }).join('');
-
-            document.getElementById('medcom-hits').innerText = s.hits;
-            document.getElementById('medcom-rounds-left').innerText = s.roundsLeft;
-
-            const startBtn = document.getElementById('medcom-start');
-            const rr = document.getElementById('medcom-reroll');
-            const timerWrap = document.getElementById('medcom-timer-wrap');
-            const bonusesEl = document.getElementById('medcom-bonuses');
-            const introEl = document.getElementById('medcom-intro');
-
-            if (!s.started) {
-                startBtn.classList.remove('hidden');
-                rr.classList.remove('hidden');
-                bonusesEl.classList.remove('hidden');
-                timerWrap.classList.add('hidden');
-                introEl.classList.remove('hidden');
-                const b = s.bonuses;
-                const row = (key, label, on, avail, bonusMs) =>
-                    '<label class="medcom-bonus' + (avail ? '' : ' off') + '">' +
-                    '<input type="checkbox"' + (on ? ' checked' : '') + (avail ? '' : ' disabled') +
-                    ' onchange="toggleMedcomBonus(\\'' + key + '\\', this.checked)">' +
-                    '<span>' + label + '</span><b style="margin-left:auto; color:var(--gold)">+' + bonusMs + 'мс</b></label>';
-                bonusesEl.innerHTML =
-                    row('stamp', '🔏 Печатка (витратиться 1)', medcomBonuses.stamp, b.stamp.have, b.stamp.bonusMs) +
-                    row('meds', '💊 Ліки ×' + b.meds.qty + ' (витратяться)', medcomBonuses.meds, b.meds.have, b.meds.bonusMs) +
-                    (b.cat.have ? '<div class="medcom-bonus">🐈 Кіт-антистрес: маєш змучений вигляд<b style="margin-left:auto; color:var(--gold)">+' + b.cat.bonusMs + 'мс</b></div>' : '');
-                rr.disabled = s.rerollsLeft <= 0 || state.balance < s.rerollCost;
-                rr.innerText = s.rerollsLeft > 0
-                    ? 'Перекинути картки — ' + fmtNum(s.rerollCost) + ' ТК (лишилось ' + s.rerollsLeft + ')'
-                    : 'Перекидати більше не можна';
-            } else {
-                startBtn.classList.add('hidden');
-                rr.classList.add('hidden');
-                bonusesEl.classList.add('hidden');
-                introEl.classList.add('hidden');
-                timerWrap.classList.remove('hidden');
-                startMedcomTimer();
-            }
-        }
-
-        function startMedcomTimer() {
-            if (medcomTimerHandle) clearInterval(medcomTimerHandle);
-            const fill = document.getElementById('medcom-timer-fill');
-            medcomTimerHandle = setInterval(() => {
-                if (!medcomState || medcomState.activeIdx === null) { clearInterval(medcomTimerHandle); return; }
-                const left = Math.max(0, medcomState.msLeft - (Date.now() - medcomState._syncedAt));
-                fill.style.width = Math.max(0, Math.min(100, (left / medcomState.windowMs) * 100)) + '%';
-                if (left <= 0) {
-                    clearInterval(medcomTimerHandle);
-                    medcomTimerHandle = null;
-                    // Вікно вийшло на клієнті — сервер сам зарахує промах при наступному
-                    // зверненні. Тапаємо "в порожнечу", той самий шлях, що й свідомий промах.
-                    tapMedcom(null);
-                }
-            }, 50);
-        }
-
-        window.toggleMedcomBonus = (key, on) => { medcomBonuses[key] = on; renderMedcom(); };
-
-        window.rerollMedcom = async () => {
-            const res = await apiFetch('/api/medcom/reroll', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id }),
-            });
-            const data = await res.json();
-            if (!data.success) return tg.showAlert(data.message);
-            state.balance = data.balance;
-            medcomState = data.hand;
-            medcomState._syncedAt = Date.now();
-            renderMedcom();
-            updateUI();
-        };
-
-        window.startMedcom = async () => {
-            const res = await apiFetch('/api/medcom/start', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id, useStamp: medcomBonuses.stamp, useMeds: medcomBonuses.meds }),
-            });
-            const data = await res.json();
-            if (!data.success) return tg.showAlert(data.message);
-            if (typeof data.balance === 'number') state.balance = data.balance;
-            if (data.resources) state.resources = data.resources;
-            medcomState = data.hand;
-            medcomState._syncedAt = Date.now();
-            renderMedcom();
-            updateUI();
-        };
-
-        window.tapMedcom = async (cardId) => {
-            if (!medcomState || !medcomState.started) return;
-            if (medcomTimerHandle) { clearInterval(medcomTimerHandle); medcomTimerHandle = null; }
-            const tappedIdx = medcomState.activeIdx;
-            const res = await apiFetch('/api/medcom/tap', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: user.id, cardId }),
-            });
-            const data = await res.json();
-            if (!data.success) return tg.showAlert(data.message || 'Помилка');
-            tg.HapticFeedback.impactOccurred(data.hit ? 'medium' : 'light');
-            medcomFlashIdx = tappedIdx;
-            medcomFlashKind = data.hit ? 'hit' : 'miss';
-            setTimeout(() => { medcomFlashIdx = null; if (medcomState && !medcomState.done) renderMedcom(); }, 300);
-
-            if (!data.done) {
-                medcomState = data.hand;
-                medcomState._syncedAt = Date.now();
-                renderMedcom();
-                return;
-            }
-
-            // Останній раунд — повістка вже закрита на сервері, показуємо підсумок.
-            closeMedcom();
-            absorbHeat(data);
-            if (typeof data.balance === 'number') state.balance = data.balance;
-            if (typeof data.energy === 'number') state.energy = data.energy;
-            if (data.resources) state.resources = data.resources;
-            if (typeof data.deferUntil === 'number') state.deferUntil = data.deferUntil;
-            if (typeof data.shieldUntil === 'number') state.shieldUntil = data.shieldUntil;
-            if (data.expired) { tg.showAlert(data.message); return; }
-            tg.HapticFeedback.notificationOccurred(data.resolved ? 'success' : 'error');
-            let msg = (data.resolved ? '✅ ' : '❌ ') + data.message;
-            if (data.penalty && data.penalty.coins) msg += '\\nШтраф: −' + fmtNum(data.penalty.coins) + ' ТК';
-            tg.showAlert(msg);
-            if (data.unlockedAchievements) showAchievements(data.unlockedAchievements);
-            renderStorage();
-            renderNotices();
-            updateUI();
-        };
-
         // ===== Медична гілка (Р18 v3) — окрема сюжетна вкладка, НЕ повістка =====
         let medicalState = null;
         let medicalAnalysisTimer = null;
@@ -5594,7 +5417,9 @@ function buildHtml(botUsername) {
             else if (data.outcome === 'document') msg += '📄 Отримав документ: ' + data.docName + ' (' + data.docsHave + '/' + data.docsNeeded + ').';
             else if (data.outcome === 'confirmed') msg += '✅ «' + data.diseaseName + '» тепер у медичній картці!';
             else if (data.outcome === 'caught') { msg += '🚨 ' + data.message; tg.HapticFeedback.notificationOccurred('error'); }
+            playSound(data.outcome === 'caught' ? 'hospital_caught' : (data.outcome === 'confirmed' ? 'disease_confirmed' : 'hospital_success'));
             tg.showAlert(msg);
+            if (data.unlockedAchievements && data.unlockedAchievements.length) showAchievements(data.unlockedAchievements);
             updateUI();
             renderMedical();
         };
@@ -5614,6 +5439,7 @@ function buildHtml(botUsername) {
             });
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Не вийшло');
+            playSound('craft');
             tg.showAlert('💉 Діагноз «' + data.diseaseName + '» поставлено. Тепер їдь у лікарню, щоб внести його в картку.');
             renderMedical();
         };
@@ -5676,6 +5502,7 @@ function buildHtml(botUsername) {
             const data = await res.json();
             if (!data.success) return tg.showAlert(data.message || 'Помилка');
             tg.HapticFeedback.impactOccurred(data.hit ? 'medium' : 'light');
+            playSound(data.hit ? 'qte_hit' : 'qte_miss');
             medicalFlashIdx = tappedIdx;
             medicalFlashKind = data.hit ? 'hit' : 'miss';
             setTimeout(() => { medicalFlashIdx = null; }, 300);
@@ -6286,7 +6113,7 @@ function buildHtml(botUsername) {
                 deferUntil: state.deferUntil, defermentId: state.defermentId,
                 defermentsTaken: state.defermentsTaken, skills: state.skills,
                 reputation: state.reputation, trophies: state.trophies,
-                snitchStats: state.snitchStats, medcomStats: state.medcomStats, medcomCard: state.medcomCard,
+                snitchStats: state.snitchStats, hospitalVisits: state.hospitalVisits,
                 activeDisease: state.activeDisease, diseases: state.diseases,
                 diseasesDiagnosed: state.diseasesDiagnosed, diseaseAnalysisProgress: state.diseaseAnalysisProgress,
                 diseaseDocuments: state.diseaseDocuments,
@@ -6406,8 +6233,7 @@ function buildHtml(botUsername) {
                 state.nickname = data.nickname || null;
                 document.getElementById('username').innerText = state.nickname || user.first_name;
                 if (data.nextStep) renderNextStep(data.nextStep);
-                state.medcomStats = data.medcomStats || null;
-                state.medcomCard = data.medcomCard || 0;
+                state.hospitalVisits = data.hospitalVisits || 0;
                 state.activeDisease = data.activeDisease || null;
                 state.diseasesOwnedCount = data.diseasesOwnedCount || 0;
                 state.inspectorStats = data.inspectorStats || null;
@@ -6639,6 +6465,7 @@ function buildHtml(botUsername) {
 
             showFloat(x, y, '+' + Math.round(earned));
             tg.HapticFeedback.impactOccurred('light');
+            playSound('click');
             pulseFrame();
             updateUI();
         }
@@ -6730,6 +6557,7 @@ function buildHtml(botUsername) {
             state.playerLevel = data.playerLevel;
             if (!data.levelsGained) return;
             applyLevelGates();
+            playSound('level_up');
             const opened = LEVEL_UNLOCKS.filter((u) => u.level > prevLevel && u.level <= state.playerLevel);
             const openedText = opened.length ? ('\\nВідкрито: ' + opened.map((u) => u.name).join(', ')) : '';
             tg.showAlert('🎉 Рівень ' + state.playerLevel + '!' + openedText);
@@ -7169,6 +6997,7 @@ function buildHtml(botUsername) {
             setTimeout(() => {
                 overlay.classList.add('stage-reveal');
                 tg.HapticFeedback.notificationOccurred(reward.kind === 'nothing' ? 'warning' : 'success');
+                playSound(reward.kind === 'cosmetic' ? 'crate_rare' : 'crate_open');
                 document.getElementById('crate-close').innerText = hasMore ? 'Далі →' : 'Забрати';
                 document.getElementById('crate-close').classList.remove('hidden');
                 // У черзі (пачка з промокоду) кнопку "ще раз" не показуємо — вона тут
@@ -7424,9 +7253,8 @@ function buildHtml(botUsername) {
                 ['🐍 Здав сусідів', fmtNum((state.snitchStats || {}).sent || 0)],
                 ['🎯 Здали тебе', fmtNum((state.snitchStats || {}).received || 0)],
                 ['🕵️ Розкрив стукачів', fmtNum((state.snitchStats || {}).caught || 0)],
-                ['🏥 Медкомісій пройдено', fmtNum((state.medcomStats || {}).passed || 0) +
-                    ' (провалів: ' + fmtNum((state.medcomStats || {}).failed || 0) + ')'],
-                ['🩺 Медична картка', (state.medcomCard || 0) + '/' + ECONOMY.MEDCOM_CARD_MAX],
+                ['🏥 Вилазок у лікарню', fmtNum(state.hospitalVisits || 0)],
+                ['🩺 Хвороб у медичній картці', (state.diseasesOwnedCount || 0) + '/10'],
                 ['🎖️ Інспекторів спекався', fmtNum(Object.values((state.inspectorStats || {}).defeated || {}).reduce((a, b) => a + b, 0)) +
                     ' (втік: ' + fmtNum((state.inspectorStats || {}).lost || 0) + ')'],
                 ['🌳 Навичок вивчено', Object.values(state.skills || {}).filter(Boolean).length + ' / 18'],
@@ -7518,6 +7346,7 @@ function buildHtml(botUsername) {
                 if (!data.success) return tg.showAlert(data.message || 'Помилка');
                 syncLevel(data);
                 tg.HapticFeedback.notificationOccurred('success');
+                playSound('legalization');
                 // Повну лор-сцену показуємо тільки на ПЕРШУ легалізацію — на повторних
                 // це вже не сюжетна подія, а рутинна дія, довгий текст лише дратував би.
                 const msg = data.prestigeCount === 1
@@ -7682,6 +7511,7 @@ function buildHtml(botUsername) {
             state.craftedCount = data.craftedCount;
             syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
+            playSound('craft');
             if (data.unlockedAchievements && data.unlockedAchievements.length) {
                 data.unlockedAchievements.forEach(a => state.achievements.push(a.id));
                 renderAchievements();
@@ -7771,6 +7601,7 @@ function buildHtml(botUsername) {
             state.upgradeGates[key] = data.nextGate;
             syncLevel(data);
             tg.HapticFeedback.notificationOccurred('success');
+            playSound('upgrade');
             if (data.levelsBought > 1) {
                 tg.showAlert('⬆️ +' + data.levelsBought + ' рівнів за ' + fmtNum(data.spent) + ' ТК');
             }

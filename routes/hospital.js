@@ -8,7 +8,7 @@ module.exports = function registerHospitalRoutes(app, deps) {
     const {
         requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
         DISEASES, DISEASE_BY_ID, DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR,
-        addResource, storageSnapshot, shuffled, changeHeat,
+        addResource, storageSnapshot, shuffled, changeHeat, checkAchievements,
     } = deps;
 
     function tierCfgFor(disease) {
@@ -135,13 +135,14 @@ module.exports = function registerHospitalRoutes(app, deps) {
         if (missingRes) return res.json({ success: false, message: `Не вистачає: ${missingRes}` });
 
         payHospitalCost(user, cfg);
+        user.hospitalVisits = (user.hospitalVisits || 0) + 1;
         const caught = Math.random() < cfg.riskPct;
         if (caught) {
             changeHeat(user, cfg.riskHeat, 'Ризикована вилазка в лікарню');
             return res.json({
                 success: true, outcome: 'caught',
                 message: 'Мало не спалився в реєстратурі — довелось тікати ні з чим.',
-                flavor: shuffled(HOSPITAL_FLAVOR)[0],
+                flavor: shuffled(HOSPITAL_FLAVOR)[0], unlockedAchievements: checkAchievements(user),
                 balance: user.balance, energy: user.energy, ...storageSnapshot(user),
             });
         }
@@ -154,7 +155,7 @@ module.exports = function registerHospitalRoutes(app, deps) {
             user.activeDisease = null;
             return res.json({
                 success: true, outcome: 'confirmed', diseaseId: disease.id, diseaseName: disease.name,
-                flavor: shuffled(HOSPITAL_FLAVOR)[0],
+                flavor: shuffled(HOSPITAL_FLAVOR)[0], unlockedAchievements: checkAchievements(user),
                 balance: user.balance, energy: user.energy,
             });
         }
@@ -166,7 +167,7 @@ module.exports = function registerHospitalRoutes(app, deps) {
                 success: true, outcome: 'document', diseaseId: disease.id,
                 docId: doc.id, docName: doc.name, docFlavor: doc.flavor,
                 docsHave: have.length + 1, docsNeeded: disease.documents.length,
-                flavor: shuffled(HOSPITAL_FLAVOR)[0],
+                flavor: shuffled(HOSPITAL_FLAVOR)[0], unlockedAchievements: checkAchievements(user),
                 balance: user.balance, energy: user.energy,
             });
         }
@@ -174,7 +175,7 @@ module.exports = function registerHospitalRoutes(app, deps) {
         const { added } = addResource(user, 'referral', 1, { bonus: false });
         return res.json({
             success: true, outcome: 'referral', added,
-            flavor: shuffled(HOSPITAL_FLAVOR)[0],
+            flavor: shuffled(HOSPITAL_FLAVOR)[0], unlockedAchievements: checkAchievements(user),
             balance: user.balance, energy: user.energy, ...storageSnapshot(user),
         });
     });
