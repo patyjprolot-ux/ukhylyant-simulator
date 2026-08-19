@@ -995,3 +995,127 @@ illustration, thick clean black outlines, cel-shaded flat colors, dark satirical
 mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red
 and gold rim lighting, slightly absurd comedic tone, no text, no watermark
 ```
+
+
+---
+
+## Іконки ресурсів без картинок (512×512, 23 шт.)
+
+Зберігати як `resource-<id>.webp` у `public/images/` та прописати `img: '/images/resource-<id>.webp'` у відповідний запис `catalog/resources.js`.
+
+**Макулатура (`paper`)**
+```
+Icon of a messy stack of old newspapers and junk mail tied with a piece of string, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Скотч (`tape`)**
+```
+Icon of a roll of industrial grey duct tape with the end unrolled slightly, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Деревина (`wood`)**
+```
+Icon of a bundle of rough split firewood logs tied together, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Ліки (`meds`)**
+```
+Icon of a blister pack of pills and a small medicine bottle with a faded label, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Пальне (`fuel`)**
+```
+Icon of a dented metal jerrycan for gasoline, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Ліві сімки (`sim`)**
+```
+Icon of a handful of plastic SIM cards scattered next to a cheap basic push-button mobile phone with its battery cover removed, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Металобрухт (`scrap`)**
+```
+Icon of a pile of rusty metal gears, scrap pipes, and twisted bolts, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Цегла (`brick`)**
+```
+Icon of a pair of heavy red clay construction bricks stacked diagonally, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Кава (`coffee`)**
+```
+Icon of a paper takeaway coffee cup with a plastic lid and a little steam rising, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Вугілля (`coal`)**
+```
+Icon of chunks of black coal piled in a small metal bucket next to a mining pickaxe head, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Валюта (`cash`)**
+```
+Icon of a thick stack of green bank notes wrapped with a rubber band, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Печатка (`stamp`)**
+```
+Icon of a heavy official rubber stamp with a wooden handle, standing next to an ink pad, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+
+**Номер потрібної людини (`phone`)**
+```
+Icon of a torn piece of paper with a handwritten phone number on it, resting on a vintage push-button phone keypad, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Уламок пломби (`shard`)**
+```
+Icon of a broken plastic security seal fragment with a serial number, glowing faintly, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Уламок стартового набору (`shard_starter`)**
+```
+Icon of a glowing green crystalline shard fragment from a starter bundle, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Уламок елітного контейнера (`shard_elite`)**
+```
+Icon of a glowing purple-tinted engraved metal shard from an elite container, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Уламок модної валізи (`shard_wardrobe`)**
+```
+Icon of a golden-rimmed leather-textured shard from a fashion suitcase, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Уламок легендарного схрону (`shard_legendary`)**
+```
+Icon of a brilliant glowing gold mythical shard from a legendary hideout, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Маршрут через кордон (`route`)**
+```
+Icon of a crumpled topographical hiking map with a red dashed path drawn across a river border, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Білий квиток (`ticket`)**
+```
+Icon of an official exemption medical document certificate with a glowing gold seal and stamp, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Фрагмент коду (`script`)**
+```
+Icon of an old 3.5-inch computer floppy disk with a handwritten label "bot.js" and green matrix code glow, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Розвідані дані (`intel_data`)**
+```
+Icon of a classified manila folder stamped "TOP SECRET" with secret documents spilling out, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+
+**Крипто-ключ (`crypto_key`)**
+```
+Icon of a hardware crypto wallet USB stick with a small LED display and a gold key icon on it, isolated game icon, flat vector game-icon illustration, thick clean black outlines, cel-shaded flat colors, dark satirical mobile-clicker art style similar to Hamster Kombat, dark charcoal background, crimson red and gold rim lighting, slightly absurd comedic tone, no text, no watermark, centered composition
+```
+

@@ -6,13 +6,30 @@
 // PATCH_2.0_MEDICAL_QUESTLINE.md.
 module.exports = function registerHospitalRoutes(app, deps) {
     const {
-        requireTelegramAuth, getUser, ECONOMY,
+        requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
         DISEASES, DISEASE_BY_ID, DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR,
-        addResource, storageSnapshot, shuffled,
+        addResource, storageSnapshot, shuffled, changeHeat,
     } = deps;
 
     function tierCfgFor(disease) {
         return DISEASE_TIER_CONFIG[disease ? disease.tier : 1];
+    }
+
+    // Чи вистачає на всю ціну вилазки (гроші + ресурси) — енергію перевіряємо
+    // окремо, бо повідомлення про неї людяніше окремим рядком.
+    function missingHospitalRes(user, cfg) {
+        for (const [resId, need] of Object.entries(cfg.hospitalRes || {})) {
+            if ((user.resources[resId] || 0) < need) return RESOURCE_BY_ID[resId].name;
+        }
+        return null;
+    }
+    function payHospitalCost(user, cfg) {
+        user.balance -= cfg.hospitalCostTk;
+        user.energy -= cfg.hospitalEnergy;
+        for (const [resId, need] of Object.entries(cfg.hospitalRes || {})) {
+            user.resources[resId] -= need;
+            if (user.resources[resId] <= 0) delete user.resources[resId];
+        }
     }
 
     // ---- Здача аналізів: окремий QTE-рушій, простіший за медком-довідку ----
@@ -72,34 +89,64 @@ module.exports = function registerHospitalRoutes(app, deps) {
 
     app.get('/api/disease', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const cfg = tierCfgFor(user.activeDisease && DISEASE_BY_ID[user.activeDisease]);
         res.json({
             success: true,
             diseases: diseaseListSnapshot(user),
             activeDisease: user.activeDisease,
             referral: user.resources.referral || 0,
             session: analysisSnapshot(user),
-            hospitalCostTk: tierCfgFor(user.activeDisease && DISEASE_BY_ID[user.activeDisease]).hospitalCostTk,
-            hospitalEnergy: tierCfgFor(user.activeDisease && DISEASE_BY_ID[user.activeDisease]).hospitalEnergy,
+            hospitalCostTk: cfg.hospitalCostTk, hospitalEnergy: cfg.hospitalEnergy,
+            hospitalRes: cfg.hospitalRes, hospitalRiskPct: cfg.riskPct,
         });
     });
 
     // Вилазка в лікарню: незалежна від інших локацій, не дає прокачувальних
     // ресурсів. Три можливі наслідки залежно від стану активної хвороби —
-    // рахуємо результат ДО списання плати, щоб не брати гроші за візит,
-    // з якого свідомо нема чого привезти (документи вже всі зібрані,
-    // або вже є направлення про запас).
+    // рахуємо, ЩО мало б статись, ДО списання плати (щоб не брати гроші за
+    // візит, з якого свідомо нема чого привезти — документи вже всі зібрані,
+    // або вже є направлення про запас), а вже ПІСЛЯ цього кидаємо ризик.
+    // Ризик (2026-08-16, доробка за прямою вимогою розробника з первинного
+    // ТЗ) — гроші/енергія/ресурси списуються в будь-якому разі (ціна спроби),
+    // heat росте, а сам намічений наслідок (документ/направлення/
+    // підтвердження) НЕ відбувається — той самий принцип, що вже є в
+    // "провалених" вилазках/облавах деінде в грі.
     app.post('/api/hospital/visit', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const disease = user.activeDisease ? DISEASE_BY_ID[user.activeDisease] : null;
 
-        if (disease && user.diseasesDiagnosed[disease.id]) {
-            // Підтвердження — окрема, дешевша "візит" дія: діагноз уже готовий,
-            // просто вносимо в картку.
-            const cfg = tierCfgFor(disease);
-            if (user.balance < cfg.hospitalCostTk) return res.json({ success: false, message: 'Не вистачає ТК на візит' });
-            if ((user.energy || 0) < cfg.hospitalEnergy) return res.json({ success: false, message: 'Не вистачає енергії' });
-            user.balance -= cfg.hospitalCostTk;
-            user.energy -= cfg.hospitalEnergy;
+        let plan; // 'confirm' | 'document' | 'referral' | null (нема чого привезти)
+        if (disease && user.diseasesDiagnosed[disease.id]) plan = 'confirm';
+        else if (disease) {
+            const have = user.diseaseDocuments[disease.id] || [];
+            plan = disease.documents.some((doc) => !have.includes(doc.id)) ? 'document' : null;
+            if (plan === null) return res.json({ success: false, message: 'Усі документи вже зібрані — час здавати аналізи.' });
+        } else {
+            if ((user.resources.referral || 0) >= 1) {
+                return res.json({ success: false, message: 'У тебе вже є направлення — обери хворобу, перш ніж їхати знову.' });
+            }
+            plan = 'referral';
+        }
+
+        const cfg = tierCfgFor(disease);
+        if (user.balance < cfg.hospitalCostTk) return res.json({ success: false, message: 'Не вистачає ТК на візит' });
+        if ((user.energy || 0) < cfg.hospitalEnergy) return res.json({ success: false, message: 'Не вистачає енергії' });
+        const missingRes = missingHospitalRes(user, cfg);
+        if (missingRes) return res.json({ success: false, message: `Не вистачає: ${missingRes}` });
+
+        payHospitalCost(user, cfg);
+        const caught = Math.random() < cfg.riskPct;
+        if (caught) {
+            changeHeat(user, cfg.riskHeat, 'Ризикована вилазка в лікарню');
+            return res.json({
+                success: true, outcome: 'caught',
+                message: 'Мало не спалився в реєстратурі — довелось тікати ні з чим.',
+                flavor: shuffled(HOSPITAL_FLAVOR)[0],
+                balance: user.balance, energy: user.energy, ...storageSnapshot(user),
+            });
+        }
+
+        if (plan === 'confirm') {
             user.diseases[disease.id] = true;
             delete user.diseasesDiagnosed[disease.id];
             delete user.diseaseDocuments[disease.id];
@@ -111,19 +158,9 @@ module.exports = function registerHospitalRoutes(app, deps) {
                 balance: user.balance, energy: user.energy,
             });
         }
-
-        if (disease) {
+        if (plan === 'document') {
             const have = user.diseaseDocuments[disease.id] || [];
-            const missing = disease.documents.filter((doc) => !have.includes(doc.id));
-            if (!missing.length) {
-                return res.json({ success: false, message: 'Усі документи вже зібрані — час здавати аналізи.' });
-            }
-            const cfg = tierCfgFor(disease);
-            if (user.balance < cfg.hospitalCostTk) return res.json({ success: false, message: 'Не вистачає ТК на візит' });
-            if ((user.energy || 0) < cfg.hospitalEnergy) return res.json({ success: false, message: 'Не вистачає енергії' });
-            user.balance -= cfg.hospitalCostTk;
-            user.energy -= cfg.hospitalEnergy;
-            const doc = missing[0];
+            const doc = disease.documents.find((d) => !have.includes(d.id));
             user.diseaseDocuments[disease.id] = [...have, doc.id];
             return res.json({
                 success: true, outcome: 'document', diseaseId: disease.id,
@@ -133,16 +170,7 @@ module.exports = function registerHospitalRoutes(app, deps) {
                 balance: user.balance, energy: user.energy,
             });
         }
-
-        // Немає активної хвороби.
-        if ((user.resources.referral || 0) >= 1) {
-            return res.json({ success: false, message: 'У тебе вже є направлення — обери хворобу, перш ніж їхати знову.' });
-        }
-        const cfg = tierCfgFor(null);
-        if (user.balance < cfg.hospitalCostTk) return res.json({ success: false, message: 'Не вистачає ТК на візит' });
-        if ((user.energy || 0) < cfg.hospitalEnergy) return res.json({ success: false, message: 'Не вистачає енергії' });
-        user.balance -= cfg.hospitalCostTk;
-        user.energy -= cfg.hospitalEnergy;
+        // plan === 'referral'
         const { added } = addResource(user, 'referral', 1, { bonus: false });
         return res.json({
             success: true, outcome: 'referral', added,

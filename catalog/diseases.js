@@ -7,12 +7,25 @@
 // tierConfig нижче — БАЛАНСНІ числа (моя оцінка за шаблоном решти гри,
 // експоненційний ріст як і всюди), не з чернетки лору — розробник може
 // поправити після живого тестування, як з рештою балансу цієї сесії.
+//
+// riskPct/riskHeat (2026-08-16, нічна доробка за проханням розробника —
+// "підвищений відсоток небезпеки та шанс провалу", яке було в первинному
+// технічному завданні, але не потрапило в першу реалізацію): вилазка в
+// лікарню тепер МОЖЕ провалитись — гроші/енергія/ресурси все одно
+// витрачені (ціна спроби, той самий принцип, що й бонуси медкома раніше),
+// але нічого не отримано, і чіпляється heat. Ризик росте з тіром — пізні
+// хвороби відчуваються небезпечніше, не тільки дорожче.
 const TIER_CONFIG = {
-    1: { analysesNeeded: 3, hospitalCostTk: 800, hospitalEnergy: 20, analysisCostTk: 500, analysisEnergy: 15 },
-    2: { analysesNeeded: 5, hospitalCostTk: 2000, hospitalEnergy: 25, analysisCostTk: 1500, analysisEnergy: 20 },
-    3: { analysesNeeded: 7, hospitalCostTk: 5000, hospitalEnergy: 30, analysisCostTk: 4000, analysisEnergy: 25 },
-    4: { analysesNeeded: 10, hospitalCostTk: 12000, hospitalEnergy: 35, analysisCostTk: 9000, analysisEnergy: 30 },
-    5: { analysesNeeded: 15, hospitalCostTk: 30000, hospitalEnergy: 40, analysisCostTk: 25000, analysisEnergy: 35 },
+    1: { analysesNeeded: 3, hospitalCostTk: 800, hospitalEnergy: 20, hospitalRes: { meds: 1 }, riskPct: 0.08, riskHeat: 4,
+         analysisCostTk: 500, analysisEnergy: 15 },
+    2: { analysesNeeded: 5, hospitalCostTk: 2000, hospitalEnergy: 25, hospitalRes: { meds: 2, stamp: 1 }, riskPct: 0.12, riskHeat: 6,
+         analysisCostTk: 1500, analysisEnergy: 20 },
+    3: { analysesNeeded: 7, hospitalCostTk: 5000, hospitalEnergy: 30, hospitalRes: { stamp: 2, cash: 1 }, riskPct: 0.16, riskHeat: 8,
+         analysisCostTk: 4000, analysisEnergy: 25 },
+    4: { analysesNeeded: 10, hospitalCostTk: 12000, hospitalEnergy: 35, hospitalRes: { stamp: 3, cash: 2 }, riskPct: 0.20, riskHeat: 10,
+         analysisCostTk: 9000, analysisEnergy: 30 },
+    5: { analysesNeeded: 15, hospitalCostTk: 30000, hospitalEnergy: 40, hospitalRes: { cash: 3, stamp: 4 }, riskPct: 0.25, riskHeat: 14,
+         analysisCostTk: 25000, analysisEnergy: 35 },
 };
 
 const DISEASES = [

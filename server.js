@@ -322,7 +322,14 @@ const ACHIEVEMENTS = [
     { id: 'room_all', name: 'Затишний барліг', desc: 'Обстав кімнату всіма речами', reward: 6000, check: (u) => u.ownedRoomItems.length >= ROOM_ITEMS.length },
     { id: 'level_5', name: 'Під кордоном', desc: 'Досягни 5 рівня схрону', reward: 6000, check: (u) => u.level >= 5 },
     { id: 'level_6', name: 'Гість закордонної тюрми', desc: 'Досягни 6 рівня схрону', reward: 20000, check: (u) => u.level >= 6 },
-    { id: 'level_8', name: 'Легалізовано', desc: 'Досягни 8 рівня схрону (маєток)', reward: 60000, check: (u) => u.level >= 8 },
+    // level_7 — новий максимум БЕЗ довідки легалізації (Р18 v3, 2026-08-16):
+    // схрон 8 тепер відкривається тільки ПІСЛЯ легалізації, не навпаки.
+    { id: 'level_7', name: 'Квартира в Польщі', desc: 'Досягни 7 рівня схрону', reward: 35000, check: (u) => u.level >= 7 },
+    // level_8 раніше перевіряв u.level>=8 — тепер це наслідок легалізації,
+    // а не причина. Перевіряємо prestigeCount напряму: досягнення випадає
+    // одразу при легалізації, а не лише коли гравець ще й окремо купить
+    // схрон 8 (може статись значно пізніше, це вже не той самий момент).
+    { id: 'level_8', name: 'Легалізовано', desc: 'Отримай довідку легалізації', reward: 60000, check: (u) => (u.prestigeCount || 0) >= 1 },
     { id: 'clan_member', name: 'Сусід за парканом', desc: 'Вступи в чат ОСББ', reward: 800, check: (u) => !!u.clanId },
     { id: 'referral_5', name: 'Мережа перевізників', desc: 'Здай 5 друзів', reward: 3000, check: (u) => u.refCount >= 5 },
     // --- Кладовка, ресурси, крафт ---
@@ -2582,9 +2589,9 @@ require('./routes/sprints')(app, {
 // вкладка, вилазка "Лікарня", здача аналізів, крафт хвороб. НЕ пов'язана
 // з повістками (медком-QTE на повістці — відкочено, PATCH_2.0_MEDICAL_QUESTLINE.md).
 require('./routes/hospital')(app, {
-    requireTelegramAuth, getUser, ECONOMY,
+    requireTelegramAuth, getUser, ECONOMY, RESOURCE_BY_ID,
     DISEASES, DISEASE_BY_ID, DISEASE_TIER_CONFIG, HOSPITAL_FLAVOR,
-    addResource, storageSnapshot, shuffled,
+    addResource, storageSnapshot, shuffled, changeHeat,
 });
 
 // routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
@@ -5526,10 +5533,14 @@ function buildHtml(botUsername) {
             else if (active) hint = 'Активна хвороба: ' + active.emoji + ' ' + active.name + ' (' + active.documents.filter(d => d.have).length + '/' + active.documents.length + ' документів). Кожен візит привозить один документ.';
             else if (m.referral > 0) hint = 'Маєш направлення — обери хворобу нижче.';
             else hint = 'Немає направлення — їдь у лікарню, щоб його отримати.';
+            const resParts = Object.entries(m.hospitalRes || {}).map(([id, qty]) => qty + '× ' + id).join(', ');
+            const riskPct = Math.round((m.hospitalRiskPct || 0) * 100);
             document.getElementById('medical-hospital-box').innerHTML =
                 '<div class="recipe-card">' +
                     '<div class="recipe-desc" style="margin-top:0">' + esc(hint) + '</div>' +
-                    '<div class="recipe-cost"><span class="recipe-ing">' + fmtNum(m.hospitalCostTk) + ' ТК · ' + m.hospitalEnergy + ' енергії</span></div>' +
+                    '<div class="recipe-cost"><span class="recipe-ing">' + fmtNum(m.hospitalCostTk) + ' ТК · ' + m.hospitalEnergy + ' енергії' +
+                        (resParts ? ' · ' + resParts : '') + '</span>' +
+                        '<span class="recipe-ing missing">⚠️ ' + riskPct + '% ризик спалитись</span></div>' +
                     '<button onclick="hospitalVisit()">🏥 Поїхати в лікарню</button>' +
                 '</div>';
         }
@@ -5582,6 +5593,7 @@ function buildHtml(botUsername) {
             if (data.outcome === 'referral') msg += '📝 Отримав направлення до лікаря.';
             else if (data.outcome === 'document') msg += '📄 Отримав документ: ' + data.docName + ' (' + data.docsHave + '/' + data.docsNeeded + ').';
             else if (data.outcome === 'confirmed') msg += '✅ «' + data.diseaseName + '» тепер у медичній картці!';
+            else if (data.outcome === 'caught') { msg += '🚨 ' + data.message; tg.HapticFeedback.notificationOccurred('error'); }
             tg.showAlert(msg);
             updateUI();
             renderMedical();
