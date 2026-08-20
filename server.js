@@ -2130,8 +2130,12 @@ function settleWarsIfNeeded() {
                 const u = usersDB.get(id);
                 if (!u) continue;
                 u.pendingWarCrate = (u.pendingWarCrate || 0) + 1;
-                logOffline(u, 'good', '🏆 Ваш ОСББ виграв війну — трофейний ящик чекає');
-                sendPush(id, '🏆 Ваш чат ОСББ виграв війну! Забери трофейний ящик і тримай бафф на тиждень.');
+                // Р13: 'shard' (потрібен для крафту схрону 8 після легалізації)
+                // здобувається лише перемогою у війні ОСББ — інших джерел свідомо нема.
+                const shardAmount = ECONOMY.WAR_SHARD_MIN + Math.floor(Math.random() * (ECONOMY.WAR_SHARD_MAX - ECONOMY.WAR_SHARD_MIN + 1));
+                addResource(u, 'shard', shardAmount);
+                logOffline(u, 'good', `🏆 Ваш ОСББ виграв війну — трофейний ящик і +${shardAmount} 🧩 уламків чекають`);
+                sendPush(id, '🏆 Ваш чат ОСББ виграв війну! Забери трофейний ящик, тримай бафф на тиждень і +' + shardAmount + ' уламків на складі.');
             }
         } else {
             for (const id of clan.members) {
@@ -3105,6 +3109,9 @@ function buildHtml(botUsername) {
         .knock-btn { padding: 10px; background: #1f2933; border-radius: 20px; border: 4px solid #fff; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; }
         .knock-btn img { width: 90px; height: 90px; pointer-events: none; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        #sense-warning { position: fixed; top: 12px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 1100; background: rgba(120,0,0,0.92); border: 2px solid #ff5555; color: #fff; font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 10px; opacity: 0; transition: opacity 0.3s ease, transform 0.3s ease; pointer-events: none; text-align: center; box-shadow: 0 4px 20px rgba(255,0,0,0.4); }
+        #sense-warning.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         .airdrop { position: fixed; font-size: 36px; z-index: 900; cursor: pointer; animation: flyAcross 3s linear forwards; }
         @keyframes flyAcross { 0% { transform: translateX(-20px) translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(20px) translateY(-40px); opacity: 0; } }
@@ -8317,13 +8324,27 @@ function buildHtml(botUsername) {
         // ==========================================
         // МЕХАНІКА ОБЛАВИ (БОС-ФАЙТ)
         // ==========================================
-        setInterval(() => {
-            // З рівня 4 (Хатина в лісі) ти вже не в місті — нема паркану/базару, щоб
-            // тікати, тож облави міського типу більше не трапляються.
-            if ((state.level || 1) >= 4) return;
-            // Шанс облави масштабується розшуком: на 91+ heat облави вчетверо частіші,
-            // ніж у "тихого" гравця. Це друга половина трейд-офу до множника доходу.
-            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult() * mapRaidMult()) return;
+        // Чуйка (skills.js:'sense'): гравець з цим скілом бачить попередження за
+        // SKILL_RAID_WARNING_SEC до облави замість того, щоб екран облави вискочив
+        // миттєво — встигає завершити клік/дії, перш ніж тікати від паркану.
+        function showSenseWarning(text) {
+            let el = document.getElementById('sense-warning');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'sense-warning';
+                document.body.appendChild(el);
+            }
+            el.textContent = text;
+            el.classList.add('show');
+            tg.HapticFeedback.notificationOccurred('warning');
+            clearTimeout(el._hideTimer);
+            el._hideTimer = setTimeout(() => el.classList.remove('show'), 3200);
+        }
+
+        function startRaidUI() {
+            // Стан міг змінитись за час затримки-попередження (Чуйка) — VIP/щит
+            // куплений саме зараз рятує так само, як і при миттєвій облаві.
+            if (state.isVip || hasShield()) return;
 
             const raidScreen = document.getElementById('raid-screen');
             const timerEl = document.getElementById('raid-timer');
@@ -8376,6 +8397,22 @@ function buildHtml(botUsername) {
                 }
                 updateUI();
                 saveState();
+            }
+        }
+
+        setInterval(() => {
+            // З рівня 4 (Хатина в лісі) ти вже не в місті — нема паркану/базару, щоб
+            // тікати, тож облави міського типу більше не трапляються.
+            if ((state.level || 1) >= 4) return;
+            // Шанс облави масштабується розшуком: на 91+ heat облави вчетверо частіші,
+            // ніж у "тихого" гравця. Це друга половина трейд-офу до множника доходу.
+            if (state.isVip || hasShield() || Math.random() > ECONOMY.RAID_CHANCE * petMult('raid') * heatRaidMult() * mapRaidMult()) return;
+
+            if (hasSkill('sense')) {
+                showSenseWarning('⚠️ Чуйка: облава насувається за ' + ECONOMY.SKILL_RAID_WARNING_SEC + ' сек!');
+                setTimeout(startRaidUI, ECONOMY.SKILL_RAID_WARNING_SEC * 1000);
+            } else {
+                startRaidUI();
             }
         }, ECONOMY.RAID_INTERVAL_MS);
 

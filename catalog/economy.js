@@ -234,7 +234,7 @@ const ECONOMY = {
     SKILL_ESCAPE_BONUS: 0.10,        // Знаю прохідні двори (було 0.20)
     SKILL_SNITCH_FAIL_CHANCE: 0.18,  // Дві сімки (було 0.30)
     SKILL_BRIBE_CUT: 0.15,           // Свій у ЖЕКу (було 0.30)
-    SKILL_RAID_WARNING_SEC: 10,      // Чуйка — механіка попередження ще НЕ реалізована (відомий пробіл, див. PATCH_2.0_SKILL_TREE_RESEARCH.md)
+    SKILL_RAID_WARNING_SEC: 10,      // Чуйка — попередження про облаву за N сек (server.js: showSenseWarning/startRaidUI)
     SKILL_DECAY_MULT: 1.35,          // Привид району (було 2 — вдвічі)
     SKILL_SELL_BONUS: 0.06,          // Знайомий перекуп (було 0.12)
     SKILL_CRATE_DISCOUNT: 0.08,      // Оптова закупка (було 0.15)
@@ -295,6 +295,11 @@ const ECONOMY = {
     WAR_SNITCH_DISCOUNT: 0.5,     // під час війни стук на ворога вдвічі дешевший
     WAR_TREASURY_PRIZE: 0.20,
     WAR_BUFF_DAYS: 7,
+    // Р13: єдине джерело 'shard' (для рецепта схрону 8) — перемога у війні ОСББ,
+    // 3-5 за перемогу кожному учаснику. Свідомо не крафт і не нижча вимога —
+    // спершу міряємо, чи цього достатньо, перш ніж додавати інші джерела.
+    WAR_SHARD_MIN: 3,
+    WAR_SHARD_MAX: 5,
     WAR_BUFF_PASSIVE: 0.10,
 
     // --- Облава на район (кооп-бос) ---
