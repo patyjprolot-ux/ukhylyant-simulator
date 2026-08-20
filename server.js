@@ -29,6 +29,14 @@ const DEV_MODE_INSECURE = process.env.ALLOW_UNVERIFIED_DEV === 'true';
 // з'єднання (getMe працює, а bot.launch() довго висить). Вимкнути: USE_WEBHOOK=false.
 const USE_WEBHOOK = process.env.USE_WEBHOOK !== 'false';
 const WEBHOOK_PATH = '/telegram-webhook';
+// Секрет вебхука (2026-08-21, аудит безпеки): без нього шлях /telegram-webhook —
+// публічний URL, і БУДЬ-ХТО міг POST-нути підроблений Update (зокрема фейковий
+// successful_payment і видати собі безкоштовний VIP/ящики). secret_token
+// реєструється в Telegram при setWebhook() і звіряється Telegraf'ом на кожному
+// вхідному запиті (заголовок X-Telegram-Bot-Api-Secret-Token). Генеруємо один
+// раз за старт процесу — не треба зберігати в .env, бо setWebhook() і так
+// викликається заново при кожному рестарті, секрет і реєстрація завжди в парі.
+const WEBHOOK_SECRET = crypto.randomBytes(32).toString('hex');
 
 // Telegram id власника: сюди бот пересилає фото від гравців і пінги про нові
 // скарги. Навмисно з env, а не константою в коді — id власника це персональні
@@ -43,6 +51,43 @@ const OWNER_TELEGRAM_ID = process.env.OWNER_TELEGRAM_ID || '';
 // Якщо ADMIN_PASSWORD не заданий — падаємо назад на BOT_TOKEN (як було),
 // щоб не зламати вхід тим, хто ще не встиг додати нову змінну.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || BOT_TOKEN;
+
+// Звірка токена адмінки без витоку через таймінг (аудит безпеки 2026-08-21):
+// звичайне !== порівнює рядки посимвольно й виходить раніше на першому
+// розбіжному байті — теоретично дає атакуючому сигнал "скільки символів
+// вгадано правильно". crypto.timingSafeEqual вимагає однакової довжини
+// буферів, тому спершу хешуємо обидва рядки до фіксованого розміру.
+function timingSafeStringEqual(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    const bufA = crypto.createHash('sha256').update(a).digest();
+    const bufB = crypto.createHash('sha256').update(b).digest();
+    return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// Простий лічильник запитів на гравця (аудит безпеки 2026-08-21): без цього
+// нічого не заважало підбирати промокоди чи довбити /api/restore скриптом
+// на швидкості мережі. Не претендує на загальний rate-limit для всього API —
+// закриває лише найчутливіші ендпоінти, без нової npm-залежності. Мапа не
+// росте необмежено: старі записи самі перестають рахуватись, коли вікно
+// спливає (перевіряється при наступному ж запиті того самого гравця).
+function rateLimitByUser(maxRequests, windowMs) {
+    const hits = new Map();
+    return function (req, res, next) {
+        const id = req.telegramUser && req.telegramUser.id;
+        if (!id) return next(); // не мало статись після requireTelegramAuth, але не валимо запит
+        const now = Date.now();
+        const entry = hits.get(id);
+        if (!entry || now >= entry.resetAt) {
+            hits.set(id, { count: 1, resetAt: now + windowMs });
+            return next();
+        }
+        if (entry.count >= maxRequests) {
+            return res.status(429).json({ error: 'Забагато спроб. Спробуй трохи пізніше.' });
+        }
+        entry.count++;
+        next();
+    };
+}
 
 if (!BOT_TOKEN) {
     console.error('❌ Не задано BOT_TOKEN. Створи файл .env на основі .env.example і вкажи токен від @BotFather.');
@@ -72,8 +117,27 @@ const app = express();
 app.set('trust proxy', 'loopback');
 app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
-app.use('/video', express.static(path.join(__dirname, 'public/video')));
+// maxAge: 1 доба (аудит оптимізації 2026-08-21) — картинки/відео раніше йшли
+// без жодного кешування, тож Telegram WebView перезапитував ~8.6МБ асетів
+// на кожне відкриття міні-аппки. На відміну від HTML-сторінки (яка має
+// CACHE_BUST у URL кнопки), файли тут не версіоновані — тому доба, а не
+// довше: реальна заміна картинки все одно розійдеться протягом дня, а не
+// висітиме застарілою місяць.
+app.use('/images', express.static(path.join(__dirname, 'public/images'), { maxAge: '1d' }));
+app.use('/video', express.static(path.join(__dirname, 'public/video'), { maxAge: '1d' }));
+// Базові заголовки безпеки (аудит безпеки 2026-08-21) — без нової залежності
+// (helmet), лише те, що дешево дає реальний захист: nosniff всюди,
+// X-Frame-Options на адмінці (щоб /admin не можна було вбудувати в чужий
+// iframe для clickjacking розсилки/видалення заявок). Ігрову сторінку не
+// чіпаємо — Telegram WebView не звичайний iframe, але про всяк випадок
+// не додаємо DENY туди, щоб не зламати щось у клієнті Telegram.
+app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (req.path.startsWith('/admin') || req.path.startsWith('/api/admin')) {
+        res.set('X-Frame-Options', 'DENY');
+    }
+    next();
+});
 // API завжди повертає живі дані (баланс/лідерборд/нік і т.д.) — без цього Telegram
 // WebView міг закешувати GET-відповідь (напр. лідерборд) і показувати застарілий
 // нік/цифри навіть після того, як гравець щось змінив.
@@ -448,7 +512,7 @@ function adConsentAirdropMult() {
 // і кланів собі локально. Захищено тим самим BOT_TOKEN, що й сам бот, —
 // секрету окремо заводити не треба, і тільки власник бота може його викликати.
 app.get('/api/admin/backup', (req, res) => {
-    if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
+    if (!ADMIN_PASSWORD || !timingSafeStringEqual(req.get('x-admin-token') || '', ADMIN_PASSWORD)) {
         return res.status(403).json({ error: 'forbidden' });
     }
     res.json({
@@ -461,7 +525,7 @@ app.get('/api/admin/backup', (req, res) => {
 // що й бекап. sendPush уже ковтає власні помилки (заблокував бота, невірний
 // id), тому один поганий id не зупиняє розсилку іншим.
 app.post('/api/admin/broadcast', (req, res) => {
-    if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
+    if (!ADMIN_PASSWORD || !timingSafeStringEqual(req.get('x-admin-token') || '', ADMIN_PASSWORD)) {
         return res.status(403).json({ error: 'forbidden' });
     }
     const message = String(req.body?.message || '').trim();
@@ -1563,11 +1627,20 @@ app.post('/api/save', requireTelegramAuth, (req, res) => {
     // не бачив у гравця жодної покупки, крафту чи легалізації — довіряємо клієнту.
     const serverKnowsPlayer = Object.values(user.upgrades || {}).some((n) => n > 0)
         || (user.craftedCount || 0) > 0 || (user.prestigeCount || 0) > 0;
+    // Абсолютна стеля навіть для "свіжого" гравця (аудит безпеки 2026-08-21):
+    // довіра клієнту до першої покупки існує заради CloudStorage-відновлення
+    // після втрати диска, не заради того, щоб хтось раз надіслав
+    // clickVal:999999999 і назавжди лишився з ним. Значення з великим запасом
+    // над будь-яким реалістичним ендгейм-результатом (TIER_EFFECT_MULT-ряд
+    // не наближається до цього навіть на максимальному рівні).
+    const SAVE_SANITY_CEILING = 10000000;
     if (typeof clickVal === 'number' && isFinite(clickVal)) {
-        user.clickVal = serverKnowsPlayer ? Math.max(1, Math.min(clickVal, user.clickVal)) : Math.max(1, clickVal);
+        const bounded = Math.min(clickVal, SAVE_SANITY_CEILING);
+        user.clickVal = serverKnowsPlayer ? Math.max(1, Math.min(bounded, user.clickVal)) : Math.max(1, bounded);
     }
     if (typeof passive === 'number' && isFinite(passive)) {
-        user.passive = serverKnowsPlayer ? Math.max(0, Math.min(passive, user.passive)) : Math.max(0, passive);
+        const bounded = Math.min(passive, SAVE_SANITY_CEILING);
+        user.passive = serverKnowsPlayer ? Math.max(0, Math.min(bounded, user.passive)) : Math.max(0, bounded);
     }
     if (typeof level === 'number') user.level = level;
     if (typeof energy === 'number') user.energy = energy;
@@ -1618,10 +1691,25 @@ const RESTORE_ARRAY_FIELDS = ['achievements', 'ownedPets', 'ownedCosmetics', 'ow
 // Об'єкти-словники: беремо лише числові/булеві значення за відомими ключами,
 // щоб бекап не міг підсунути довільну структуру.
 const RESTORE_MAP_FIELDS = ['reputation', 'skills', 'snitchStats', 'checkpointStats', 'noticeStats', 'mapBuildings', 'upgTiersUnlocked'];
-app.post('/api/restore', requireTelegramAuth, (req, res) => {
+const restoreRateLimit = rateLimitByUser(5, 10 * 60 * 1000); // 5 спроб / 10 хв
+app.post('/api/restore', requireTelegramAuth, restoreRateLimit, (req, res) => {
     const backup = req.body.backup;
     if (!backup || typeof backup !== 'object') return res.status(400).json({ error: 'Порожня резервна копія' });
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+
+    // Захист від підробки (аудит безпеки 2026-08-21): клієнт і раніше викликав
+    // це ЛИШЕ коли `looksFresh` (server.js:6201), але це була суто клієнтська
+    // угода — нічого не заважало будь-якому гравцю з дійсним initData послати
+    // /api/restore напряму з довільним balance/clickVal/passive і переписати
+    // СВІЙ ЖЕ вже наявний прогрес на будь-які числа (необмежений друк валюти).
+    // Той самий критерій "свіжості", що вже й так на клієнті, тепер обов'язковий
+    // і на сервері — відновлення працює лише для акаунтів, які реально нічого
+    // не встигли зробити.
+    const looksFresh = (user.totalClicks || 0) === 0 && (user.balance || 0) === 0 &&
+        (user.achievements || []).length === 0 && (user.ownedCosmetics || []).length === 0;
+    if (!looksFresh) {
+        return res.status(403).json({ error: 'Відновлення доступне лише для нового акаунта без прогресу' });
+    }
 
     for (const f of RESTORE_NUMBER_FIELDS) {
         if (typeof backup[f] === 'number' && isFinite(backup[f])) user[f] = backup[f];
@@ -1771,7 +1859,8 @@ app.post('/api/daily', requireTelegramAuth, (req, res) => {
 });
 
 // Активація промокоду — перевіряється й застосовується на сервері
-app.post('/api/promo', requireTelegramAuth, (req, res) => {
+const promoRateLimit = rateLimitByUser(10, 5 * 60 * 1000); // 10 спроб / 5 хв — заважає перебору кодів
+app.post('/api/promo', requireTelegramAuth, promoRateLimit, (req, res) => {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'Відсутній код' });
     const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
@@ -2617,7 +2706,7 @@ require('./routes/beta')(app, { bot, OWNER_TELEGRAM_ID, DATA_DIR });
 const complaints = require('./lib/complaints');
 require('./routes/admin')(app, {
     ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-    complaints, LOCATIONS, paymentLog, DATA_DIR,
+    complaints, LOCATIONS, paymentLog, DATA_DIR, timingSafeStringEqual,
     // Необов'язкові: якщо OWNER_TELEGRAM_ID заданий — власнику падає пуш
     // про кожну нову скаргу, а не тільки запис у книзі.
     sendPush, OWNER_TELEGRAM_ID,
@@ -8542,7 +8631,7 @@ async function main() {
     }
 
     if (USE_WEBHOOK) {
-        app.use(bot.webhookCallback(WEBHOOK_PATH));
+        app.use(bot.webhookCallback(WEBHOOK_PATH, { secretToken: WEBHOOK_SECRET }));
     }
 
     console.log('⏳ Крок 2/4: піднімаю HTTP-сервер...');
@@ -8553,7 +8642,7 @@ async function main() {
     if (USE_WEBHOOK) {
         const webhookUrl = WEB_APP_URL.replace(/\/$/, '') + WEBHOOK_PATH;
         console.log('⏳ Крок 3/4: реєструю webhook: ' + webhookUrl);
-        await bot.telegram.setWebhook(webhookUrl);
+        await bot.telegram.setWebhook(webhookUrl, { secret_token: WEBHOOK_SECRET });
         console.log('✅ Крок 3/4 готово: webhook зареєстровано');
         console.log('⏳ Крок 4/4: (у webhook-режимі окремого запуску не треба)');
         console.log(`✅ Крок 4/4 готово: 🤖 Бот @${BOT_USERNAME} працює (webhook-режим)!`);

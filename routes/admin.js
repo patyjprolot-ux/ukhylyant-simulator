@@ -13,7 +13,7 @@ const path = require('path');
 module.exports = function registerAdminRoutes(app, deps) {
     const {
         ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-        complaints, LOCATIONS, paymentLog, DATA_DIR,
+        complaints, LOCATIONS, paymentLog, DATA_DIR, timingSafeStringEqual,
         // Необовʼязкові: якщо передані — власник отримає пуш про нову скаргу.
         sendPush, OWNER_TELEGRAM_ID,
     } = deps;
@@ -22,9 +22,10 @@ module.exports = function registerAdminRoutes(app, deps) {
     // випадково не забути його на новому ендпоінті — забути один if легко,
     // забути аргумент у app.get() помітно одразу.
     // Пароль адмінки (2026-08-16) — окремий секрет від BOT_TOKEN, щоб витік
-    // одного не давав автоматично доступ до іншого.
+    // одного не давав автоматично доступ до іншого. Звірка timing-safe
+    // (аудит безпеки 2026-08-21, server.js: timingSafeStringEqual).
     function requireAdmin(req, res, next) {
-        if (!ADMIN_PASSWORD || req.get('x-admin-token') !== ADMIN_PASSWORD) {
+        if (!ADMIN_PASSWORD || !timingSafeStringEqual(req.get('x-admin-token') || '', ADMIN_PASSWORD)) {
             return res.status(403).json({ error: 'forbidden' });
         }
         next();
