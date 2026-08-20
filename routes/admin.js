@@ -7,12 +7,13 @@
 // Саму розсилку тут НЕ дублюємо: вона вже є в server.js
 // (POST /api/admin/broadcast). Тут лише "попередній перегляд" — щоб перед
 // незворотною дією на живих людях було видно, скільки їх і хто вони.
+const fs = require('fs');
 const path = require('path');
 
 module.exports = function registerAdminRoutes(app, deps) {
     const {
         ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-        complaints, LOCATIONS, paymentLog,
+        complaints, LOCATIONS, paymentLog, DATA_DIR,
         // Необовʼязкові: якщо передані — власник отримає пуш про нову скаргу.
         sendPush, OWNER_TELEGRAM_ID,
     } = deps;
@@ -257,6 +258,22 @@ module.exports = function registerAdminRoutes(app, deps) {
             length: message.length,
             preview: message.slice(0, 400),
         });
+    });
+
+    // ==========================================
+    // Заявки на закритий бета-тест (public/landing.html → /api/beta/register)
+    // ==========================================
+    // Той самий файл, куди пише routes/beta.js. Читаємо тут, а не тримаємо
+    // окрему копію в пам'яті — щоб не було двох джерел правди про заявки.
+    // Це запасний канал бачити нові заявки: Telegram-пуш власнику (routes/beta.js)
+    // працює лише якщо в .env заданий OWNER_TELEGRAM_ID, а адмінка працює завжди.
+    app.get('/api/admin/beta-signups', requireAdmin, (req, res) => {
+        let list = [];
+        try {
+            list = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'beta-signups.json'), 'utf8'));
+        } catch (e) { /* файлу ще нема — заявок нуль */ }
+        list = list.slice().sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+        res.json({ count: list.length, signups: list });
     });
 
     // ==========================================

@@ -78,6 +78,7 @@ th:hover{color:var(--accent2)}
         <button data-tab="health">🩺 Стан сервера</button>
         <button data-tab="adconsent">🔔 Згодні на рекламу</button>
         <button data-tab="payments">💳 Транзакції й донати</button>
+        <button data-tab="beta">🧪 Заявки на бета</button>
         <button id="logoutBtn" style="flex:0 0 auto">Вийти</button>
     </div>
 
@@ -200,6 +201,25 @@ th:hover{color:var(--accent2)}
             <div id="paymentsMsg" class="msg"></div>
         </div>
     </div>
+
+    <!-- Заявки на бета -->
+    <div id="tab-beta" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="justify-content:space-between;margin-bottom:12px">
+                <strong>Заявки з лендінгу (/beta) на закритий бета-тест</strong>
+                <button id="betaReload">Оновити</button>
+            </div>
+            <div id="betaCount" class="muted" style="margin-bottom:10px"></div>
+            <div class="scroll"><table>
+                <thead><tr><th>Юзернейм Telegram</th><th>Подано</th></tr></thead>
+                <tbody id="betaBody"></tbody>
+            </table></div>
+            <p class="muted" style="margin-top:10px">
+                Пуш у Telegram про кожну нову заявку приходить лише якщо на сервері заданий OWNER_TELEGRAM_ID — ця вкладка працює завжди, незалежно від того.
+            </p>
+            <div id="betaMsg" class="msg"></div>
+        </div>
+    </div>
 </div>
 </div>
 
@@ -274,6 +294,7 @@ document.querySelectorAll('.tabs button[data-tab]').forEach((btn) => {
         if (btn.dataset.tab === 'health') loadHealth();
         if (btn.dataset.tab === 'adconsent') loadAdConsent();
         if (btn.dataset.tab === 'payments') loadPayments();
+        if (btn.dataset.tab === 'beta') loadBeta();
     };
 });
 
@@ -486,6 +507,20 @@ async function loadPayments() {
     } catch (e) { say($('paymentsMsg'), 'Не вдалося: ' + e.message, 'err'); }
 }
 $('paymentsReload').onclick = loadPayments;
+
+// ---- Заявки на бета ----
+async function loadBeta() {
+    try {
+        const d = await api('/api/admin/beta-signups');
+        $('betaCount').textContent = 'Усього заявок: ' + num(d.count);
+        $('betaBody').innerHTML = d.signups.map((s) =>
+            '<tr><td>@' + esc(s.username) + '</td>'
+            + '<td>' + (s.at ? new Date(s.at).toLocaleString('uk-UA') : '—') + '</td></tr>').join('')
+            || '<tr><td colspan="2" class="muted">Заявок ще не було</td></tr>';
+        clearMsg($('betaMsg'));
+    } catch (e) { say($('betaMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('betaReload').onclick = loadBeta;
 
 // Автовхід, якщо токен уже в цій вкладці (перезавантаження сторінки).
 if (token()) {

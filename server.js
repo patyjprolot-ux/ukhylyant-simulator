@@ -2607,7 +2607,7 @@ require('./routes/beta')(app, { bot, OWNER_TELEGRAM_ID, DATA_DIR });
 const complaints = require('./lib/complaints');
 require('./routes/admin')(app, {
     ADMIN_PASSWORD, usersDB, clansDB, requireTelegramAuth, getUser, displayName,
-    complaints, LOCATIONS, paymentLog,
+    complaints, LOCATIONS, paymentLog, DATA_DIR,
     // Необов'язкові: якщо OWNER_TELEGRAM_ID заданий — власнику падає пуш
     // про кожну нову скаргу, а не тільки запис у книзі.
     sendPush, OWNER_TELEGRAM_ID,
