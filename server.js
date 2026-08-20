@@ -2595,6 +2595,11 @@ require('./routes/hospital')(app, {
     addResource, storageSnapshot, shuffled, changeHeat, checkAchievements,
 });
 
+// routes/beta.js (2026-08-19) — публічна лендінг-сторінка (public/landing.html,
+// GET /beta) + реєстрація на закритий бета-тест. НЕ пов'язана з Mini App,
+// доступна будь-кому в браузері, без Telegram-авторизації.
+require('./routes/beta')(app, { bot, OWNER_TELEGRAM_ID, DATA_DIR });
+
 // routes/admin.js (2026-08-15) — адмін-панель власника + книга скарг і пропозицій.
 // Авторизація та сама, що в /api/admin/backup і /api/admin/broadcast вище:
 // заголовок x-admin-token звіряється з BOT_TOKEN. Розсилка тут НЕ дублюється —

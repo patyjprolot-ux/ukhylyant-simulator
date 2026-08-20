@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Симулятор Ухилянта — закритий бета-тест</title>
+<link rel="icon" href="/images/app-icon.webp">
+<meta name="description" content="Сатиричний клікер про виживання й ухилення. Реєструйся на закритий бета-тест — залиш юзернейм Telegram, і ми напишемо тобі першими.">
+<style>
+    :root {
+        --bg: #0c1117; --panel-bg: #161e28; --text: #d7e3ec;
+        --accent: #35516b; --accent2: #6ec6ff; --btn: #1b2530; --gold: #7ec8f0;
+        --danger: #ff6b6b; --ok: #39ff9c;
+    }
+    * { box-sizing: border-box; }
+    /* Сплеш з інтро-відео при завантаженні сторінки — той самий об'єкт, що
+       й у Mini App (public/video/intro.mp4), той самий підхід (contain, а не
+       cover, щоб нічого не обрізалось; спроба зі звуком, тихий фолбек на
+       без звуку, якщо браузер заблокує unmuted autoplay). */
+    #splash-screen {
+        position: fixed; inset: 0; z-index: 2000; background: #000;
+        display: flex; align-items: center; justify-content: center;
+        transition: opacity 0.4s ease;
+    }
+    #splash-screen video { width: 100%; height: 100%; object-fit: contain; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+        font-family: 'Courier New', Courier, monospace;
+        line-height: 1.55;
+        overflow-x: hidden;
+    }
+    a { color: var(--gold); }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+    /* ===== Hero ===== */
+    .hero {
+        position: relative;
+        padding: 56px 0 40px;
+        text-align: center;
+        background:
+            linear-gradient(rgba(8,12,17,0.55), rgba(8,12,17,0.85)),
+            url('/images/splash-banner.webp') center/cover no-repeat;
+        border-bottom: 1px solid rgba(110,198,255,0.25);
+    }
+    .hero img.icon {
+        width: 84px; height: 84px; border-radius: 20px;
+        box-shadow: 0 0 30px rgba(110,198,255,0.35);
+        margin-bottom: 18px;
+    }
+    .hero h1 {
+        font-size: 30px; margin: 0 0 10px; letter-spacing: 0.5px;
+        text-shadow: 0 0 20px rgba(110,198,255,0.4);
+    }
+    .hero .tagline { font-size: 15px; color: #9db0c2; max-width: 480px; margin: 0 auto 24px; }
+    .badge {
+        display: inline-block; font-size: 11px; font-weight: bold; letter-spacing: 1px;
+        color: #000; background: var(--gold); padding: 5px 14px; border-radius: 999px;
+        text-transform: uppercase; margin-bottom: 18px;
+        box-shadow: 0 0 14px rgba(126,200,240,0.5);
+    }
+    .cta-btn {
+        display: inline-block; font-family: inherit; font-size: 16px; font-weight: bold;
+        color: #06131c; background: linear-gradient(135deg, var(--gold), #a8e0ff);
+        border: none; border-radius: 12px; padding: 15px 34px; cursor: pointer;
+        box-shadow: 0 6px 24px rgba(110,198,255,0.35);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        text-decoration: none;
+    }
+    .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(110,198,255,0.5); }
+    .cta-btn:active { transform: translateY(0); }
+
+    /* ===== Sections ===== */
+    section { padding: 44px 0; }
+    section + section { border-top: 1px solid rgba(110,198,255,0.12); }
+    h2 { font-size: 20px; color: var(--gold); margin: 0 0 18px; text-align: center; }
+    .lead { text-align: center; color: #9db0c2; font-size: 13.5px; max-width: 520px; margin: 0 auto 28px; }
+
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .feature {
+        background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.2);
+        border-radius: 12px; padding: 16px 14px; text-align: center;
+    }
+    .feature .emoji { font-size: 26px; display: block; margin-bottom: 8px; }
+    .feature .title { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+    .feature .desc { font-size: 11.5px; color: #8fa3b8; }
+
+    .progression { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+    .progression img {
+        width: 130px; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px;
+        border: 1px solid rgba(110,198,255,0.3); box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .progression .arrow { font-size: 22px; color: var(--gold); }
+    .progression .cap { font-size: 10.5px; color: #8fa3b8; text-align: center; margin-top: 6px; }
+
+    /* ===== Form ===== */
+    .form-card {
+        background: var(--panel-bg); border: 1px solid rgba(110,198,255,0.3);
+        border-radius: 16px; padding: 28px 24px; max-width: 420px; margin: 0 auto;
+        box-shadow: 0 0 30px rgba(110,198,255,0.12);
+    }
+    .form-card h3 { margin: 0 0 6px; font-size: 17px; color: var(--gold); text-align: center; }
+    .form-card .sub { font-size: 12px; color: #8fa3b8; text-align: center; margin-bottom: 20px; }
+    label { display: block; font-size: 11px; color: #9db0c2; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-row { position: relative; margin-bottom: 14px; }
+    .input-row .at { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #6ec6ff; font-weight: bold; pointer-events: none; }
+    input[type="text"] {
+        width: 100%; font-family: inherit; font-size: 15px; color: var(--text);
+        background: #0f151d; border: 1px solid #26313d; border-radius: 8px;
+        padding: 12px 12px 12px 26px; outline: none; transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: var(--accent2); }
+    input[type="text"].err { border-color: var(--danger); }
+    /* honeypot — приховане людям, боти часто заповнюють усе підряд */
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    button#submitBtn {
+        width: 100%; font-family: inherit; font-size: 15px; font-weight: bold;
+        color: #06131c; background: var(--gold); border: none; border-radius: 8px;
+        padding: 13px; cursor: pointer; margin-top: 4px;
+    }
+    button#submitBtn:disabled { opacity: 0.6; cursor: default; }
+    .msg { font-size: 12.5px; text-align: center; margin-top: 12px; min-height: 1em; }
+    .msg.ok { color: var(--ok); }
+    .msg.err { color: var(--danger); }
+    .hint { font-size: 10.5px; color: #6c7f92; text-align: center; margin-top: 10px; }
+
+    footer { padding: 26px 0 40px; text-align: center; font-size: 11px; color: #576675; }
+
+    @media (max-width: 420px) {
+        .hero h1 { font-size: 24px; }
+        .progression img { width: 100px; }
+    }
+</style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <video id="intro-video" autoplay playsinline preload="auto" poster="/images/splash-banner.webp">
+            <source src="/video/intro.mp4" type="video/mp4">
+        </video>
+    </div>
+    <script>
+        (function () {
+            var v = document.getElementById('intro-video');
+            if (!v) return;
+            function tryPlay(muted) {
+                v.muted = muted;
+                var p = v.play();
+                if (p && p.catch) p.catch(function () { if (!muted) tryPlay(true); });
+            }
+            tryPlay(false);
+            function closeSplash() {
+                var s = document.getElementById('splash-screen');
+                if (!s) return;
+                s.style.opacity = '0';
+                setTimeout(function () { s.remove(); }, 400);
+            }
+            // Ховаємо, щойно відео реально дограло — не тримаємо відвідувача
+            // довше за сам ролик, на відміну від Mini App (там мінімум 5.1с,
+            // бо паралельно вантажиться стан гравця; тут вантажити нічого).
+            v.addEventListener('ended', closeSplash);
+            // Аварійний запобіжник: якщо відео не завантажиться чи не відпрацює
+            // подію ended (мобільний браузер, дивний кодек) — сплеш все одно
+            // зникає, за 12с або одразу по помилці завантаження.
+            v.addEventListener('error', closeSplash);
+            setTimeout(closeSplash, 12000);
+        })();
+    </script>
+
+    <div class="hero">
+        <div class="wrap">
+            <img class="icon" src="/images/app-icon.webp" alt="Симулятор Ухилянта">
+            <div class="badge">🔒 Закритий бета-тест</div>
+            <h1>Симулятор Ухилянта</h1>
+            <p class="tagline">
+                Сатиричний Telegram-клікер про виживання, ухилення й бюрократію.
+                Тікай від повістки, качай схрон, розбирайся з ТЦК — і намагайся
+                легалізуватись, поки не пізно.
+            </p>
+            <a href="#join" class="cta-btn">Залишити заявку на бета-тест</a>
+        </div>
+    </div>
+
+    <section>
+        <div class="wrap">
+            <h2>Що всередині</h2>
+            <p class="lead">Гра вже давно не просто клікер — усередині ціла економіка, сюжет і абсурдна бюрократія.</p>
+            <div class="features">
+                <div class="feature"><span class="emoji">🏚️</span><div class="title">8 рівнів схрону</div><div class="desc">Від однушки на Троєщині до легалізованого маєтку</div></div>
+                <div class="feature"><span class="emoji">🏥</span><div class="title">Медична гілка</div><div class="desc">Вилазки в лікарню, документи, аналізи, діагнози</div></div>
+                <div class="feature"><span class="emoji">🎒</span><div class="title">Крафт і кладовка</div><div class="desc">Ресурси, рецепти, постійні бонуси</div></div>
+                <div class="feature"><span class="emoji">👮</span><div class="title">Боси-інспектори</div><div class="desc">Клікерні бої з ТЦК на реальний час</div></div>
+                <div class="feature"><span class="emoji">🏘️</span><div class="title">Клани</div><div class="desc">Чат ОСББ, спільна скарбниця, війни</div></div>
+                <div class="feature"><span class="emoji">📜</span><div class="title">Легалізація</div><div class="desc">Довга сюжетна лінія, разова фінальна віха</div></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="wrap">
+            <h2>Шлях ухилянта</h2>
+            <div class="progression">
+                <div>
+                    <img src="/images/loc8-1-troyeshchyna.webp" alt="Однушка на Троєщині">
+                    <div class="cap">Однушка на<br>Троєщині</div>
+                </div>
+                <span class="arrow">→</span>
+                <div>
+                    <img src="/images/loc8-8-mansion-exterior.webp" alt="Легалізований маєток">
+                    <div class="cap">Легалізований<br>маєток</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="join">
+        <div class="wrap">
+            <h2>Приєднатись</h2>
+            <p class="lead">Місць у бета-тесті обмежена кількість. Залиш свій юзернейм — напишемо в Telegram, коли відкриємо доступ.</p>
+
+            <div class="form-card">
+                <h3>Заявка на бета-тест</h3>
+                <p class="sub">Досить самого юзернейма — нічого більше не питаємо.</p>
+
+                <form id="betaForm" novalidate>
+                    <label for="username">Юзернейм Telegram</label>
+                    <div class="input-row">
+                        <span class="at">@</span>
+                        <input type="text" id="username" name="username" placeholder="yourusername" autocomplete="off" maxlength="33">
+                    </div>
+                    <!-- honeypot: люди це поле не бачать і не заповнюють -->
+                    <div class="hp" aria-hidden="true">
+                        <label for="website">Website</label>
+                        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+                    </div>
+                    <button type="submit" id="submitBtn">Надіслати заявку</button>
+                    <div class="msg" id="formMsg"></div>
+                </form>
+                <p class="hint">Не маєш юзернейма в Telegram? Постав його в Налаштування → Ім'я користувача — і повертайся.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        «Симулятор Ухилянта» — сатирична гра. Усі механіки й ситуації
+        вигадані та перебільшені заради жарту. Гра НЕ закликає до
+        протиправних дій і засуджує їх.
+    </footer>
+
+<script>
+(function () {
+    var form = document.getElementById('betaForm');
+    var input = document.getElementById('username');
+    var hp = document.getElementById('website');
+    var btn = document.getElementById('submitBtn');
+    var msg = document.getElementById('formMsg');
+
+    function setMsg(text, kind) {
+        msg.textContent = text;
+        msg.className = 'msg' + (kind ? ' ' + kind : '');
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var raw = input.value.trim().replace(/^@/, '');
+        // Telegram-юзернейми: 5-32 символи, латиниця/цифри/підкреслення, з літери.
+        var valid = /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(raw);
+        if (!valid) {
+            input.classList.add('err');
+            setMsg('Схоже, це не схоже на юзернейм Telegram (5-32 символи, латиниця).', 'err');
+            return;
+        }
+        input.classList.remove('err');
+        btn.disabled = true;
+        setMsg('Надсилаємо…', '');
+
+        fetch('/api/beta/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: raw, website: hp.value })
+        }).then(function (res) { return res.json(); }).then(function (data) {
+            btn.disabled = false;
+            if (data.success) {
+                setMsg('Готово! Заявку прийнято — напишемо в Telegram, коли відкриємо доступ.', 'ok');
+                form.reset();
+            } else {
+                setMsg(data.message || 'Щось пішло не так, спробуй ще раз.', 'err');
+            }
+        }).catch(function () {
+            btn.disabled = false;
+            setMsg('Не вдалось надіслати — перевір з’єднання й спробуй ще раз.', 'err');
+        });
+    });
+})();
+</script>
+</body>
+</html>
