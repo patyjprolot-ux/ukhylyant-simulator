@@ -211,7 +211,7 @@ th:hover{color:var(--accent2)}
             </div>
             <div id="betaCount" class="muted" style="margin-bottom:10px"></div>
             <div class="scroll"><table>
-                <thead><tr><th>Юзернейм Telegram</th><th>Подано</th></tr></thead>
+                <thead><tr><th>Юзернейм Telegram</th><th>IP</th><th>Подано</th><th></th></tr></thead>
                 <tbody id="betaBody"></tbody>
             </table></div>
             <p class="muted" style="margin-top:10px">
@@ -514,13 +514,25 @@ async function loadBeta() {
         const d = await api('/api/admin/beta-signups');
         $('betaCount').textContent = 'Усього заявок: ' + num(d.count);
         $('betaBody').innerHTML = d.signups.map((s) =>
-            '<tr><td>@' + esc(s.username) + '</td>'
-            + '<td>' + (s.at ? new Date(s.at).toLocaleString('uk-UA') : '—') + '</td></tr>').join('')
-            || '<tr><td colspan="2" class="muted">Заявок ще не було</td></tr>';
+            '<tr data-username="' + esc(s.username) + '"><td>@' + esc(s.username) + '</td>'
+            + '<td>' + esc(s.ip || '—') + '</td>'
+            + '<td>' + (s.at ? new Date(s.at).toLocaleString('uk-UA') : '—') + '</td>'
+            + '<td><button data-act="del" class="danger">Видалити</button></td></tr>').join('')
+            || '<tr><td colspan="4" class="muted">Заявок ще не було</td></tr>';
         clearMsg($('betaMsg'));
     } catch (e) { say($('betaMsg'), 'Не вдалося: ' + e.message, 'err'); }
 }
 $('betaReload').onclick = loadBeta;
+$('betaBody').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act="del"]');
+    if (!btn) return;
+    const username = btn.closest('tr').dataset.username;
+    if (!confirm('Видалити заявку @' + username + '?')) return;
+    try {
+        await api('/api/admin/beta-signups/' + encodeURIComponent(username), { method: 'DELETE' });
+        loadBeta();
+    } catch (e) { say($('betaMsg'), 'Не вдалося: ' + e.message, 'err'); }
+});
 
 // Автовхід, якщо токен уже в цій вкладці (перезавантаження сторінки).
 if (token()) {

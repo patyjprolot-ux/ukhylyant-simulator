@@ -267,13 +267,32 @@ module.exports = function registerAdminRoutes(app, deps) {
     // окрему копію в пам'яті — щоб не було двох джерел правди про заявки.
     // Це запасний канал бачити нові заявки: Telegram-пуш власнику (routes/beta.js)
     // працює лише якщо в .env заданий OWNER_TELEGRAM_ID, а адмінка працює завжди.
-    app.get('/api/admin/beta-signups', requireAdmin, (req, res) => {
-        let list = [];
+    const BETA_SIGNUPS_FILE = path.join(DATA_DIR, 'beta-signups.json');
+    function loadBetaSignups() {
         try {
-            list = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'beta-signups.json'), 'utf8'));
-        } catch (e) { /* файлу ще нема — заявок нуль */ }
-        list = list.slice().sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+            return JSON.parse(fs.readFileSync(BETA_SIGNUPS_FILE, 'utf8'));
+        } catch (e) { return []; }
+    }
+    function saveBetaSignups(list) {
+        fs.writeFileSync(BETA_SIGNUPS_FILE, JSON.stringify(list, null, 2));
+    }
+
+    app.get('/api/admin/beta-signups', requireAdmin, (req, res) => {
+        const list = loadBetaSignups().slice().sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
         res.json({ count: list.length, signups: list });
+    });
+
+    // Видалення заявки (напр. тестові записи чи прохання видалити свої дані).
+    // Юзернейм — унікальний ключ у цьому файлі (перевіряється при реєстрації).
+    app.delete('/api/admin/beta-signups/:username', requireAdmin, (req, res) => {
+        const username = String(req.params.username || '').toLowerCase();
+        const list = loadBetaSignups();
+        const next = list.filter((s) => s.username !== username);
+        if (next.length === list.length) {
+            return res.status(404).json({ success: false, message: 'Заявку не знайдено.' });
+        }
+        saveBetaSignups(next);
+        res.json({ success: true });
     });
 
     // ==========================================

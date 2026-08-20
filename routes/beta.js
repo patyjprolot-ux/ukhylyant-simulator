@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = function registerBetaRoutes(app, deps) {
-    const { bot, OWNER_TELEGRAM_ID, DATA_DIR } = deps;
+    const { bot, OWNER_TELEGRAM_ID, DATA_DIR, ADMIN_PASSWORD } = deps;
     const SIGNUPS_FILE = path.join(DATA_DIR, 'beta-signups.json');
 
     function loadSignups() {
@@ -43,10 +43,19 @@ module.exports = function registerBetaRoutes(app, deps) {
             return res.json({ success: false, message: 'Невалідний юзернейм Telegram (5-32 символи, латиниця/цифри/підкреслення, з літери).' });
         }
         const username = raw.toLowerCase();
+        // req.ip враховує X-Forwarded-For від nginx (server.js: app.set('trust
+        // proxy', 'loopback')) — без цього всі запити виглядали б як 127.0.0.1.
+        const ip = String(req.ip || '');
 
         const signups = loadSignups();
         if (signups.some((s) => s.username === username)) {
             return res.json({ success: false, message: 'Цей юзернейм уже в списку — ми його бачимо, чекай повідомлення.' });
+        }
+        // Анти-флуд: одна заявка з одного IP. NAT/спільний Wi-Fi іноді ловить
+        // цим і живих людей, але для форми з одним полем це прийнятний компроміс —
+        // головна мета тут відсіяти скрипт, що жене купу різних юзернеймів підряд.
+        if (ip && signups.some((s) => s.ip === ip)) {
+            return res.json({ success: false, message: 'З цієї IP-адреси вже є заявка.' });
         }
         // Невеликий кап на розмір файлу — захист від флуду валідними на вигляд
         // юзернеймами (honeypot ловить примітивних ботів, не всіх).
@@ -54,7 +63,7 @@ module.exports = function registerBetaRoutes(app, deps) {
             return res.json({ success: false, message: 'Реєстрація тимчасово переповнена, спробуй пізніше.' });
         }
 
-        signups.push({ username, at: Date.now() });
+        signups.push({ username, ip, at: Date.now() });
         saveSignups(signups);
 
         if (OWNER_TELEGRAM_ID) {

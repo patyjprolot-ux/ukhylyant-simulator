@@ -64,6 +64,12 @@ bot.catch((err, ctx) => {
     console.error('Помилка бота:', err, 'updateType:', ctx?.updateType);
 });
 const app = express();
+// 'loopback' — довіряємо X-Forwarded-For лише від локального nginx перед
+// сервером (єдиний, хто взагалі може достукатись до порту 3000 ззовні
+// закритий firewall'ом). Потрібно, щоб req.ip показував реальний IP
+// відвідувача сайту, а не 127.0.0.1 — інакше анти-флуд на /api/beta/register
+// бачив би всіх як одну й ту саму людину.
+app.set('trust proxy', 'loopback');
 app.use(compression()); // HTML сторінки ~370КБ без стиснення — gzip ріже це до ~85КБ
 app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
