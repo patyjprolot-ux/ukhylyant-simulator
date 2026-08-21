@@ -51,6 +51,58 @@ th:hover{color:var(--accent2)}
 .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;border:1px solid var(--line)}
 .warnbox{background:#2b2114;border:1px solid var(--warn);border-radius:8px;padding:11px;font-size:12px;color:#f2dfb4;margin-bottom:12px}
 .muted{color:var(--muted);font-size:12px}
+
+/* ===== Атлас / Задачі / Нотатки (2026-08-21) ===== */
+.mini-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.mini-tabs button{font-size:12.5px;padding:7px 11px}
+.mini-tabs button.active{background:var(--accent);border-color:var(--accent2);color:#fff}
+.search-wrap{position:relative;flex:1 1 240px}
+.search-wrap input{padding-left:30px}
+.search-wrap::before{content:"🔍";position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.6;pointer-events:none}
+.ac{background:var(--btn);border:1px solid var(--line);border-left-width:4px;border-left-color:var(--accent2);border-radius:8px;margin-bottom:8px;overflow:hidden}
+.ac-head{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;user-select:none}
+.ac-head .ico{font-size:16px;flex:0 0 auto;width:22px;text-align:center}
+.ac-head .tt{flex:1;min-width:0}
+.ac-head .tt .ttl{font-weight:600;font-size:13.5px}
+.ac-head .tt .hook{color:var(--muted);font-size:11.5px;margin-top:1px}
+.ac-head .chev{color:var(--muted);transition:transform .18s ease;flex:0 0 auto}
+.ac.open .ac-head .chev{transform:rotate(90deg)}
+.ac-body{max-height:0;overflow:hidden;transition:max-height .22s ease}
+.ac.open .ac-body{max-height:1200px}
+.ac-body-in{padding:0 12px 12px 12px;font-size:13px;color:var(--text)}
+.ac-body-in p{margin:0 0 8px}
+.file-row2{display:flex;gap:10px;padding:5px 0;font-size:12.5px}
+.file-row2 .p{font-family:'Courier New',monospace;color:var(--gold);flex:0 0 auto;white-space:nowrap}
+.file-row2 .d{color:var(--muted)}
+.const-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.const-tbl td{padding:5px 8px;border-top:1px solid var(--line)}
+.const-tbl td.k{color:var(--gold);white-space:nowrap;font-family:'Courier New',monospace}
+.const-tbl td.v{color:var(--accent2);white-space:nowrap;font-weight:700;font-family:'Courier New',monospace}
+.const-tbl td.m{color:var(--muted)}
+.tl-wrap{position:relative;padding-left:22px}
+.tl-wrap::before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--line)}
+.tl-dot{position:absolute;left:-22px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--accent2)}
+.tl-date{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:0 0 3px}
+
+.task-add{display:flex;gap:8px;margin-bottom:14px}
+.task-add input{flex:1}
+.task{display:flex;align-items:center;gap:10px;background:var(--btn);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:9px 12px;margin-bottom:7px}
+.task.todo{border-left-color:var(--warn)}
+.task.doing{border-left-color:var(--accent2)}
+.task.done{border-left-color:var(--ok)}
+.task .txt{flex:1;font-size:13.5px}
+.task.done .txt{color:var(--muted);text-decoration:line-through}
+.task .st{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);white-space:nowrap}
+.task button{padding:6px 9px;font-size:12px}
+
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.note{background:var(--btn);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.note .ttl{font-weight:700;color:var(--gold);font-size:13.5px;word-break:break-word}
+.note .bd{font-size:12.5px;color:var(--text);white-space:pre-wrap;word-break:break-word;flex:1}
+.note .meta{font-size:10.5px;color:var(--muted)}
+.note .row{margin-top:4px}
+.note-new{border:1px dashed var(--accent2);border-radius:8px;padding:12px;margin-bottom:14px}
+.note-new input,.note-new textarea{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -79,6 +131,9 @@ th:hover{color:var(--accent2)}
         <button data-tab="adconsent">🔔 Згодні на рекламу</button>
         <button data-tab="payments">💳 Транзакції й донати</button>
         <button data-tab="beta">🧪 Заявки на бета</button>
+        <button data-tab="tasks">✅ Задачі</button>
+        <button data-tab="notes">📝 Нотатки</button>
+        <button data-tab="atlas">🗺️ Атлас</button>
         <button id="logoutBtn" style="flex:0 0 auto">Вийти</button>
     </div>
 
@@ -220,6 +275,60 @@ th:hover{color:var(--accent2)}
             <div id="betaMsg" class="msg"></div>
         </div>
     </div>
+
+    <!-- Задачі -->
+    <div id="tab-tasks" class="tabpage hidden">
+        <div class="panel">
+            <div class="task-add">
+                <input id="taskInput" placeholder="Нова задача… (Enter, щоб додати)">
+                <button class="primary" id="taskAddBtn">Додати</button>
+            </div>
+            <div class="row" style="margin-bottom:10px;justify-content:space-between">
+                <select id="taskFilter" style="width:auto">
+                    <option value="active">У черзі й у роботі</option>
+                    <option value="all">Усі</option>
+                    <option value="done">Тільки готові</option>
+                </select>
+                <button id="taskReload">Оновити</button>
+            </div>
+            <div id="taskList"></div>
+            <div id="taskMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Нотатки -->
+    <div id="tab-notes" class="tabpage hidden">
+        <div class="panel">
+            <div class="note-new">
+                <input id="noteTitleInput" placeholder="Заголовок нотатки">
+                <textarea id="noteBodyInput" placeholder="Текст…" style="min-height:70px"></textarea>
+                <button class="primary" id="noteAddBtn">+ Нова нотатка</button>
+            </div>
+            <div id="notesGrid" class="notes-grid"></div>
+            <div id="noteMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Атлас гри -->
+    <div id="tab-atlas" class="tabpage hidden">
+        <div class="panel">
+            <div class="row" style="margin-bottom:12px">
+                <div class="mini-tabs" id="atlasTabs" style="flex:0 0 auto">
+                    <button data-atlas="files" class="active">🗂️ Файли</button>
+                    <button data-atlas="mechanics">⚙️ Механіки</button>
+                    <button data-atlas="numbers">🔢 Цифри</button>
+                    <button data-atlas="history">📜 Історія</button>
+                    <button data-atlas="open">🤔 Відкрито</button>
+                </div>
+                <div class="search-wrap"><input id="atlasSearch" placeholder="Шукай будь-де в цій вкладці…"></div>
+            </div>
+            <div id="atlas-files" class="atlas-pane"></div>
+            <div id="atlas-mechanics" class="atlas-pane hidden"></div>
+            <div id="atlas-numbers" class="atlas-pane hidden"></div>
+            <div id="atlas-history" class="atlas-pane hidden"></div>
+            <div id="atlas-open" class="atlas-pane hidden"></div>
+        </div>
+    </div>
 </div>
 </div>
 
@@ -295,6 +404,9 @@ document.querySelectorAll('.tabs button[data-tab]').forEach((btn) => {
         if (btn.dataset.tab === 'adconsent') loadAdConsent();
         if (btn.dataset.tab === 'payments') loadPayments();
         if (btn.dataset.tab === 'beta') loadBeta();
+        if (btn.dataset.tab === 'tasks') loadTasks();
+        if (btn.dataset.tab === 'notes') loadNotes();
+        if (btn.dataset.tab === 'atlas') initAtlas();
     };
 });
 
@@ -532,6 +644,516 @@ $('betaBody').addEventListener('click', async (ev) => {
         await api('/api/admin/beta-signups/' + encodeURIComponent(username), { method: 'DELETE' });
         loadBeta();
     } catch (e) { say($('betaMsg'), 'Не вдалося: ' + e.message, 'err'); }
+});
+
+// ==========================================
+// Атлас гри — статичний довідник (2026-08-21)
+// Дані звірені з живим кодом і виправлені після незалежної перевірки
+// (Сусідка «було −15%», додано пункт про темп Спринтів/регену енергії).
+// ==========================================
+const ATLAS_FILES = {
+    catalog: [
+        ['catalog/economy.js', 'Один великий об\'єкт ECONOMY — майже всі числові константи гри (див. вкладку «Цифри»).'],
+        ['catalog/resources.js', '19 ресурсів (тір/ціна/tradeLock) + 9 ящиків (CRATES) із таблицями випадіння.'],
+        ['catalog/recipes.js', '17 рецептів крафту — ресурси → постійні бафи, щити, монети, склеєні донат-ящики.'],
+        ['catalog/locations.js', '8 рівнів схрону (Троєщина → легалізований маєток), ціна переїзду, лор кожного рівня.'],
+        ['catalog/heat.js', 'HEAT_TIERS (6 тірів розшуку) + NOTICE_TYPES (5 типів повісток).'],
+        ['catalog/diseases.js', '10 хвороб (5 тірів × 2), документи, картки аналізів, TIER_CONFIG, флейвор лікарні.'],
+        ['catalog/social.js', 'DEFERMENTS (6 відстрочок), CHECKPOINT_CHOICES, REPUTATION_NPCS (4 NPC + квести компаньйонів), LEAGUES.'],
+        ['catalog/skills.js', 'SKILL_BRANCHES — дерево навичок, 3 гілки × 9 = 27 вузлів.'],
+        ['catalog/sprints.js', 'SPRINT_TIERS (4 фриланс-контракти), вигорання, QTE-баги, вартість маршруту.'],
+        ['catalog/expeditions.js', '7 вилазок (тривалість/ризик/здобич) + PET_EXPEDITION (бонуси компаньйонів).'],
+        ['catalog/pets.js', '6 компаньйонів, кожен прив\'язаний до NPC (npcId), бонус 1-3%.'],
+        ['catalog/smuggling.js', 'Маршрути втечі (Р15) — ендгейм-луп після легалізації, косметична валюта contraband.'],
+        ['catalog/cosmetics.js', 'COSMETICS (~64 предмети гардеробу) + SEASON_COSMETICS (сезонні призи).'],
+        ['catalog/room-items.js', '14 суто декоративних предметів кімнати з фіксованими позиціями.'],
+        ['catalog/inspectors.js', 'SYMPTOMS (застаріле, з старого медкому), INSPECTORS (4 боси ТЦК), TROPHIES.'],
+        ['catalog/map.js', 'MAP_BUILDINGS — 3 захисні споруди території, 3 рівні кожна.'],
+        ['catalog/minigames.js', 'Колесо Зради, Колесо ризику, гра на пам\'ять — таблиці та нагороди.'],
+        ['catalog/misc.js', 'REVENGE_LINES, PROMO_CODES (усі промокоди), LEGACY_ASSET_PRICES.'],
+        ['catalog/quests.js', 'QUESTS — 10 щоденних квестів із метрикою/ціллю/нагородою.'],
+        ['catalog/ukhyr.js', 'UKHYR_RANKS — 9 порогів звань для рейтингу «Ухирація».'],
+    ],
+    lib: [
+        ['lib/auth.js', 'HMAC-перевірка підпису Telegram initData, requireTelegramAuth middleware, кеш HMAC-ключа.'],
+        ['lib/user-store.js', 'Модель гравця/клану: usersDB/clansDB, диск (async атомарний запис), createFreshUser, migrateUser (з __schemaVersion кешем), баланс-трекінг, pid-система.'],
+        ['lib/complaints.js', 'Самодостатня книга скарг — власна Map + JSON-файл, ліміт 5/добу/гравця.'],
+        ['lib/admin-board.js', 'Ця дошка (задачі й нотатки) — той самий самодостатній патерн, що complaints.js.'],
+        ['lib/utils.js', 'byId(list) — будує lookup-мапу з null-прототипом (захист від prototype pollution).'],
+        ['lib/mechanics/economy.js', 'Математика ешелонів апгрейдів: upgCost, upgEffectPerLevel, tierCostMultCapped, computeFocusStat.'],
+        ['lib/mechanics/expeditions.js', 'expeditionSlots(), expeditionSnapshot().'],
+        ['lib/mechanics/heat.js', 'heatTierOf, changeHeat() (єдина точка мутації розшуку), decayHeat().'],
+        ['lib/mechanics/levels.js', 'Рівень ухилянта (XP): xpForLevel, playerLevelForXP, addXP, addUkhyr.'],
+        ['lib/mechanics/map.js', 'Хелпери будівель території: mapRaidMult, mapProtectPct.'],
+        ['lib/mechanics/reputation.js', 'repOf/repMaxed — прості лукапи репутації проти REP_MAX.'],
+        ['lib/mechanics/skills.js', 'hasSkill(), applySkillLimits() (бонуси до макс. енергії від навичок).'],
+        ['lib/mechanics/sprints.js', 'Уся математика Спринтів: вигорання, виплата, розмір вікна QTE.'],
+        ['lib/mechanics/storage.js', 'Місткість кладовки, addResource() (єдина точка здобичі ресурсів), upgradeBatchPlan.'],
+    ],
+    routes: [
+        ['routes/economy.js', 'Енергетик, кладовка, переїзд, престиж, вилазки, ящики, крафт, маршрут-проєкт, апгрейди, біржа, міні-ігри.'],
+        ['routes/hospital.js', 'Уся медична гілка (Р18 v3): лікарня, старт хвороби, QTE аналізів, крафт діагнозу.'],
+        ['routes/social.js', 'Лідерборд, нік, профіль, стук (снітч), розслідування, CRUD кланів.'],
+        ['routes/security.js', 'Вирішення повісток (5 методів), відстрочки, чекпоінти, боси-інспектори.'],
+        ['routes/misc.js', 'Компаньйони + квест приєднання, гардероб, декор кімнати, сезони, війна, район, репутація, навички, щоденні квести.'],
+        ['routes/sprints.js', '6 ендпоінтів Спринтів (перегляд/старт/тап/QTE/клейм/відмова).'],
+        ['routes/smuggling.js', 'Маршрути втечі (Р15) — перегляд/старт/клейм, ізольовано від основної економіки.'],
+        ['routes/map.js', 'Покупка будівель території, розміщення іконок.'],
+        ['routes/admin.js', 'Ця адмін-панель: статистика, здоров\'я сервера, гравці, скарги, розсилка, заявки на бета, дошка задач/нотаток.'],
+        ['routes/beta.js', 'Публічна лендінг-сторінка (GET /beta) + реєстрація на бета-тест.'],
+    ],
+};
+const ATLAS_SERVER_MAP = [
+    ['1–148', 'Налаштування бота/сервера: конфіг з env, генерація webhook-секрету, timingSafeStringEqual, rateLimitByUser, Express-заголовки безпеки, статика.'],
+    ['149–374', 'Каталоги, ресурси/склад, MARKET_ASSETS, константи міні-ігор.'],
+    ['374–475', 'ACHIEVEMENTS — усі ~55 досягнень з інлайн-перевірками.'],
+    ['484–689', '«База даних»: usersDB/clansDB, getUser(), клан-математика, checkAchievements, applyOfflineProgress.'],
+    ['690–825', 'Розшук і повістки: вартість хабаря, генерація повісток, синхронізація стану.'],
+    ['826–1153', 'PvP «Здати сусіда», tickNotices() (5-хв мастер-тік), престиж, rollCrate.'],
+    ['1153–1182', 'Тіньова біржа: випадкове блукання ціни ±15%/3хв.'],
+    ['1182–1355', 'Логіка бота: /start, payment-хендлери, форвард фото як баг-репорт.'],
+    ['1355–1975', 'API частина 1: /api/invoice, /api/user, /api/save, /api/restore, /api/promo.'],
+    ['1981–2273', 'Сезони/ліги, війна ОСББ (matchmake/settle).'],
+    ['2273–2418', 'Облава на район (кооп-бос), репутація, офлайн-звіт, дерево навичок.'],
+    ['2418–2634', 'Відстрочки, інспектори, PvP-профіль.'],
+    ['2634–2730', 'Реєстрація route-модулів (require(\'./routes/X\')(app, deps)).'],
+    ['2731–8622', 'buildHtml() — увесь клієнт: ~627 рядків CSS, потім весь ігровий JS одним рядком-шаблоном.'],
+    ['8628–8689', 'Старт: main() — перевірка токена, webhook/long-polling, shutdown().'],
+];
+const ATLAS_MECHANICS = [
+    { emoji: '👆', name: 'Клік і пасивний дохід', hook: 'Основний цикл на схроні 1; далі — Спринти', body:
+        'Прямий тап коштує ENERGY_PER_CLICK=2 енергії. Пасив тікає постійно, навіть у фоні. Схрони 2-8 замінюють клік на Спринти. Баланс/clickVal/passive клієнт-авторитетні (шлються через /api/save) з серверними обрізаннями після першої реальної покупки + абсолютною стелею 10,000,000.' },
+    { emoji: '⚡', name: 'Енергія', hook: 'Регенерує ~1/сек, ліміт росте зі схроном', body:
+        'Регенерація 0.1/тік. Макс. енергія 80→570 по схронах + бонуси крафту/навичок. Енергетик — миттєвий рефіл за 600 ТК, ліміт 2 покупки/5 хв на сервері.' },
+    { emoji: '🌡️', name: 'Розшук (heat) — «друга валюта»', hook: 'Що активніший гравець, то більше на нього дивляться', body:
+        '0-100, росте від кліків/вилазок/великих продажів/переїздів/стуків/провалів. Спадає −1/12 реальних хвилин, кап −42/добу. 6 тірів одночасно піднімають шанс облави і множник доходу — напруга навмисна.' },
+    { emoji: '📬', name: 'Повістки й способи реагування', hook: '5 типів, 5 способів відповісти', body:
+        '5 типів повісток (SMS→резерв→пошта→ручки→блокпост), спавняться раз на 4-8 год (частіше при високому heat), макс 3 активні. Способи: ігнор, хабар (≥3% балансу), довідка (щит), сховатись (55% успіх), backdoor (безкоштовно раз/тиждень із навичкою), cover (безкоштовно раз/добу з макс. репутацією Миколи).' },
+    { emoji: '📄', name: 'Відстрочки й чекпоінти', hook: '6 типів відстрочки, 3 тактики на переїзді', body:
+        'Відстрочка (deferUntil) зупиняє ріст heat і нові повістки. Чекпоінти при переїзді — 3 тактики з різними шансами й наслідками провалу. Активна відстрочка автоматично проходить будь-який чекпоінт.' },
+    { emoji: '🏃', name: 'Облави (клієнтський QTE)', hook: 'Сервер довіряє лише дельті лічильника', body:
+        'Майже повністю клієнтська механіка (RAID_CHANCE=0.1, інтервал 45с, 10с на втечу, 50 тапів). Сервер лише довіряє дельті raidsSurvived у /api/save для нарахування очок сезону/війни/XP. «Чуйка» показує неблокуючий банер за 10с до облави.' },
+    { emoji: '🏢', name: 'Облава на район (кооп-бос)', hook: 'HP залежить від сили кліку клану', body:
+        'Тригериться, коли сумарний heat клану > 400. HP = сила кліку клану × 1200 (мінімум 150,000), вікно 6 год. Перемога: 25,000 ТК кожному (×2 топ-контрибутору), −30 heat, +трофейний ящик. Поразка: −12% балансу, +10 heat, доба штрафу.' },
+    { emoji: '🕵️', name: 'Інспектори (боси)', hook: '4 іменовані ТЦК-офіцери, у кожного своя слабкість', body:
+        'Спавняться серверним тіком від рівня 10 гравця, коли heat перетне поріг конкретного боса (шанс 12%/тік). Унікальна «слабкість» кожного (нещодавній хабар / швидкість кліку ≥6/с / дорогий косметичний предмет) подвоює шкоду. Фінальний бос (Генерал Півник, 250,000 HP) навмисно непроходимий без навички «Марафонець».' },
+    { emoji: '🎯', name: 'Спринти (фриланс-контракти)', hook: 'Замінюють клікер на схронах 2-8', body:
+        '4 тіри (Junior→Lead), виплата = (дедлайн/60) × ставка/год × (зроблено/ціль) × (1 − 0.12×пропущені QTE). Вигорання: +2.2/тап÷Focus, спадає 1%/9с, поріг 80 → лише 15% ефективності. QTE-«баги»: 3.5% шанс/тап, −12% за промах. Кулдаун = повна тривалість щойно завершеного контракту.' },
+    { emoji: '🌙', name: 'Вилазки (офлайн-таймер)', hook: '7 варіантів, від 30хв до 12год', body:
+        'Рівень-гейт, шанс «спалитись» (втрата здобичі, час і так з\'їдений). 1 слот (2 з навичкою «Друга нора»). «Прогулянка до кордону» — єдине джерело ресурсу route (12% шанс) для переїзду на схрон 5; є й гарантований шлях через маршрут-проєкт Спринтів.' },
+    { emoji: '🗄️', name: 'Кладовка й крафт', hook: '17 рецептів, місткість росте апгрейдом', body:
+        'Місткість = 60 + рівень×40, макс рівень 20, ціна апгрейду ×1.68/рівень від 800. Переповнення губить ресурси (клієнту повідомляється чесно). 17 рецептів перетворюють ресурси на постійні бафи, щити, монети або склеєні донат-ящики (з рідкісних shard).' },
+    { emoji: '📈', name: 'Біржа (Trade Lock)', hook: 'Три категорії: tradeable / limited / quest', body:
+        'Ціни блукають ±15%/3хв, затиснуті 0.2×-5× базової. tradeable — вільна торгівля; limited (уламки) — лише продаж, не купити; quest (ресурси Спринтів, route, referral, білий квиток) — не купується й не продається взагалі. Продаж ≥50,000 за раз додає heat.' },
+    { emoji: '🏥', name: 'Медична гілка (Р18 v3)', hook: 'Окрема сюжетна лінія, НЕ реакція на повістку', body:
+        'Візит у лікарню (незалежна дія, ризик спалитись 8%→25% по тіру) → направлення → документи по одному за візит → платна здача аналізів (QTE: тапни підсвічену картку, 3 раунди, потрібно 2 влучення, фіксоване вікно 1800мс) → крафт діагнозу → підтвердження ще одним візитом. Фінальна хвороба — тверда вимога легалізації.' },
+    { emoji: '🌳', name: 'Дерево навичок', hook: '3 гілки × 9 = 27 вузлів', body:
+        'Хитрість (виживання/heat), Зв\'язки (економіка/ресурси), Витривалість (енергія/клік). Кожен вузол — 1 очко; очки = очки престижу − вже куплені навички. Послідовно в межах гілки + гейт по рівню схрону. Скидання — 500,000 ТК (перше безкоштовне).' },
+    { emoji: '🐾', name: 'Компаньйони', hook: 'NPC → довіра → квест → приєднання', body:
+        '6 компаньйонів, кожен прив\'язаний до NPC репутації. Розблокування: максимальна довіра з NPC → одноразовий квест приєднання (донат ресурсу) → купівля за ТК. Бонуси 1-3% — колекційна дрібниця, не важіль.' },
+    { emoji: '🏘️', name: 'Клани («Чат ОСББ») + війни', hook: 'Спільна скарбниця, щотижневі війни', body:
+        'Рівень клану = √(скарбниця/60,000) (макс 15), кожен рівень дає пасивний бонус усім. Щотижневі війни (пн-пт): очки за стук на ворога (10, вдвічі дешевше під час війни), облави (2), вилазки (3), боси (25), донати (1/10,000 ТК). Перемога: +20% скарбниці, 7-денний бафф, трофейний ящик, 3-5 shard кожному — єдине джерело shard.' },
+    { emoji: '🤝', name: 'Репутація NPC', hook: '4 NPC, детермінований щоденний квест', body:
+        'Ніна, Толік, Микола, Оксана — у кожного щоденний квест (той самий для всіх гравців, за датою+id). 12-20 репутації за квест, кап 100. Максимум відкриває постійний перк і квести компаньйонів.' },
+    { emoji: '🏆', name: 'Досягнення', hook: '~55 штук, перевірка на кожній релевантній дії', body:
+        'Охоплюють кліки, ящики, облави, багатство, торгівлю, компаньйонів, косметику, декор, рівень схрону, рефералів, крафт, вилазки, престиж, донати клану, heat, повістки, лікарню, інспекторів, відстрочки, чекпоінти, PvP, навички, репутацію, сезони, трофеї.' },
+    { emoji: '🏛️', name: 'Престиж / Легалізація', hook: 'Одноразова подія, не цикл', body:
+        'Очки = ⌊√(totalEarned/500,000)⌋. Відкривається на схроні 7, вимагає діагноз «Синдром хронічної потужності», дає +10%/очко доходу назавжди. НЕ скидає прогрес (виправлено 2026-08-16). Успішна легалізація — сам ключ до купівлі схрону 8.' },
+    { emoji: '🎁', name: 'Промокоди й реферали', hook: 'Реальні коди + чит-коди для розробника', body:
+        'PROMO_CODES включають гравцівські коди (VIP, бонус балансу, набір ящиків), чит/тест-коди (безлімітні гроші, телепорт на будь-який схрон) і код розробника ROZROBNYK. Реферали: 1,500 ТК за кожного справді нового користувача.' },
+    { emoji: '📅', name: 'Щоденні квести й нагорода за вхід', hook: '10 квестів + 7-денний стрик', body:
+        '10 щоденних квестів (300-2,500 ТК), скидаються опівночі. Окремо — 7-денний стрик входу: 400→550→700→900→1200→1600→4000 ТК, день 7 — джекпот, пропуск дня скидає лічильник.' },
+    { emoji: '🏆', name: 'Лідерборд / Ліги / Сезони', hook: 'Щотижневі сезони пн-пн за київським часом', body:
+        '6 ліг (Диван→Бункер). Зони підвищення/пониження масштабуються розміром групи. 1 місце отримує сезонну косметику (або 100,000 ТК) + титул; 2-3 місце — гуманітарні ящики; решта — приз, що спадає за рангом.' },
+    { emoji: '🛠️', name: 'Адмін-панель', hook: 'Окремий пароль, timing-safe звірка', body:
+        'Ти зараз саме тут. Статистика, здоров\'я сервера, список гравців, книга скарг, розсилка, заявки на бета, дошка задач/нотаток, цей атлас. ADMIN_PASSWORD окремий від BOT_TOKEN з 2026-08-16.' },
+    { emoji: '🛂', name: 'Маршрути втечі (Р15, перша задеплоєна)', hook: 'Ендгейм-луп після легалізації', body:
+        '3 маршрути різної тривалості/ризику, доступні лише при prestigeCount≥1. Нагорода — нова косметична валюта contraband, не ТК і не прогресивні ресурси. Провал = конфіскація половини щойно зароблених балів, не чіпає основний баланс.' },
+];
+const ATLAS_CONSTANTS = [
+    { title: 'Апгрейди магазину (ешелони)', items: [
+        ['TIER_SIZE', '10', 'рівнів на ешелон до наступного «гейту» на ресурси'],
+        ['TIER_COST_MULT', '22', 'база росту ціни за ешелон (пом\'якшена після 5-го)'],
+        ['TIER_EFFECT_MULT', '2.2', 'множник ефекту за ешелон'],
+        ['HAT / THERMOS ціна', '40 / 105', 'ціна клік-апгрейдів'],
+        ['JAM / GENERATOR ціна', '150 / 520', 'ціна пасив-апгрейдів'],
+        ['ENERGY_DRINK_PRICE', '600', 'повний рефіл енергії, 2/5хв ліміт'],
+    ]},
+    { title: 'Енергія й кладовка', items: [
+        ['ENERGY_REGEN_PER_TICK', '0.1', 'регенерація за тік (~1/сек)'],
+        ['ENERGY_PER_CLICK', '2', 'вартість тапу (1.8 з навичкою)'],
+        ['STORAGE_BASE_CAPACITY', '60', 'стартові слоти ресурсів'],
+        ['STORAGE_CAPACITY_PER_LEVEL', '40', 'слотів за рівень складу'],
+        ['STORAGE_UPGRADE_BASE / GROWTH', '800 / ×1.68', 'крива ціни апгрейду складу'],
+        ['STORAGE_MAX_LEVEL', '20', 'стеля'],
+    ]},
+    { title: 'Престиж (легалізація) і офлайн/VIP', items: [
+        ['PRESTIGE_UNLOCK_LEVEL', '7', 'рівень схрону для спроби легалізації'],
+        ['PRESTIGE_EARN_PER_POINT', '500,000', 'заробітку за життя на 1 очко (корінь)'],
+        ['PRESTIGE_BONUS_PER_POINT', '+10%', 'постійний дохід за очко'],
+        ['OFFLINE_CAP_SECONDS', '6 год', 'кап офлайн-доходу (VIP без кепа)'],
+        ['VIP_PRICE_STARS', '500 ⭐', '×3 дохід, без кепа енергії, імунітет до облав'],
+    ]},
+    { title: 'Компаньйони (після редизайну)', items: [
+        ['Гусак (клік)', '+2%', 'було +15%'],
+        ['Кіт (регенерація)', '+3%', 'було +30%'],
+        ['Сусідка (шанс облави)', '−2%', 'було −15%'],
+        ['Пес (здобич з вилазок)', '+3%', 'було +40%'],
+        ['Щур (ризик спалитись)', '−3%', 'було −50%'],
+        ['Голуб (час вилазки / чекпоінт)', '−2% / +2%', 'було −25% / +15%'],
+    ]},
+    { title: 'Розшук (heat)', items: [
+        ['HEAT_MAX', '100', 'стеля'],
+        ['HEAT_PER_100_CLICKS', '0.5', 'heat за 100 тапів'],
+        ['HEAT_EXPEDITION_PER_LEVEL / CAP', '2 / 8', 'heat за вилазку, масштаб рівнем'],
+        ['HEAT_MARKET_SALE_MIN / SALE', '50,000 / 3', 'поріг і розмір heat за великий продаж'],
+        ['HEAT_NEIGHBOR_MULT', '×0.98', 'компаньйон-сусідка гасить приріст (було ×0.85)'],
+        ['HEAT_DECAY_MINUTES', '12', '−1 heat за кожні 12 реальних хв'],
+        ['HEAT_DECAY_DAILY_CAP', '42', 'максимум спадання за добу'],
+        ['HEAT_BRIBE_DISCOUNT', '20', 'зняття heat хабарем'],
+        ['HEAT_SPRAVKA_DISCOUNT', '35', 'зняття heat довідкою-щитом'],
+    ]},
+    { title: 'Повістки', items: [
+        ['NOTICE_MAX_ACTIVE', '3', 'максимум одночасно'],
+        ['NOTICE_INTERVAL_MIN/MAX_H', '4 / 8 год', 'випадковий інтервал (частіше при heat)'],
+        ['NOTICE_BRIBE_BASE', '1,200', 'база хабаря × тір × (1+heat/50)'],
+        ['NOTICE_BRIBE_BALANCE_PCT', '3%', 'мінімум хабаря від поточного балансу'],
+        ['NOTICE_HIDE_SUCCESS', '55%', 'шанс сховатись успішно'],
+        ['NOTICE_HIDE_FAIL_MULT', '×1.5', 'штраф при провалі ховання'],
+        ['NOTICE_TICK_MS', '5 хв', 'серверний тік (повістки/інспектори/сезон/війна/район)'],
+    ]},
+    { title: 'PvP «Здати сусіда»', items: [
+        ['SNITCH_COST_TK / RES', '3,000 + 1 sim', 'ціна стуку'],
+        ['SNITCH_DAILY_LIMIT', '3', 'стуків на добу'],
+        ['SNITCH_HEAT', '15', 'heat жертві'],
+        ['SNITCH_RAT_REVEAL_CHANCE', '35%', 'щур жертви одразу палить стукача'],
+        ['SNITCH_STEAL_PCT', '30%', '% балансу звинуваченого при вгаданій підозрі'],
+        ['SNITCH_STEAL_CAP_PER_LEVEL', '8,000', 'кап крадіжки × (рівень жертви+1)'],
+    ]},
+    { title: 'Медична гілка — за тіром', items: [
+        ['Тір 1', '3 аналізи · 800₴/20⚡ · 8% ризик', 'найдешевший'],
+        ['Тір 2', '5 аналізів · 2,000₴/25⚡ · 12% ризик', ''],
+        ['Тір 3', '7 аналізів · 5,000₴/30⚡ · 16% ризик', ''],
+        ['Тір 4', '10 аналізів · 12,000₴/35⚡ · 20% ризик', ''],
+        ['Тір 5', '15 аналізів · 30,000₴/40⚡ · 25% ризик', 'фінальна хвороба тут'],
+        ['DISEASE_ANALYSIS_ROUNDS / HITS', '3 раунди / 2 влучення', 'QTE здачі аналізів'],
+        ['DISEASE_QTE_WINDOW_MS', '1800 мс', 'фіксоване вікно, не залежить від heat'],
+    ]},
+    { title: 'Інспектори (боси)', items: [
+        ['INSPECTOR_SPAWN_CHANCE', '12%', 'шанс спавну за тік, коли доступний'],
+        ['INSPECTOR_COOLDOWN_H', '6 год', 'після будь-якої зустрічі'],
+        ['INSPECTOR_MAX_CPS', '30', 'анти-чіт стеля кліків/сек'],
+        ['INSPECTOR_WEAKNESS_MULT', '×2', 'шкода при експлуатації слабкості'],
+        ['INSPECTOR_LOSE_HEAT', '10', 'heat при таймауті боса'],
+    ]},
+    { title: 'Чекпоінт (переїзд)', items: [
+        ['CHECKPOINT_PIGEON_BONUS', '+2%', 'бонус компаньйона-голуба (було +15%)'],
+        ['CHECKPOINT_HEAT_DOCS', '20', 'штраф за провал «показати документи»'],
+        ['CHECKPOINT_HEAT_BABA', '10', 'штраф за провал «їду до баби»'],
+        ['CHECKPOINT_RESOURCE_LOSS', '30%', 'втрата складу на «об\'їзд полем»'],
+    ]},
+    { title: 'Дерево навичок — усі 27 бонусів', items: [
+        ['SKILL_RESET_COST_TK', '500,000', 'ціна скидання дерева (перше — безкоштовне)'],
+        ['Тихіше води', '−7%', 'приріст heat'],
+        ['Знаю прохідні двори', '+10%', 'бонус втечі з облави'],
+        ['Дві сімки', '18%', 'шанс, що вхідний стук тихо провалиться'],
+        ['Свій у ЖЕКу', '−15%', 'вартість хабаря'],
+        ['Чуйка', '10 сек', 'попередження про облаву заздалегідь'],
+        ['Привид району', '×1.35', 'швидкість спадання heat'],
+        ['Знайомий перекуп', '+6%', 'бонус ціни продажу на біржі'],
+        ['Оптова закупка', '−8%', 'знижка на монетні ящики'],
+        ['Кум у сільраді', '×1.2', 'множник пасивного бонусу клану'],
+        ['Свої люди', '+12%', 'здобич ресурсів з усіх джерел'],
+        ['Схема', '10%', 'шанс безкоштовного крафту'],
+        ['Друге дихання', '+20%', 'бонус регенерації енергії'],
+        ['Мозоль', '+15%', 'сила кліку'],
+        ['Незламний', '−25%', 'штраф ТК за повістку'],
+        ['Легка рука', '1.8 (було 2)', 'вартість енергії на клік'],
+        ['Легкий крок', '−10%', 'шанс спалитись на вилазці'],
+        ['Запасний вихід', '7 днів', 'безкоштовна відстрочка раз на цикл'],
+        ['Довірена людина', '−20%', 'шанс спавну інспектора'],
+        ['Дрібний облік', '+10%', 'ресурси лише з вилазок'],
+        ['Знижка гуртом', '−8%', 'вартість ресурсів на крафт'],
+        ['Своя людина на біржі', '+40%', 'гарантована преміум-ціна, 1×/добу'],
+        ['Витривала спина', '+12', 'фіксований бонус макс. енергії'],
+        ['Ранкова кава', '+5%', 'бонус регенерації енергії'],
+        ['Стійкість до вигорання', '−10%', 'вигорання за тап у Спринтах'],
+        ['Гострий фокус', '+15%', 'швидкість відновлення вигорання'],
+    ]},
+    { title: 'Репутація, сезони, ліги', items: [
+        ['REP_MAX', '100', 'кап репутації з кожним NPC'],
+        ['Толік — перк', '+40%', 'бонус ціни продажу на біржі'],
+        ['Оксана — перк', '−20%', 'приріст heat, назавжди'],
+        ['Ніна — перк', '+50', 'макс. енергії назавжди'],
+        ['SEASON_PRESTIGE_SP', '100', 'очок сезону за легалізацію'],
+    ]},
+    { title: 'Війна ОСББ і район', items: [
+        ['WAR_POINTS: облава/вилазка/стук/бос', '2 / 3 / 10 / 25', 'очки за дію'],
+        ['WAR_POINTS_PER_DONATION', '10,000₴ = 1 очко', 'внесок у скарбницю'],
+        ['WAR_TREASURY_PRIZE', '+20%', 'приріст скарбниці переможця'],
+        ['WAR_BUFF_DAYS', '7 днів', 'тривалість баффу переможця'],
+        ['WAR_SHARD_MIN/MAX', '3-5', 'shard кожному за перемогу — єдине джерело'],
+        ['DISTRICT_HEAT_TRIGGER', '400', 'сумарний heat клану для тригера'],
+        ['DISTRICT_WIN_TK', '25,000₴', 'базова нагорода кожному (×2 топ-урону)'],
+        ['DISTRICT_LOSE_BALANCE_PCT', '12%', 'втрата балансу кожному при поразці'],
+    ]},
+    { title: 'Відстрочки', items: [
+        ['Студентський заочки', '24 год · 18,000₴', ''],
+        ['Догляд за бабусею', '12 год · 10 консерв+2 ліки', ''],
+        ['Довідка по здоров\'ю', '48 год · 5 ліків+1 печатка', ''],
+        ['Бронь від підприємства', '72 год · рівень клану 5', ''],
+        ['Багатодітний батько', '7 днів · 100 ⭐', ''],
+        ['Помічник депутата', '14 днів · телефон+20 готівки', ''],
+    ]},
+    { title: 'Тіри розшуку (heat) — усі 6', items: [
+        ['😴 0-10', '×0.4 облава / ×1.00 дохід', 'ніхто не знає'],
+        ['📋 11-30', '×0.4→1.0 / ×1.08', ''],
+        ['🚪 31-55', '×1.6 / ×1.20', ''],
+        ['📢 56-75', '×2.4 / ×1.40', ''],
+        ['📁 76-90', '×3.2 / ×1.65', ''],
+        ['👑 91-100', '×4.5 / ×2.00', 'максимальна увага'],
+    ]},
+    { title: 'Спринти — 4 тіри контрактів', items: [
+        ['Junior', 'рівень 2 · 5⚡ · 40 тапів · 20хв · 540₴/год', ''],
+        ['Middle', 'рівень 4 · 25⚡ · 180 тапів · 50хв · 1,300₴/год', ''],
+        ['Senior', 'рівень 6 · 45⚡ · 450 тапів · 210хв · 1,900₴/год', ''],
+        ['Lead', 'рівень 8 · 70⚡ · 1,100 тапів · 600хв · 4,000₴/год', ''],
+        ['Вигорання', '+2.2/тап÷Focus, спад 1%/9с, поріг 80→15%', ''],
+        ['QTE-баги', '3.5% шанс/тап, вікно 1.6-2.0с, −12%/промах', ''],
+    ]},
+];
+const ATLAS_HISTORY = [
+    { date: '2026-08-03', title: 'Фаза 0 — заснування', body:
+        'Перший коміт — уже доволі повна база: локації, компаньйони, біржа, клани, гача, webhook. Того ж дня — гардероб (8→24→64 предмети), кімната, перші читкоди.' },
+    { date: '2026-08-04 — 08-05', title: 'Фаза 1 — ранній контент', body:
+        'Редизайн кімнати, донат/промо-флоу, бекап у Telegram CloudStorage. Ресурси+склад+крафт+8 ящиків з анімацією, офлайн-вилазки, престиж/легалізація — усе за ~36 годин.' },
+    { date: '2026-08-05 — 08-06', title: 'Фаза 2 — «Розширення 2.0»', body:
+        'Щільна доба: heat (6 тірів) + повістки (5 типів) + PvP «Здати сусіда» + перша версія медкому + боси-інспектори + відстрочки/чекпоінти + 18-скіловое дерево + репутація 4 NPC. Наступного дня — сезони/ліги/війни/район + кодекс + 29 досягнень.' },
+    { date: '2026-08-07', title: 'Фаза 3 — редизайн і «Вертикаль v2.0»', body:
+        'Повний візуальний редизайн. Економічно значуще: стара плоска-експоненційна ціна замінена на ешелонну систему (TIER_SIZE/TIER_COST_MULT/TIER_EFFECT_MULT), яка живе й досі. Аудит балансу знайшов і виправив 3 арбітражні діри.' },
+    { date: '2026-08-08', title: 'Фаза 4 — v2.1 «Рівень ухилянта» + модуляризація', body:
+        'Онбординговий рівень/XP-система. 4-фазний рефактор розбив ~10,000-рядковий server.js: catalog/*.js → lib/mechanics/*.js → lib/user-store.js → routes/*.js. 3 міні-ігри + 8-локаційна дуга ухилянта.' },
+    { date: '2026-08-09 — 08-13', title: 'Фаза 5 — баланс і документація', body:
+        'Ціна енергетика 120→600. PATCH_2.0_CLAUDE_DECISIONS.md консолідував мультимодельний брейншторм (ChatGPT/Grok/DeepSeek/Qwen) — і за 2 дні отримав виправлення, коли реальні відповіді розробника не збіглись із першим чернетковим прочитанням.' },
+    { date: '2026-08-15 — 08-16', title: 'Фаза 6 — PATCH 2.0 у бою', body:
+        'Дерево навичок 18→27, маршрут-проєкт, ребаланс Спринтів, прибрано резет при легалізації — і <b>критичний фікс</b>: пряма лапка у шаблонному рядку зламала ВЕСЬ клієнтський скрипт (гравці бачили порожню гру). Це породило обов\'язкове правило перевірки (рендер+extract+node --check кожного &lt;script&gt;). Того ж дня — перша версія медкому (QTE на повістці) і ЕКСТРЕНИЙ ВІДКАТ через кілька годин, бо «повістка — серйозна річ», за чим одразу пішов повний редизайн v3.' },
+    { date: '2026-08-19', title: 'Фаза 7 — медична гілка v3 і полірування', body:
+        '10 хвороб з лором, повний цикл лікарня→документи→аналізи→крафт→підтвердження. Нічна автономна сесія додала CSS-таймер замість 20Гц JS-полінгу, звукові хуки, видалення мертвого коду старого медкому, реальний ризик у лікарні.' },
+    { date: '2026-08-20', title: 'Фаза 8 — публічний лендінг', body:
+        'Окремий маркетинговий сайт (public/landing.html, GET /beta). Того ж дня аудит статусу PATCH 2.0 знайшов два «великі Р-рішення», досі не виконані: Чуйка — мертва покупка, shard — досі лише випадковий дроп. Обидва виправлено того ж дня.' },
+    { date: '2026-08-21', title: 'Фаза 9 — аудит безпеки й продуктивності', body:
+        'Два фонові агенти: <b>дві критичні фінансові діри</b> — підробка вебхука і /api/restore без серверної перевірки. Обидві закриті й перевірені живо. Продуктивність: асинхронний атомарний запис бази, __schemaVersion-кеш migrateUser() (~1000× швидше). Того ж дня — редизайн компаньйонів, Маршрути втечі (Р15), і ця дошка задач/нотаток/атласу.' },
+];
+const ATLAS_OPEN = [
+    { title: 'Клікер-модель (гібрид тап/ідл)', why: 'Розробник: саме питання було «надто незрозуміло» — треба переформулювати, перш ніж узагалі відповідати.' },
+    { title: 'Таблиця контрактів Спринтів / темп регену енергії', why: 'Розробник хотів поєднати 3 різні підходи, а не чисту rate-модель, і окремо турбувався про темп регену енергії — ця стурбованість ніколи прямо не закрита.' },
+    { title: 'Формула TIER_COST_MULT', why: 'Розробник схиляється до варіанта DeepSeek, але прямо просив спільний аудит перед затвердженням — ніколи не підтверджено остаточно.' },
+    { title: 'Таблиця крафт-рецептів', why: 'Grok названо «ненадійним джерелом» — потрібен спільний аудит замість прийняття цифр як є.' },
+    { title: 'Офлайн-кап / VIP', why: 'Відповідь розробника була «занадто важке питання» — поточні значення (6год/VIP без кепа) ніколи не підтверджувались напряму.' },
+    { title: 'Множник бонусу клану', why: 'Розробник хоче повну переробку кланів, а не косметичну зміну одного числа — велика окрема тема.' },
+    { title: '5 нових механік Р15 — 4 з 5 ще не реалізовані', why: 'Схованки, Фальшдокументи, Чорний ринок, Легенди — спроєктовані (PATCH_2.0_NEW_MECHANICS_R15.md), не задеплоєні. Лише Маршрути втечі вже в коді.' },
+    { title: 'Термінологічний словник', why: 'Розробник не розумів, що таке «shard» у контексті різних джерел — призвело до PATCH_2.0_TERMS_DICTIONARY.md.' },
+    { title: 'Дослідження навички «Легка рука»', why: 'Розробник хоче окремий дослідницький документ по навичках загалом, не одне число.' },
+    { title: 'Розширення портфоліо предметів (~34→~100)', why: 'Явно назване великою окремою роботою — «свідомо відкладаю, не забуваю».' },
+    { title: 'Фінальні відсотки нерфу крафт-бонусів', why: 'Відкладено до рішення по Спринтах, «щоб не рахувати двічі».' },
+    { title: 'Квестифікація переїздів між схронами 1-7', why: 'Розробник прямо сказав, що поточний лор-попап «недостатній», хоче кроки/умови як справжній квест — не почато.' },
+    { title: 'Мінорний числовий дрейф від документа рішень', why: 'Офлайн-кап 6год (не 5год/×2), Легка рука 1.8 (не 1.7) — свідомо не звірені заднім числом, нічого не ламають.' },
+];
+
+let atlasBuilt = false;
+function acHtml(emoji, title, hook, bodyHtml, searchBlob) {
+    return '<div class="ac" data-search="' + esc(searchBlob.toLowerCase()) + '">' +
+        '<div class="ac-head">' +
+            (emoji ? '<span class="ico">' + emoji + '</span>' : '') +
+            '<span class="tt"><span class="ttl">' + esc(title) + '</span>' + (hook ? '<div class="hook">' + esc(hook) + '</div>' : '') + '</span>' +
+            '<span class="chev">▸</span>' +
+        '</div>' +
+        '<div class="ac-body"><div class="ac-body-in">' + bodyHtml + '</div></div>' +
+    '</div>';
+}
+function initAtlas() {
+    if (atlasBuilt) return;
+    atlasBuilt = true;
+
+    // Файли
+    const groupTitles = { catalog: '📦 catalog/ — чисті дані', lib: '⚙️ lib/ — чиста логіка', routes: '🛣️ routes/ — Express-роути' };
+    let filesHtml = '';
+    for (const key of ['catalog', 'lib', 'routes']) {
+        filesHtml += '<p style="margin:14px 0 6px;color:var(--accent2);font-size:12px;text-transform:uppercase;letter-spacing:.5px">' + groupTitles[key] + '</p>';
+        filesHtml += ATLAS_FILES[key].map(([p, d]) =>
+            '<div class="file-row2" data-search="' + esc((p + ' ' + d).toLowerCase()) + '"><span class="p">' + esc(p) + '</span><span class="d">' + esc(d) + '</span></div>').join('');
+    }
+    filesHtml += '<p style="margin:16px 0 6px;color:var(--accent2);font-size:12px;text-transform:uppercase;letter-spacing:.5px">🧬 server.js — карта за рядками</p>';
+    filesHtml += ATLAS_SERVER_MAP.map(([lines, what]) =>
+        '<div class="file-row2" data-search="' + esc(('server.js ' + lines + ' ' + what).toLowerCase()) + '"><span class="p">' + esc(lines) + '</span><span class="d">' + what + '</span></div>').join('');
+    $('atlas-files').innerHTML = filesHtml;
+
+    // Механіки
+    $('atlas-mechanics').innerHTML = ATLAS_MECHANICS.map((m) =>
+        acHtml(m.emoji, m.name, m.hook, '<p>' + m.body + '</p>', m.name + ' ' + m.hook + ' ' + m.body)).join('');
+
+    // Цифри
+    $('atlas-numbers').innerHTML = ATLAS_CONSTANTS.map((g) => {
+        const rows = g.items.map(([k, v, m]) => '<tr><td class="k">' + esc(k) + '</td><td class="v">' + esc(v) + '</td><td class="m">' + esc(m) + '</td></tr>').join('');
+        const blob = g.title + ' ' + g.items.map((it) => it.join(' ')).join(' ');
+        return acHtml('', g.title + ' <span class="muted">(' + g.items.length + ')</span>', '', '<table class="const-tbl"><tbody>' + rows + '</tbody></table>', blob);
+    }).join('');
+
+    // Історія
+    $('atlas-history').innerHTML = '<div class="tl-wrap">' + ATLAS_HISTORY.map((h) =>
+        '<div style="position:relative;margin-bottom:10px" data-search="' + esc((h.date + ' ' + h.title + ' ' + h.body).toLowerCase()) + '">' +
+        '<span class="tl-dot"></span><div class="tl-date">' + esc(h.date) + '</div>' +
+        acHtml('', h.title, '', '<p>' + h.body + '</p>', '') +
+        '</div>').join('') + '</div>';
+
+    // Відкрито
+    $('atlas-open').innerHTML = ATLAS_OPEN.map((o) =>
+        acHtml('⚠️', o.title, '', '<p>' + esc(o.why) + '</p>', o.title + ' ' + o.why)).join('');
+
+    // розгортання карток (делегування на всю вкладку атласу)
+    $('tab-atlas').addEventListener('click', (ev) => {
+        const head = ev.target.closest('.ac-head');
+        if (!head) return;
+        head.closest('.ac').classList.toggle('open');
+    });
+
+    // міні-вкладки
+    document.querySelectorAll('#atlasTabs button').forEach((btn) => {
+        btn.onclick = () => {
+            document.querySelectorAll('#atlasTabs button').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.atlas-pane').forEach((p) => p.classList.add('hidden'));
+            $('atlas-' + btn.dataset.atlas).classList.remove('hidden');
+            applyAtlasSearch();
+        };
+    });
+
+    $('atlasSearch').addEventListener('input', applyAtlasSearch);
+}
+function applyAtlasSearch() {
+    const q = $('atlasSearch').value.trim().toLowerCase();
+    const pane = document.querySelector('.atlas-pane:not(.hidden)');
+    if (!pane) return;
+    pane.querySelectorAll('[data-search]').forEach((el) => {
+        el.style.display = (!q || el.dataset.search.includes(q)) ? '' : 'none';
+    });
+}
+
+// ---- Задачі ----
+const TASK_STATUS_LABEL = { todo: 'У черзі', doing: 'У роботі', done: 'Готово' };
+const TASK_NEXT_STATUS = { todo: 'doing', doing: 'done', done: 'todo' };
+let allTasks = [];
+async function loadTasks() {
+    try {
+        const d = await api('/api/admin/board');
+        allTasks = d.tasks;
+        renderTasks();
+        clearMsg($('taskMsg'));
+    } catch (e) { say($('taskMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+function renderTasks() {
+    const f = $('taskFilter').value;
+    let list = allTasks;
+    if (f === 'active') list = list.filter((t) => t.status !== 'done');
+    if (f === 'done') list = list.filter((t) => t.status === 'done');
+    $('taskList').innerHTML = list.map((t) =>
+        '<div class="task ' + t.status + '" data-id="' + esc(t.id) + '">' +
+        '<span class="txt">' + esc(t.text) + '</span>' +
+        '<span class="st">' + TASK_STATUS_LABEL[t.status] + '</span>' +
+        '<button data-act="next" title="Наступний статус">→</button>' +
+        '<button data-act="del" class="danger">✕</button>' +
+        '</div>').join('') || '<p class="muted">Порожньо. Додай першу задачу вище.</p>';
+}
+$('taskFilter').onchange = renderTasks;
+$('taskReload').onclick = loadTasks;
+async function addTaskNow() {
+    const text = $('taskInput').value.trim();
+    if (!text) return;
+    try {
+        await api('/api/admin/tasks', { method: 'POST', body: JSON.stringify({ text }) });
+        $('taskInput').value = '';
+        loadTasks();
+    } catch (e) { say($('taskMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('taskAddBtn').onclick = addTaskNow;
+$('taskInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTaskNow(); });
+$('taskList').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.closest('.task').dataset.id;
+    try {
+        if (btn.dataset.act === 'del') {
+            await api('/api/admin/tasks/' + encodeURIComponent(id), { method: 'DELETE' });
+        } else {
+            const cur = allTasks.find((t) => t.id === id);
+            const next = TASK_NEXT_STATUS[cur.status];
+            await api('/api/admin/tasks/' + encodeURIComponent(id) + '/status', { method: 'POST', body: JSON.stringify({ status: next }) });
+        }
+        loadTasks();
+    } catch (e) { say($('taskMsg'), 'Не вдалося: ' + e.message, 'err'); }
+});
+
+// ---- Нотатки ----
+let allNotes = [];
+async function loadNotes() {
+    try {
+        const d = await api('/api/admin/board');
+        allNotes = d.notes;
+        renderNotes();
+        clearMsg($('noteMsg'));
+    } catch (e) { say($('noteMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+function renderNotes() {
+    $('notesGrid').innerHTML = allNotes.map((n) =>
+        '<div class="note" data-id="' + esc(n.id) + '">' +
+        '<div class="ttl" data-f="title">' + esc(n.title) + '</div>' +
+        '<div class="bd" data-f="body">' + esc(n.body) + '</div>' +
+        '<div class="meta">' + new Date(n.updatedAt).toLocaleString('uk-UA') + '</div>' +
+        '<div class="row row-view">' +
+        '<button data-act="edit">Редагувати</button>' +
+        '<button data-act="del" class="danger">Видалити</button>' +
+        '</div>' +
+        '</div>').join('') || '<p class="muted">Поки що порожньо — додай першу нотатку вище.</p>';
+}
+async function addNoteNow() {
+    const title = $('noteTitleInput').value.trim();
+    const body = $('noteBodyInput').value.trim();
+    if (!title && !body) return;
+    try {
+        await api('/api/admin/notes', { method: 'POST', body: JSON.stringify({ title, body }) });
+        $('noteTitleInput').value = ''; $('noteBodyInput').value = '';
+        loadNotes();
+    } catch (e) { say($('noteMsg'), 'Не вдалося: ' + e.message, 'err'); }
+}
+$('noteAddBtn').onclick = addNoteNow;
+$('notesGrid').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    const card = btn.closest('.note');
+    const id = card.dataset.id;
+    if (btn.dataset.act === 'del') {
+        if (!confirm('Видалити цю нотатку назавжди?')) return;
+        try { await api('/api/admin/notes/' + encodeURIComponent(id), { method: 'DELETE' }); loadNotes(); }
+        catch (e) { say($('noteMsg'), 'Не вдалося: ' + e.message, 'err'); }
+        return;
+    }
+    if (btn.dataset.act === 'edit') {
+        const n = allNotes.find((x) => x.id === id);
+        card.innerHTML =
+            '<input value="' + esc(n.title) + '" data-f="title">' +
+            '<textarea style="min-height:70px" data-f="body">' + esc(n.body) + '</textarea>' +
+            '<div class="row"><button data-act="save" class="primary">Зберегти</button><button data-act="cancel">Скасувати</button></div>';
+        return;
+    }
+    if (btn.dataset.act === 'cancel') { renderNotes(); return; }
+    if (btn.dataset.act === 'save') {
+        const title = card.querySelector('[data-f="title"]').value.trim();
+        const body = card.querySelector('[data-f="body"]').value.trim();
+        try {
+            await api('/api/admin/notes/' + encodeURIComponent(id), { method: 'POST', body: JSON.stringify({ title, body }) });
+            loadNotes();
+        } catch (e) { say($('noteMsg'), 'Не вдалося: ' + e.message, 'err'); }
+    }
 });
 
 // Автовхід, якщо токен уже в цій вкладці (перезавантаження сторінки).

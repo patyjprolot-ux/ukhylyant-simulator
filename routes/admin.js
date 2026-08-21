@@ -9,6 +9,7 @@
 // незворотною дією на живих людях було видно, скільки їх і хто вони.
 const fs = require('fs');
 const path = require('path');
+const board = require('../lib/admin-board');
 
 module.exports = function registerAdminRoutes(app, deps) {
     const {
@@ -293,6 +294,54 @@ module.exports = function registerAdminRoutes(app, deps) {
             return res.status(404).json({ success: false, message: 'Заявку не знайдено.' });
         }
         saveBetaSignups(next);
+        res.json({ success: true });
+    });
+
+    // ==========================================
+    // Дошка власника: задачі й нотатки
+    // ==========================================
+    app.get('/api/admin/board', requireAdmin, (req, res) => {
+        res.json({ tasks: board.listTasks(), notes: board.listNotes() });
+    });
+
+    app.post('/api/admin/tasks', requireAdmin, (req, res) => {
+        const r = board.addTask(req.body?.text);
+        if (!r.ok) return res.status(400).json({ success: false, message: r.message });
+        board.flush(); // ручна дія адміна — фіксуємо одразу, не чекаючи інтервалу
+        res.json({ success: true, task: r.task });
+    });
+
+    app.post('/api/admin/tasks/:id/status', requireAdmin, (req, res) => {
+        const r = board.setTaskStatus(req.params.id, String(req.body?.status || ''));
+        if (!r.ok) return res.status(400).json({ success: false, message: r.message });
+        board.flush();
+        res.json({ success: true, task: r.task });
+    });
+
+    app.delete('/api/admin/tasks/:id', requireAdmin, (req, res) => {
+        const r = board.deleteTask(req.params.id);
+        if (!r.ok) return res.status(404).json({ success: false, message: r.message });
+        board.flush();
+        res.json({ success: true });
+    });
+
+    app.post('/api/admin/notes', requireAdmin, (req, res) => {
+        const r = board.addNote(req.body?.title, req.body?.body);
+        board.flush();
+        res.json({ success: true, note: r.note });
+    });
+
+    app.post('/api/admin/notes/:id', requireAdmin, (req, res) => {
+        const r = board.updateNote(req.params.id, req.body?.title, req.body?.body);
+        if (!r.ok) return res.status(404).json({ success: false, message: r.message });
+        board.flush();
+        res.json({ success: true, note: r.note });
+    });
+
+    app.delete('/api/admin/notes/:id', requireAdmin, (req, res) => {
+        const r = board.deleteNote(req.params.id);
+        if (!r.ok) return res.status(404).json({ success: false, message: r.message });
+        board.flush();
         res.json({ success: true });
     });
 
