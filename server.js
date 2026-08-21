@@ -6859,13 +6859,24 @@ function buildHtml(botUsername) {
                 // Переїзд — це подія, а не транзакція: на виїзді стоїть блокпост.
                 // Локація вже куплена, блокпост впливає лише на "ціну переїзду".
                 const loc = LOCATIONS.find((l) => l.level === level);
-                if (loc && loc.lore) {
+                // Квестифікація переїздів (2026-08-21): questSteps — це 2-3 окремі
+                // сцени, не один суцільний абзац. Telegram showAlert показує лише
+                // один текст за раз, тому кроки йдуть послідовно через callback —
+                // гравець тисне "OK" і бачить наступну сцену, а не стіну тексту.
+                if (loc && loc.questSteps && loc.questSteps.length) {
+                    showLocationStepsSequentially(loc.questSteps, 0, () => openCheckpoint());
+                } else if (loc && loc.lore) {
                     tg.showAlert(loc.lore, () => openCheckpoint());
                 } else {
                     openCheckpoint();
                 }
             } catch (e) { tg.showAlert('Помилка переїзду'); }
         };
+
+        function showLocationStepsSequentially(steps, i, done) {
+            if (i >= steps.length) return done();
+            tg.showAlert(steps[i], () => showLocationStepsSequentially(steps, i + 1, done));
+        }
 
         // Картки локацій виглядають так само, як картки компаньйонів (.pet-card) —
         // фон гри тепер сам по собі фонова картинка, тож ці картки додатково несуть
