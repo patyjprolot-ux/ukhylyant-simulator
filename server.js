@@ -485,7 +485,7 @@ const ACHIEVEMENTS_META = ACHIEVEMENTS.map(({ id, name, desc, reward }) => ({ id
 // 3. "БАЗА ДАНИХ" (у пам'яті процесу — навмисно просто, це жартівливий проєкт для друзів)
 // ==========================================
 const {
-    usersDB, clansDB, DATA_DIR, DATA_FILE, loadData, saveData,
+    usersDB, clansDB, DATA_DIR, DATA_FILE, loadData, saveData, saveDataSync,
     createFreshUser, migrateUser, installBalanceTracking, migrateLegacyPortfolio,
     displayName, nicknameTaken, pidIndex, makePid, registerPid, userByPid,
 } = require('./lib/user-store');
@@ -8666,5 +8666,9 @@ main().catch((err) => {
     process.exit(1);
 });
 
-process.once('SIGINT', () => { saveData(); bot.stop('SIGINT'); process.exit(0); });
-process.once('SIGTERM', () => { saveData(); bot.stop('SIGTERM'); process.exit(0); });
+// saveDataSync, не saveData: процес завершується одразу після виклику
+// (process.exit), тож асинхронний запис (saveData) просто не встиг би
+// долетіти до диска — кожен pm2 restart на деплої губив би останні секунди
+// прогресу гравців. Тут блокуюча пауза на мить — правильна поведінка.
+process.once('SIGINT', () => { saveDataSync(); bot.stop('SIGINT'); process.exit(0); });
+process.once('SIGTERM', () => { saveDataSync(); bot.stop('SIGTERM'); process.exit(0); });
