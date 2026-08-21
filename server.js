@@ -2711,6 +2711,11 @@ require('./routes/hospital')(app, {
     addResource, storageSnapshot, shuffled, changeHeat, checkAchievements,
 });
 
+// routes/smuggling.js (2026-08-21, Р15) — "Маршрути втечі": ендгейм-луп після
+// легалізації (prestigeCount >= 1). Ізольовано від основної економіки —
+// власна валюта contraband, ніяких balance/resources/heat.
+require('./routes/smuggling')(app, { requireTelegramAuth, getUser });
+
 // routes/beta.js (2026-08-19) — публічна лендінг-сторінка (public/landing.html,
 // GET /beta) + реєстрація на закритий бета-тест. НЕ пов'язана з Mini App,
 // доступна будь-кому в браузері, без Telegram-авторизації.
@@ -3437,6 +3442,7 @@ function buildHtml(botUsername) {
         <div class="tab" onclick="switchTab(event, 'storage')">🗄 Кладовка</div>
         <div class="tab" onclick="switchTab(event, 'storage-exp')">🌙 Вилазки</div>
         <div class="tab" onclick="switchTab(event, 'medical')">🏥 Медкомісія</div>
+        <div class="tab" onclick="switchTab(event, 'smuggling')">🛂 Маршрути</div>
         <div class="tab" onclick="openSkills()">🌳 Навички</div>
         <div class="tab" onclick="switchTab(event, 'friends')">🤝 Друзі</div>
         <div class="tab" onclick="switchTab(event, 'revenge')">😈 Помста</div>
@@ -3622,6 +3628,16 @@ function buildHtml(botUsername) {
         <div id="medical-hospital-box"></div>
         <div id="medical-disease-list"></div>
         <div id="medical-analysis-box" class="hidden"></div>
+    </div>
+
+    <!-- Маршрути втечі (Р15, 2026-08-21): ендгейм-луп після легалізації. -->
+    <div id="smuggling" class="panel">
+        <p style="margin-top:0; color:#9db0c2; font-size:12px;">
+            Легальний паспорт у кишені, а руки все одно тягнуться перевірити, чи
+            не їде хтось за тобою. Не дає ТК чи прогресивних ресурсів — лише
+            контрабандні бали на косметику.
+        </p>
+        <div id="smuggling-box"></div>
     </div>
 
     <div id="minigames" class="panel">
@@ -5496,6 +5512,50 @@ function buildHtml(botUsername) {
         let medicalAnalysisTimer = null;
         let medicalFlashIdx = null, medicalFlashKind = null;
 
+        // Маршрути втечі (Р15, 2026-08-21) — ендгейм-луп після легалізації.
+        async function renderSmuggling() {
+            const res = await apiFetch('/api/smuggling?id=' + user.id);
+            const data = await res.json();
+            const box = document.getElementById('smuggling-box');
+            if (!data.unlocked) {
+                box.innerHTML = '<div class="recipe-card"><div class="recipe-desc" style="margin-top:0">🔒 Відкриється після легалізації (довідка, схрон 8).</div></div>';
+                return;
+            }
+            let html = '<div class="recipe-card"><div class="recipe-desc" style="margin-top:0">🎒 Контрабандні бали: <b>' + fmtNum(data.contraband) + '</b></div></div>';
+            if (data.run) {
+                const left = Math.max(0, data.run.endsAt - Date.now());
+                const ready = left <= 0;
+                html += '<div class="recipe-card"><div class="recipe-desc" style="margin-top:0">' +
+                    (ready ? 'Маршрут завершено — забирай здобич.' : 'У дорозі: ще ' + Math.ceil(left / 60000) + ' хв.') +
+                    '</div><button onclick="claimSmuggling()"' + (ready ? '' : ' disabled') + '>Забрати</button></div>';
+            } else {
+                html += data.routes.map(r =>
+                    '<div class="recipe-card"><div class="recipe-desc" style="margin-top:0">' + r.emoji + ' <b>' + esc(r.name) + '</b> — ' + esc(r.desc) + '</div>' +
+                    '<div class="recipe-cost"><span class="recipe-ing">' + r.minutes + ' хв · ' + r.contrabandMin + '-' + r.contrabandMax + ' 🎒</span>' +
+                    '<span class="recipe-ing missing">⚠️ ' + Math.round(r.risk * 100) + '% ризик конфіскації</span></div>' +
+                    '<button onclick="startSmuggling(\\'' + r.id + '\\')">Вирушити</button></div>'
+                ).join('');
+            }
+            box.innerHTML = html;
+        }
+
+        window.startSmuggling = async (routeId) => {
+            const res = await apiFetch('/api/smuggling/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id, routeId }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            tg.HapticFeedback.notificationOccurred('success');
+            renderSmuggling();
+        };
+
+        window.claimSmuggling = async () => {
+            const res = await apiFetch('/api/smuggling/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: user.id }) });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            tg.HapticFeedback.notificationOccurred(data.caught ? 'warning' : 'success');
+            tg.showAlert(data.message);
+            renderSmuggling();
+        };
+
         async function renderMedical() {
             const res = await apiFetch('/api/disease?id=' + user.id);
             medicalState = await res.json();
@@ -6753,6 +6813,7 @@ function buildHtml(botUsername) {
             if (tabId === 'storage-exp') renderExpeditions();
             if (tabId === 'minigames') renderMinigames();
             if (tabId === 'medical') renderMedical();
+            if (tabId === 'smuggling') renderSmuggling();
         };
 
         // ===== Магазин =====
