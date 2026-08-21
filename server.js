@@ -1740,6 +1740,13 @@ app.post('/api/restore', requireTelegramAuth, restoreRateLimit, (req, res) => {
             if (backup.skills[id]) user.skills[id] = true;
         }
     }
+    // Компаньйони (редизайн 2026-08-21) — той самий "звіряємось із каталогом"
+    // підхід: companionUnlocked теж словник із порожніми ключами у свіжого гравця.
+    if (backup.companionUnlocked && typeof backup.companionUnlocked === 'object') {
+        for (const pet of PETS) {
+            if (backup.companionUnlocked[pet.id]) user.companionUnlocked[pet.id] = true;
+        }
+    }
     // Медична гілка (Р18 v3) — той самий "звіряємось із каталогом" підхід, бо
     // diseases/diseasesDiagnosed/diseaseAnalysisProgress теж словники з
     // порожніми ключами у свіжого гравця.
@@ -2360,6 +2367,7 @@ function reputationSnapshot(user) {
         reputation: user.reputation,
         repMax: ECONOMY.REP_MAX,
         claimedRepQuests: user.claimedRepQuests || [],
+        companionUnlocked: user.companionUnlocked || {},
         npcs: REPUTATION_NPCS.map((npc) => {
             const quest = dailyQuestFor(npc);
             const p = questProgress(user, quest);
@@ -2372,6 +2380,15 @@ function reputationSnapshot(user) {
                     done: questDone(user, quest),
                     claimed: (user.claimedRepQuests || []).includes(quest.id),
                 },
+                // Компаньйони (редизайн 2026-08-21): один NPC може вести до 1-2
+                // companion-квестів (Толік → пес+щур, Оксана → кіт+голуб).
+                // Видно лише коли довіра вже максимальна — до того клієнту
+                // нема сенсу знати деталі квесту, якого ще не можна почати.
+                companionQuests: repMaxed(user, npc.id) ? (npc.companionQuests || []).map((cq) => ({
+                    petId: cq.petId, text: cq.text, res: cq.res, target: cq.target,
+                    have: Math.min(cq.target, (user.resources || {})[cq.res] || 0),
+                    unlocked: !!(user.companionUnlocked || {})[cq.petId],
+                })) : [],
             };
         }),
     };
@@ -4226,7 +4243,7 @@ function buildHtml(botUsername) {
             medcomStats: null, inspectorStats: null, checkpointStats: null,
             deferUntil: 0, defermentId: null, deferments: [],
             expeditions: [], expeditionSlots: 1, skills: {}, skillPoints: 0,
-            reputation: {}, mykolaCoverUsed: false, buyAmount: 1,
+            reputation: {}, companionUnlocked: {}, mykolaCoverUsed: false, buyAmount: 1,
             mapBuildings: { tower: 0, hideout: 0, cache: 0 },
             mapPlacements: { tower: null, hideout: null, cache: null },
             league: null, seasonTitle: null, seasonEndsAt: 0, pendingWarCrate: 0,
@@ -5151,6 +5168,7 @@ function buildHtml(botUsername) {
 
         function renderReputation(data) {
             state.reputation = data.reputation || {};
+            if (data.companionUnlocked) state.companionUnlocked = data.companionUnlocked;
             document.getElementById('npc-list').innerHTML = data.npcs.map(n => {
                 const q = n.quest;
                 const pct = Math.round(100 * n.rep / data.repMax);
@@ -5166,6 +5184,21 @@ function buildHtml(botUsername) {
                       (q.claimed ? 'Приходь завтра' : (q.type === 'donate' ? 'Віддати й отримати +' + q.rep : 'Отримати +' + q.rep)) +
                       '</button>';
 
+                // Компаньйони (редизайн 2026-08-21) — видно лише коли maxed,
+                // сервер і так фільтрує (server.js: reputationSnapshot).
+                const companionsHtml = (n.companionQuests || []).map((cq) => {
+                    const pet = PETS.find(p => p.id === cq.petId);
+                    if (cq.unlocked) {
+                        return '<div class="npc-quest done"><div class="npc-quest-text">🐾 ' + esc(pet ? pet.name : cq.petId) + ' — прохання виконано, можна купити у вкладці компаньйонів</div></div>';
+                    }
+                    const ready = cq.have >= cq.target;
+                    return '<div class="npc-quest' + (ready ? ' done' : '') + '">' +
+                        '<div class="npc-quest-text">🐾 ' + esc(cq.text) + '</div>' +
+                        '<div class="npc-quest-prog' + (ready ? ' done' : '') + '">' + cq.have + ' / ' + cq.target + '</div>' +
+                        '<button onclick="claimCompanionQuest(\\'' + n.id + '\\',\\'' + cq.petId + '\\')"' + (ready ? '' : ' disabled') + '>Віддати</button>' +
+                    '</div>';
+                }).join('');
+
                 return '<div class="npc-card' + (n.maxed ? ' maxed' : '') + '">' +
                     '<div class="npc-head"><span style="font-size:26px;">' + n.emoji + '</span>' +
                     '<span class="npc-name">' + esc(n.name) + '</span>' +
@@ -5176,6 +5209,7 @@ function buildHtml(botUsername) {
                         '<div class="npc-quest"><div class="npc-quest-text">' + esc(q.text) + '</div>' +
                         '<div class="npc-quest-prog' + (q.done ? ' done' : '') + '">' + esc(prog) + '</div></div>') +
                     btn +
+                    companionsHtml +
                     '<div class="npc-perk' + (n.maxed ? ' on' : '') + '">' +
                     (n.maxed ? '🏅 ' : '🔒 ') + esc(n.perk) + '</div>' +
                 '</div>';
@@ -5198,6 +5232,22 @@ function buildHtml(botUsername) {
             renderReputation(data);
             renderStorage();
             updateUI();
+            saveState();
+        };
+
+        window.claimCompanionQuest = async (npcId, petId) => {
+            const res = await apiFetch('/api/npc/companion-quest/claim', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, npcId, petId }),
+            });
+            const data = await res.json();
+            if (!data.success) return tg.showAlert(data.message);
+            if (data.resources) state.resources = data.resources;
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('🐾 Готово! Компаньйона тепер можна купити у вкладці «Компаньйони».');
+            renderReputation(data);
+            renderStorage();
+            renderPets();
             saveState();
         };
 
@@ -6230,6 +6280,7 @@ function buildHtml(botUsername) {
                 deferUntil: state.deferUntil, defermentId: state.defermentId,
                 defermentsTaken: state.defermentsTaken, skills: state.skills,
                 reputation: state.reputation, trophies: state.trophies,
+                companionUnlocked: state.companionUnlocked,
                 snitchStats: state.snitchStats, hospitalVisits: state.hospitalVisits,
                 activeDisease: state.activeDisease, diseases: state.diseases,
                 diseasesDiagnosed: state.diseasesDiagnosed, diseaseAnalysisProgress: state.diseaseAnalysisProgress,
@@ -6327,6 +6378,7 @@ function buildHtml(botUsername) {
                 state.skills = data.skills || {};
                 state.skillPoints = data.skillPoints || 0;
                 state.reputation = data.reputation || {};
+                state.companionUnlocked = data.companionUnlocked || {};
                 state.mykolaCoverUsed = !!data.mykolaCoverUsed;
                 state.adAirdropMult = data.adAirdropMult || 1;
                 state.adConsentCount = data.adConsentCount || 0;
@@ -6793,15 +6845,19 @@ function buildHtml(botUsername) {
             list.innerHTML = PETS.map(p => {
                 const owned = state.ownedPets.includes(p.id);
                 const equipped = state.petId === p.id;
-                const btn = !owned
-                    ? '<button onclick="buyPet(\\'' + p.id + '\\')">Купити за ' + p.price + ' 🪙</button>'
-                    : equipped
-                        ? '<button onclick="equipPet(null)">Зняти</button>'
-                        : '<button onclick="equipPet(\\'' + p.id + '\\')">Екіпірувати</button>';
+                const unlocked = !!(state.companionUnlocked || {})[p.id];
+                const npc = REPUTATION_NPCS.find(n => n.id === p.npcId);
+                const btn = owned
+                    ? (equipped ? '<button onclick="equipPet(null)">Зняти</button>' : '<button onclick="equipPet(\\'' + p.id + '\\')">Екіпірувати</button>')
+                    : unlocked
+                        ? '<button onclick="buyPet(\\'' + p.id + '\\')">Купити за ' + p.price + ' 🪙</button>'
+                        : '<button disabled>🔒 Спершу довіра ' + (npc ? npc.name : '?') + '</button>';
                 const bgStyle = p.bg ? ' style="background-image:url(\\'' + p.bg + '\\')"' : '';
                 return '<div class="pet-card' + (equipped ? ' equipped' : '') + '"' + bgStyle + '>' +
                     '<div class="pet-title">' + p.name + (equipped ? ' (активний)' : '') + '</div>' +
-                    '<div class="pet-desc">' + p.desc + '</div>' + btn + '</div>';
+                    '<div class="pet-desc">' + p.desc + '</div>' +
+                    (owned || unlocked ? '' : '<div class="pet-desc" style="opacity:.7">Довірся ' + (npc ? npc.name : 'NPC') + ' у вкладці «Район» — там і завдання на приєднання</div>') +
+                    btn + '</div>';
             }).join('');
         }
 

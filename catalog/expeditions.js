@@ -50,10 +50,13 @@ const EXPEDITIONS = [
     },
 ];
 
+// Редизайн компаньйонів (2026-08-21, PATCH_2.0_COMPANIONS_REDESIGN.md):
+// 15-50% → 1-3%, той самий дух, що PET_GOOSE_CLICK_MULT/PET_CAT_ENERGY_MULT
+// у catalog/economy.js.
 const PET_EXPEDITION = {
-    dog: { lootMult: 1.4 },
-    rat: { riskMult: 0.5 },
-    pigeon: { timeMult: 0.75 },
+    dog: { lootMult: 1.03 },
+    rat: { riskMult: 0.97 },
+    pigeon: { timeMult: 0.98 },
 };
 
 module.exports = { EXPEDITIONS, PET_EXPEDITION };

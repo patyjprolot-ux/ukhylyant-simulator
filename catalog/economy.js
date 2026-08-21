@@ -109,9 +109,12 @@ const ECONOMY = {
     CLAN_MAX_LEVEL: 15,
     OFFLINE_CAP_SECONDS: 6 * 3600, // VIP знімає кап повністю, див. applyOfflineProgress
     OFFLINE_MIN_SECONDS: 30,
-    PET_GOOSE_CLICK_MULT: 1.15,
-    PET_CAT_ENERGY_MULT: 1.3,
-    PET_NEIGHBOR_RAID_MULT: 0.9,
+    // Редизайн компаньйонів (2026-08-21, PATCH_2.0_COMPANIONS_REDESIGN.md):
+    // бонуси урізані з 15-50% до 1-3% — компаньйон більше не економічний
+    // важіль, а дрібна колекційна річ, здобута через довіру NPC.
+    PET_GOOSE_CLICK_MULT: 1.02,
+    PET_CAT_ENERGY_MULT: 1.03,
+    PET_NEIGHBOR_RAID_MULT: 0.98,
 
     // --- Розшук (heat): другий ресурс, протилежний за знаком до ТК ---
     // Чим активніший і багатший гравець, тим більше ним цікавляться: разом росте і
@@ -128,7 +131,7 @@ const ECONOMY = {
     // HEAT_MEDCOM_FAIL прибрано 2026-08-19: медком більше не реакція на
     // повістку (Р18 v3) — heat-штраф за "спалився" в лікарні тепер
     // TIER_CONFIG.riskHeat (4→14, catalog/diseases.js), не тут.
-    HEAT_NEIGHBOR_MULT: 0.85,     // компаньйон "Сусідка-пліткарка" гасить приріст
+    HEAT_NEIGHBOR_MULT: 0.98,     // компаньйон "Сусідка-пліткарка" гасить приріст (редизайн 2026-08-21: 0.85→0.98)
     HEAT_DECAY_MINUTES: 12,       // -1 heat за кожні 12 хв реального часу
     HEAT_DECAY_DAILY_CAP: 42,     // але не більше -42 за добу, щоб "просто не грати" не було стратегією
     HEAT_BRIBE_DISCOUNT: 20,
@@ -219,7 +222,7 @@ const ECONOMY = {
     INSPECTOR_CHARM_MIN_PRICE: 2000, // косметика тіру 3+ визначається ціною
 
     // --- Блокпост при переїзді в новий схрон ---
-    CHECKPOINT_PIGEON_BONUS: 0.15,   // Голуб-курʼєр знає обʼїзні
+    CHECKPOINT_PIGEON_BONUS: 0.02,   // Голуб-курʼєр знає обʼїзні (редизайн 2026-08-21: 0.15→0.02)
     CHECKPOINT_HEAT_DOCS: 20,
     CHECKPOINT_HEAT_BABA: 10,
     CHECKPOINT_RESOURCE_LOSS: 0.30,

@@ -60,6 +60,12 @@ const REPUTATION_NPCS = [
             { id: 'nina_quiet', text: 'Посидь удома: жодної вилазки за добу', type: 'metric', metric: 'expeditionsToday', max: 0, rep: 12 },
         ],
         perk: 'Рецепт «Бабусина заготовка»: +50 до макс. енергії назавжди',
+        // Компаньйони (редизайн 2026-08-21, PATCH_2.0_COMPANIONS_REDESIGN.md):
+        // відкриваються лише після repMaxed(user, npc.id) — довіра, тоді квест,
+        // тоді сама покупка (routes/misc.js: /api/npc/companion-quest/*).
+        companionQuests: [
+            { petId: 'neighbor', text: 'Ніна познайомить тебе із сусідкою, якщо принесеш у подяку 3 упаковки ліків', type: 'donate', res: 'meds', target: 3 },
+        ],
     },
     {
         id: 'tolik', emoji: '💰', name: 'Перекуп Толік',
@@ -70,6 +76,10 @@ const REPUTATION_NPCS = [
             { id: 'tolik_trades', text: 'Зроби 5 угод на біржі', type: 'metric', metric: 'dailyTrades', target: 5, rep: 12 },
         ],
         perk: 'Преміум-лот: ще +40% до ціни продажу на біржі',
+        companionQuests: [
+            { petId: 'dog', text: 'Толік зведе тебе з псом, якщо принесеш 5 консервів йому на харч', type: 'donate', res: 'cans', target: 5 },
+            { petId: 'rat', text: 'Толік поступиться щуром за 3 ліві сімки на обмін', type: 'donate', res: 'sim', target: 3 },
+        ],
     },
     {
         id: 'mykola', emoji: '👮', name: 'Дільничний Микола',
@@ -80,6 +90,9 @@ const REPUTATION_NPCS = [
             { id: 'mykola_quiet', text: 'Протримай розшук нижче 30', type: 'metric', metric: 'heatNow', max: 30, rep: 12 },
         ],
         perk: '«Прикриття»: одне безкоштовне зняття повістки на добу',
+        companionQuests: [
+            { petId: 'goose', text: 'Микола віддасть гусака, якщо приволочеш 2 печатки "на оформлення"', type: 'donate', res: 'stamp', target: 2 },
+        ],
     },
     {
         id: 'oksana', emoji: '🎗️', name: 'Волонтерка Оксана',
@@ -90,6 +103,10 @@ const REPUTATION_NPCS = [
             { id: 'oksana_fuel', text: 'Здай на волонтерку 5 каністр пального', type: 'donate', res: 'fuel', target: 5, rep: 20 },
         ],
         perk: 'Титул «Не такий вже й падлюка» і постійні −20% до приросту розшуку',
+        companionQuests: [
+            { petId: 'cat', text: 'Оксана відправить кота з тобою за 2 упаковки ліків для нього', type: 'donate', res: 'meds', target: 2 },
+            { petId: 'pigeon', text: 'Оксана довірить голуба за 3 каністри пального на дорогу', type: 'donate', res: 'fuel', target: 3 },
+        ],
     },
 ];
 

@@ -14,15 +14,43 @@ module.exports = function registerMiscRoutes(app, deps) {
     } = deps;
 
     // ---- Компаньйони ----
+    // Редизайн (2026-08-21, PATCH_2.0_COMPANIONS_REDESIGN.md): "купив за ТК"
+    // замінено на "NPC → довіра → квест → приєднання". companionUnlocked[petId]
+    // виставляється лише через /api/npc/companion-quest/claim нижче.
     app.post('/api/pet/buy', requireTelegramAuth, (req, res) => {
         const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
         const pet = PETS.find((p) => p.id === req.body.petId);
         if (!pet) return res.status(400).json({ error: 'Невідомий компаньйон' });
         if (user.ownedPets.includes(pet.id)) return res.json({ success: false, message: 'Вже куплено' });
+        if (!(user.companionUnlocked || {})[pet.id]) {
+            return res.json({ success: false, message: 'Спочатку заслужи довіру NPC і виконай його прохання' });
+        }
         if (user.balance < pet.price) return res.json({ success: false, message: 'Недостатньо ТК' });
         user.balance -= pet.price;
         user.ownedPets.push(pet.id);
         res.json({ success: true, balance: user.balance, ownedPets: user.ownedPets });
+    });
+
+    // Квест на приєднання компаньйона — окремий від щоденних квестів NPC:
+    // одноразовий, не скидається щодня, доступний лише коли repMaxed.
+    app.post('/api/npc/companion-quest/claim', requireTelegramAuth, (req, res) => {
+        const user = getUser(req.telegramUser.id, req.telegramUser.first_name);
+        const npc = NPC_BY_ID[req.body.npcId];
+        if (!npc) return res.json({ success: false, message: 'Такого в районі не знають' });
+        if (!repMaxed(user, npc.id)) return res.json({ success: false, message: 'NPC ще недостатньо тобі довіряє' });
+        const cq = (npc.companionQuests || []).find((q) => q.petId === req.body.petId);
+        if (!cq) return res.json({ success: false, message: 'У цього NPC немає такого прохання' });
+        if ((user.companionUnlocked || {})[cq.petId]) {
+            return res.json({ success: false, message: 'Уже виконано' });
+        }
+        if ((user.resources[cq.res] || 0) < cq.target) {
+            return res.json({ success: false, message: 'Не вистачає ресурсів' });
+        }
+        user.resources[cq.res] -= cq.target;
+        if (user.resources[cq.res] <= 0) delete user.resources[cq.res];
+        user.companionUnlocked = user.companionUnlocked || {};
+        user.companionUnlocked[cq.petId] = true;
+        res.json({ success: true, petId: cq.petId, ...reputationSnapshot(user), ...storageSnapshot(user) });
     });
 
     app.post('/api/pet/equip', requireTelegramAuth, (req, res) => {
