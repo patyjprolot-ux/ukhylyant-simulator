@@ -8670,5 +8670,20 @@ main().catch((err) => {
 // (process.exit), тож асинхронний запис (saveData) просто не встиг би
 // долетіти до диска — кожен pm2 restart на деплої губив би останні секунди
 // прогресу гравців. Тут блокуюча пауза на мить — правильна поведінка.
-process.once('SIGINT', () => { saveDataSync(); bot.stop('SIGINT'); process.exit(0); });
-process.once('SIGTERM', () => { saveDataSync(); bot.stop('SIGTERM'); process.exit(0); });
+//
+// bot.stop() кличемо лише в режимі long-polling: у webhook-режимі (USE_WEBHOOK,
+// продакшн) немає активної bot.launch()-сесії, яку можна зупинити — Telegraf
+// кидає "Bot is not running!" на КОЖЕН рестарт (виявлено 2026-08-21 при
+// перевірці логів після деплою; not related до змін цієї сесії, просто
+// зловили при нагоді). try/catch лишаю і для polling-режиму про всяк випадок:
+// саме збереження (saveDataSync) вище вже відпрацювало, exit() нижче не
+// повинен залежати від того, чи вдалось акуратно зупинити бота.
+function shutdown() {
+    saveDataSync();
+    if (!USE_WEBHOOK) {
+        try { bot.stop(); } catch (e) { /* бот і так завершується разом з процесом */ }
+    }
+    process.exit(0);
+}
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
